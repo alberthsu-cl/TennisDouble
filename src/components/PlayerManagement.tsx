@@ -7,6 +7,8 @@ interface PlayerManagementProps {
   onAddPlayer: (player: Player) => void;
   onUpdatePlayer: (player: Player) => void;
   onDeletePlayer: (playerId: string) => void;
+  onExportPlayers?: () => void;
+  onImportPlayers?: (file: File) => void;
 }
 
 export const PlayerManagement: React.FC<PlayerManagementProps> = ({
@@ -15,6 +17,8 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
   onAddPlayer,
   onUpdatePlayer,
   onDeletePlayer,
+  onExportPlayers,
+  onImportPlayers,
 }) => {
   const [name, setName] = useState('');
   const [age, setAge] = useState('');
@@ -117,7 +121,30 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
 
   return (
     <div className="player-management">
-      <h2>選手管理</h2>
+      <div className="header-actions" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '0.5rem' }}>
+        <h2 style={{ margin: 0 }}>選手管理</h2>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          {onExportPlayers && (
+            <button className="btn-secondary" onClick={onExportPlayers}>
+              📤 匯出選手
+            </button>
+          )}
+          {onImportPlayers && (
+            <button className="btn-secondary" onClick={() => {
+              const input = document.createElement('input');
+              input.type = 'file';
+              input.accept = '.json';
+              input.onchange = (e) => {
+                const file = (e.target as HTMLInputElement).files?.[0];
+                if (file) onImportPlayers(file);
+              };
+              input.click();
+            }}>
+              📂 匯入選手
+            </button>
+          )}
+        </div>
+      </div>
       
       <div className="players-summary">
         <h3>選手總覽 (正式選手：{players.filter(p => !p.isAlternate).length}/{settings.playersPerTeam * 4} 人)</h3>

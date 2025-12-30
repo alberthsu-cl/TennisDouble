@@ -195,6 +195,71 @@ function App() {
     alert(`已載入${demoPlayers.length}名示範選手！請到「選手管理」查看或前往「賽事設定」開始賽事。`);
   };
 
+  const handleExportPlayers = () => {
+    const dataStr = JSON.stringify(players, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `players_${new Date().toISOString().slice(0, 10)}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportPlayers = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const imported = JSON.parse(e.target?.result as string);
+        if (Array.isArray(imported) && imported.length > 0) {
+          if (players.length > 0 && !confirm('這將覆蓋現有選手資料，確定要匯入嗎？')) {
+            return;
+          }
+          setPlayers(imported);
+          alert(`成功匯入 ${imported.length} 名選手！`);
+        } else {
+          alert('無效的選手資料格式');
+        }
+      } catch (error) {
+        alert('匯入失敗：檔案格式錯誤');
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleExportMatches = () => {
+    const dataStr = JSON.stringify(matches, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `matches_${new Date().toISOString().slice(0, 10)}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportMatches = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const imported = JSON.parse(e.target?.result as string);
+        if (Array.isArray(imported) && imported.length > 0) {
+          if (matches.length > 0 && !confirm('這將覆蓋現有比賽資料，確定要匯入嗎？')) {
+            return;
+          }
+          setMatches(imported);
+          setTournamentStarted(true);
+          alert(`成功匯入 ${imported.length} 場比賽！`);
+        } else {
+          alert('無效的比賽資料格式');
+        }
+      } catch (error) {
+        alert('匯入失敗：檔案格式錯誤');
+      }
+    };
+    reader.readAsText(file);
+  };
+
   const getTeamCount = (teamName: TeamName) => {
     return players.filter(p => p.team === teamName && !p.isAlternate).length;
   };
@@ -398,11 +463,33 @@ function App() {
             onAddPlayer={handleAddPlayer}
             onUpdatePlayer={handleUpdatePlayer}
             onDeletePlayer={handleDeletePlayer}
+            onExportPlayers={handleExportPlayers}
+            onImportPlayers={handleImportPlayers}
           />
         )}
 
         {currentView === 'matches' && tournamentStarted && (
           <div className="matches-view">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h2 style={{ margin: 0 }}>比賽列表</h2>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button className="btn-secondary" onClick={handleExportMatches}>
+                  📤 匯出比賽
+                </button>
+                <button className="btn-secondary" onClick={() => {
+                  const input = document.createElement('input');
+                  input.type = 'file';
+                  input.accept = '.json';
+                  input.onchange = (e) => {
+                    const file = (e.target as HTMLInputElement).files?.[0];
+                    if (file) handleImportMatches(file);
+                  };
+                  input.click();
+                }}>
+                  📂 匯入比賽
+                </button>
+              </div>
+            </div>
             <div className="filters">
               <div className="filter-group">
                 <label>選擇輪次：</label>
