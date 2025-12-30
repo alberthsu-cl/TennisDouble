@@ -441,7 +441,7 @@ function App() {
         )}
 
         {currentView === 'standings' && tournamentStarted && (
-          <Standings matches={matches} players={players} />
+          <Standings matches={matches} players={players} settings={settings} />
         )}
 
         {currentView === 'manual-setup' && (

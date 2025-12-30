@@ -102,11 +102,78 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
     return players.filter(p => p.team === teamName && !p.isAlternate).length;
   };
 
+  // Debug: 檢查 players 資料
+  console.log('PlayerManagement - players:', players);
+  console.log('PlayerManagement - players.length:', players.length);
+  if (players.length > 0) {
+    console.log('First player:', players[0]);
+  }
+
   return (
     <div className="player-management">
       <h2>選手管理</h2>
       
+      <div className="players-summary">
+        <h3>選手總覽 (正式選手：{players.filter(p => !p.isAlternate).length}/{settings.playersPerTeam * 4} 人)</h3>
+        
+        {teams.map(teamName => {
+          const teamPlayers = players.filter(p => p.team === teamName && !p.isAlternate);
+          const alternatePlayers = players.filter(p => p.team === teamName && p.isAlternate);
+          return (
+            <div key={teamName} className="team-section">
+              <h4>{teamName} ({teamPlayers.length}/{settings.playersPerTeam} 人{alternatePlayers.length > 0 ? ` + ${alternatePlayers.length}候補` : ''})</h4>
+              <table className="players-table">
+                <thead>
+                  <tr>
+                    <th>姓名</th>
+                    <th>年齡</th>
+                    <th>性別</th>
+                    <th>身份</th>
+                    <th>已出賽</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...teamPlayers, ...alternatePlayers].sort((a, b) => {
+                    if (a.isAlternate !== b.isAlternate) return a.isAlternate ? 1 : -1;
+                    return a.age - b.age;
+                  }).map(player => (
+                    <tr key={player.id} className={player.isAlternate ? 'alternate-player' : ''}>
+                      <td>{player.name || '未知'}</td>
+                      <td>{player.age || '-'}</td>
+                      <td>{player.gender || '-'}</td>
+                      <td>{player.isAlternate ? '候補' : '正式'}</td>
+                      <td>{player.matchesPlayed || 0}</td>
+                      <td>
+                        <button
+                          className="btn-small btn-edit"
+                          onClick={() => handleEdit(player)}
+                        >
+                          編輯
+                        </button>
+                        <button
+                          className="btn-small btn-delete"
+                          onClick={() => {
+                            if (confirm(`確定要刪除選手 ${player.name} 嗎？`)) {
+                              onDeletePlayer(player.id);
+                            }
+                          }}
+                        >
+                          刪除
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          );
+        })}
+      </div>
+
       <form onSubmit={handleSubmit} className="player-form">
+        <h3>{editingId ? '編輯選手' : '新增選手'}</h3>
+        
         <div className="form-group">
           <label>姓名：</label>
           <input
@@ -172,64 +239,6 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
           )}
         </div>
       </form>
-
-      <div className="players-summary">
-        <h3>選手總覽 (正式選手：{players.filter(p => !p.isAlternate).length}/{settings.playersPerTeam * 4} 人)</h3>
-        
-        {teams.map(teamName => {
-          const teamPlayers = players.filter(p => p.team === teamName && !p.isAlternate);
-          const alternatePlayers = players.filter(p => p.team === teamName && p.isAlternate);
-          return (
-            <div key={teamName} className="team-section">
-              <h4>{teamName} ({teamPlayers.length}/{settings.playersPerTeam} 人{alternatePlayers.length > 0 ? ` + ${alternatePlayers.length}候補` : ''})</h4>
-              <table className="players-table">
-                <thead>
-                  <tr>
-                    <th>姓名</th>
-                    <th>年齡</th>
-                    <th>性別</th>
-                    <th>身份</th>
-                    <th>已出賽</th>
-                    <th>操作</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {[...teamPlayers, ...alternatePlayers].sort((a, b) => {
-                    if (a.isAlternate !== b.isAlternate) return a.isAlternate ? 1 : -1;
-                    return a.age - b.age;
-                  }).map(player => (
-                    <tr key={player.id} className={player.isAlternate ? 'alternate-player' : ''}>
-                      <td>{player.name}</td>
-                      <td>{player.age}</td>
-                      <td>{player.gender}</td>
-                      <td>{player.isAlternate ? '候補' : '正式'}</td>
-                      <td>{player.matchesPlayed}</td>
-                      <td>
-                        <button
-                          className="btn-small btn-edit"
-                          onClick={() => handleEdit(player)}
-                        >
-                          編輯
-                        </button>
-                        <button
-                          className="btn-small btn-delete"
-                          onClick={() => {
-                            if (confirm(`確定要刪除選手 ${player.name} 嗎？`)) {
-                              onDeletePlayer(player.id);
-                            }
-                          }}
-                        >
-                          刪除
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          );
-        })}
-      </div>
     </div>
   );
 };

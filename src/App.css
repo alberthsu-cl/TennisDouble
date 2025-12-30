@@ -472,6 +472,12 @@ button {
   border-bottom: 1px solid #dee2e6;
 }
 
+.players-table td,
+.standings-table td,
+.player-stats-table td {
+  color: #333;
+}
+
 .players-table th,
 .standings-table th,
 .player-stats-table th {

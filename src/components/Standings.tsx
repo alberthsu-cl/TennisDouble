@@ -1,12 +1,13 @@
 import React from 'react';
-import type { TeamStats, Match, Player, TeamName } from '../types';
+import type { TeamStats, Match, Player, TeamName, TournamentSettings } from '../types';
 
 interface StandingsProps {
   matches: Match[];
   players: Player[];
+  settings: TournamentSettings;
 }
 
-export const Standings: React.FC<StandingsProps> = ({ matches, players }) => {
+export const Standings: React.FC<StandingsProps> = ({ matches, players, settings }) => {
   // 計算隊伍統計
   const calculateTeamStats = (): TeamStats[] => {
     const teams: TeamName[] = ['甲隊', '乙隊', '丙隊', '丁隊'];
@@ -185,10 +186,10 @@ export const Standings: React.FC<StandingsProps> = ({ matches, players }) => {
                 <tbody>
                   {playerStats.map(ps => (
                     <tr key={ps.player.id}>
-                      <td>{ps.player.name}</td>
-                      <td>{ps.player.age}</td>
-                      <td>{ps.player.gender}</td>
-                      <td>{ps.matchesPlayed}/3</td>
+                      <td>{ps.player.name || '未知'}</td>
+                      <td>{ps.player.age || '-'}</td>
+                      <td>{ps.player.gender || '-'}</td>
+                      <td>{ps.matchesPlayed}/{settings.totalRounds}</td>
                       <td>{ps.wins}</td>
                       <td>{ps.losses}</td>
                       <td>{ps.gamesWon}</td>
