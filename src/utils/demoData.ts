@@ -1,4 +1,4 @@
-import type { Player, TeamName } from '../types';
+import type { Player, TeamName, SkillLevel } from '../types';
 
 /**
  * 生成示範選手資料
@@ -8,6 +8,14 @@ export function generateDemoPlayers(playersPerTeam: number = 10): Player[] {
   const demoPlayers: Player[] = [];
   
   const teams: TeamName[] = ['甲隊', '乙隊', '丙隊', '丁隊'];
+  
+  // 技術等級分布：20% A級, 50% B級, 30% C級
+  const getSkillLevel = (index: number, total: number): SkillLevel => {
+    const ratio = index / total;
+    if (ratio < 0.2) return 'A';
+    if (ratio < 0.7) return 'B';
+    return 'C';
+  };
   
   // 男性名字 (ATP球員)
   const maleNames = [
@@ -39,33 +47,58 @@ export function generateDemoPlayers(playersPerTeam: number = 10): Player[] {
   const maleCount = Math.round(playersPerTeam * 0.6);
   const femaleCount = playersPerTeam - maleCount;
   
-  teams.forEach((team, teamIndex) => {
-    // 每隊按比例分配男女選手
-    for (let i = 0; i < maleCount; i++) {
-      const nameIndex = teamIndex * playersPerTeam + i;
-      demoPlayers.push({
-        id: `demo-player-${playerIndex++}`,
-        name: maleNames[nameIndex % maleNames.length],
-        age: 25 + Math.floor(Math.random() * 30), // 25-54歲
-        gender: '男',
-        team,
-        matchesPlayed: 0,
-        isAlternate: false,
+  // 先創建所有選手（不分配隊伍）
+  const allPlayers: Omit<Player, 'team'>[] = [];
+  
+  for (let i = 0; i < maleCount * 4; i++) {
+    allPlayers.push({
+      id: `demo-player-${playerIndex++}`,
+      name: maleNames[i % maleNames.length],
+      age: 25 + Math.floor(Math.random() * 30),
+      gender: '男',
+      skillLevel: getSkillLevel(i, maleCount * 4),
+      matchesPlayed: 0,
+      isAlternate: false,
+    });
+  }
+  
+  for (let i = 0; i < femaleCount * 4; i++) {
+    allPlayers.push({
+      id: `demo-player-${playerIndex++}`,
+      name: femaleNames[i % femaleNames.length],
+      age: 25 + Math.floor(Math.random() * 30),
+      gender: '女',
+      skillLevel: getSkillLevel(i, femaleCount * 4),
+      matchesPlayed: 0,
+      isAlternate: false,
+    });
+  }
+  
+  // 按技術等級分組
+  const playersBySkill = {
+    A: allPlayers.filter(p => p.skillLevel === 'A'),
+    B: allPlayers.filter(p => p.skillLevel === 'B'),
+    C: allPlayers.filter(p => p.skillLevel === 'C'),
+  };
+  
+  // 平均分配到四隊
+  const teamAssignments: Player[][] = [[], [], [], []];
+  
+  // 依序分配每個技術等級的選手到各隊
+  ['A', 'B', 'C'].forEach(skill => {
+    const players = playersBySkill[skill as SkillLevel];
+    players.forEach((player, index) => {
+      const teamIndex = index % 4;
+      teamAssignments[teamIndex].push({
+        ...player,
+        team: teams[teamIndex],
       });
-    }
-    
-    for (let i = 0; i < femaleCount; i++) {
-      const nameIndex = teamIndex * playersPerTeam + i;
-      demoPlayers.push({
-        id: `demo-player-${playerIndex++}`,
-        name: femaleNames[nameIndex % femaleNames.length],
-        age: 25 + Math.floor(Math.random() * 30), // 25-54歲
-        gender: '女',
-        team,
-        matchesPlayed: 0,
-        isAlternate: false,
-      });
-    }
+    });
+  });
+  
+  // 合併所有隊伍的選手
+  teamAssignments.forEach(teamPlayers => {
+    demoPlayers.push(...teamPlayers);
   });
   
   // 隨機打亂每隊的選手順序（但保持隊伍分組）

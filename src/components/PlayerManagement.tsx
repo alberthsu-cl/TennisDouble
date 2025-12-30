@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { Player, TeamName, Gender, TournamentSettings } from '../types';
+import type { Player, TeamName, Gender, SkillLevel, TournamentSettings } from '../types';
 
 interface PlayerManagementProps {
   players: Player[];
@@ -19,6 +19,7 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
   const [name, setName] = useState('');
   const [age, setAge] = useState('');
   const [gender, setGender] = useState<Gender>('男');
+  const [skillLevel, setSkillLevel] = useState<SkillLevel>('B');
   const [team, setTeam] = useState<TeamName>('甲隊');
   const [isAlternate, setIsAlternate] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -55,6 +56,7 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
           name: name.trim(),
           age: ageNum,
           gender,
+          skillLevel,
           team,
           isAlternate,
         });
@@ -67,6 +69,7 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
         name: name.trim(),
         age: ageNum,
         gender,
+        skillLevel,
         team,
         matchesPlayed: 0,
         isAlternate,
@@ -78,6 +81,7 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
     setName('');
     setAge('');
     setGender('男');
+    setSkillLevel('B');
     setIsAlternate(false);
   };
 
@@ -86,6 +90,7 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
     setName(player.name);
     setAge(player.age.toString());
     setGender(player.gender);
+    setSkillLevel(player.skillLevel);
     setTeam(player.team);
     setIsAlternate(player.isAlternate);
   };
@@ -95,6 +100,7 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
     setName('');
     setAge('');
     setGender('男');
+    setSkillLevel('B');
     setIsAlternate(false);
   };
 
@@ -128,6 +134,7 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
                     <th>姓名</th>
                     <th>年齡</th>
                     <th>性別</th>
+                    <th>技術等級</th>
                     <th>身份</th>
                     <th>已出賽</th>
                     <th>操作</th>
@@ -142,6 +149,7 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
                       <td>{player.name || '未知'}</td>
                       <td>{player.age || '-'}</td>
                       <td>{player.gender || '-'}</td>
+                      <td><span className={`skill-badge skill-${player.skillLevel || 'B'}`}>{player.skillLevel || 'B'}</span></td>
                       <td>{player.isAlternate ? '候補' : '正式'}</td>
                       <td>{player.matchesPlayed || 0}</td>
                       <td>
@@ -203,6 +211,15 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
           <select value={gender} onChange={(e) => setGender(e.target.value as Gender)}>
             <option value="男">男</option>
             <option value="女">女</option>
+          </select>
+        </div>
+
+        <div className="form-group">
+          <label>技術等級：</label>
+          <select value={skillLevel} onChange={(e) => setSkillLevel(e.target.value as SkillLevel)}>
+            <option value="A">A - 最佳</option>
+            <option value="B">B - 良好</option>
+            <option value="C">C - 初學</option>
           </select>
         </div>
 

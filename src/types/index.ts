@@ -1,6 +1,9 @@
 // 選手性別
 export type Gender = '男' | '女';
 
+// 技術等級
+export type SkillLevel = 'A' | 'B' | 'C';
+
 // 隊伍名稱
 export type TeamName = '甲隊' | '乙隊' | '丙隊' | '丁隊';
 
@@ -10,6 +13,7 @@ export interface Player {
   name: string;
   age: number;
   gender: Gender;
+  skillLevel: SkillLevel; // 技術等級 (A:最佳, B:良好, C:初學)
   team: TeamName;
   matchesPlayed: number; // 已出賽場次
   isAlternate: boolean; // 是否為候補選手
