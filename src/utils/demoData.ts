@@ -74,25 +74,15 @@ export function generateDemoPlayers(playersPerTeam: number = 10): Player[] {
     });
   }
   
-  // 按技術等級分組
-  const playersBySkill = {
-    A: allPlayers.filter(p => p.skillLevel === 'A'),
-    B: allPlayers.filter(p => p.skillLevel === 'B'),
-    C: allPlayers.filter(p => p.skillLevel === 'C'),
-  };
-  
-  // 平均分配到四隊
+  // 平均分配到四隊（確保每隊正好有 playersPerTeam 人）
   const teamAssignments: Player[][] = [[], [], [], []];
   
-  // 依序分配每個技術等級的選手到各隊
-  ['A', 'B', 'C'].forEach(skill => {
-    const players = playersBySkill[skill as SkillLevel];
-    players.forEach((player, index) => {
-      const teamIndex = index % 4;
-      teamAssignments[teamIndex].push({
-        ...player,
-        team: teams[teamIndex],
-      });
+  // Round-robin 分配所有選手，確保每隊人數相同
+  allPlayers.forEach((player, index) => {
+    const teamIndex = index % 4;
+    teamAssignments[teamIndex].push({
+      ...player,
+      team: teams[teamIndex],
     });
   });
   

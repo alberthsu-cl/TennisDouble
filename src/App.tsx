@@ -102,10 +102,10 @@ function App() {
       '丁隊': regularPlayers.filter(p => p.team === '丁隊'),
     };
 
-    // 檢查每隊人數
+    // 檢查每隊人數（至少需要指定人數）
     for (const [teamName, teamPlayers] of Object.entries(teams)) {
-      if (teamPlayers.length !== settings.playersPerTeam) {
-        alert(`${teamName}目前有${teamPlayers.length}人，需要正好${settings.playersPerTeam}人`);
+      if (teamPlayers.length < settings.playersPerTeam) {
+        alert(`${teamName}目前只有${teamPlayers.length}人，需要至少${settings.playersPerTeam}人`);
         return;
       }
     }
@@ -138,10 +138,10 @@ function App() {
       '丁隊': regularPlayers.filter(p => p.team === '丁隊'),
     };
 
-    // 檢查每隊人數
+    // 檢查每隊人數（至少需要指定人數）
     for (const [teamName, teamPlayers] of Object.entries(teams)) {
-      if (teamPlayers.length !== settings.playersPerTeam) {
-        alert(`${teamName}目前有${teamPlayers.length}人，需要正好${settings.playersPerTeam}人`);
+      if (teamPlayers.length < settings.playersPerTeam) {
+        alert(`${teamName}目前只有${teamPlayers.length}人，需要至少${settings.playersPerTeam}人`);
         return;
       }
     }
