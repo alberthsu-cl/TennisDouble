@@ -194,6 +194,63 @@ function App() {
     alert(`已載入${demoPlayers.length}名示範選手！請到「選手管理」查看或前往「賽事設定」開始賽事。`);
   };
 
+  const handleImportDemoData = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const imported = JSON.parse(e.target?.result as string);
+        if (Array.isArray(imported) && imported.length > 0) {
+          if (players.length > 0 && !confirm('這將覆蓋現有選手資料，確定要從檔案載入示範資料嗎？')) {
+            return;
+          }
+          setPlayers(imported);
+          alert(`成功從檔案載入 ${imported.length} 名示範選手！`);
+        } else {
+          alert('無效的示範資料格式');
+        }
+      } catch (error) {
+        alert('載入失敗：檔案格式錯誤');
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleImportDemoDataExcel = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet) as any[];
+        
+        const imported: Player[] = jsonData.map((row, index) => ({
+          id: `demo-player-${Date.now()}-${index}`,
+          name: row['姓名'] || '',
+          age: parseInt(row['年齡']) || 25,
+          gender: (row['性別'] === '女' ? '女' : '男') as Gender,
+          skillLevel: (row['技術等級'] || 'B') as SkillLevel,
+          team: (row['隊伍'] || '甲隊') as TeamName,
+          matchesPlayed: parseInt(row['已出賽']) || 0,
+        }));
+        
+        if (imported.length > 0) {
+          if (players.length > 0 && !confirm('這將覆蓋現有選手資料，確定要從Excel載入示範資料嗎？')) {
+            return;
+          }
+          setPlayers(imported);
+          alert(`成功從Excel載入 ${imported.length} 名示範選手！`);
+        } else {
+          alert('無效的Excel資料格式');
+        }
+      } catch (error) {
+        alert('載入失敗：Excel檔案格式錯誤');
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
   const handleExportPlayers = () => {
     const dataStr = JSON.stringify(players, null, 2);
     const dataBlob = new Blob([dataStr], { type: 'application/json' });
@@ -389,10 +446,9 @@ function App() {
       <main className="app-main">
         {currentView === 'setup' && (
           <div className="setup-view">
-            {!tournamentStarted && (
-              <div className="settings-panel">
-                <h2>⚙️ 賽事設定</h2>
-                <div className="settings-grid">
+            <div className="settings-panel">
+              <h2>⚙️ 賽事設定</h2>
+              <div className="settings-grid">
                   <div className="setting-item">
                     <label>每隊人數：</label>
                     <input
@@ -444,7 +500,6 @@ function App() {
                   <p>• 每位選手每輪出賽：1 場（共{settings.totalRounds}場）</p>
                 </div>
               </div>
-            )}
             
             <h2>賽事規則說明</h2>
             <div className="rules-box">
@@ -498,13 +553,44 @@ function App() {
                       手動配對設定
                     </button>
                   </div>
-                  <button 
-                    className="btn-secondary btn-large"
-                    onClick={handleLoadDemoData}
-                    style={{ marginTop: '1rem' }}
-                  >
-                    載入示範資料
-                  </button>
+                  <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'flex-start' }}>
+                    <button 
+                      className="btn-secondary btn-large"
+                      onClick={handleLoadDemoData}
+                    >
+                      載入示範資料
+                    </button>
+                    <label className="btn-secondary btn-large" style={{ cursor: 'pointer', margin: 0 }}>
+                      從Excel載入選手資料
+                      <input
+                        type="file"
+                        accept=".xlsx,.xls"
+                        style={{ display: 'none' }}
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            handleImportDemoDataExcel(file);
+                            e.target.value = '';
+                          }
+                        }}
+                      />
+                    </label>
+                    <label className="btn-secondary btn-large" style={{ cursor: 'pointer', margin: 0 }}>
+                      從JSON載入選手資料
+                      <input
+                        type="file"
+                        accept=".json"
+                        style={{ display: 'none' }}
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            handleImportDemoData(file);
+                            e.target.value = '';
+                          }
+                        }}
+                      />
+                    </label>
+                  </div>
                   {totalPlayersCount < settings.playersPerTeam * 4 && (
                     <p className="warning">
                       請至少新增{settings.playersPerTeam * 4}名選手（目前：{totalPlayersCount}/{settings.playersPerTeam * 4}）
