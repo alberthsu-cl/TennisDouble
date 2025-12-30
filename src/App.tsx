@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import type { Player, Match, Tournament, TeamName, TournamentConfig, TournamentSettings } from './types';
+import type { Player, Match, TeamName, TournamentSettings } from './types';
 import { PlayerManagement } from './components/PlayerManagement';
 import { MatchList } from './components/MatchList';
 import { Standings } from './components/Standings';
