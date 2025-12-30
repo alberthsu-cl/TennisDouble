@@ -95,7 +95,7 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
   };
 
   const getTeamPlayers = (teamName: TeamName): Player[] => {
-    return players.filter(p => p.team === teamName && !p.isAlternate);
+    return players.filter(p => p.team === teamName);
   };
 
   const updateAssignment = (

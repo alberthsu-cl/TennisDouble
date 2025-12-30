@@ -34,13 +34,10 @@ function isValidLastPointPair(pair: Pair): boolean {
 }
 
 /**
- * 檢查選手是否可以再出賽（正式選手檢查最少出賽次數，候補不限）
+ * 檢查選手是否可以再出賽（檢查最少出賽次數）
  */
 function canPlayMore(player: Player, minMatches: number): boolean {
-  if (player.isAlternate) {
-    return true; // 候補選手可以隨時上場
-  }
-  return player.matchesPlayed < (minMatches + 1); // 正式選手根據設定
+  return player.matchesPlayed < (minMatches + 1);
 }
 
 /**
@@ -225,10 +222,10 @@ export function validateSchedule(matches: Match[], players: Player[], settings: 
     });
   });
   
-  players.filter(p => !p.isAlternate).forEach(player => {
+  players.forEach(player => {
     const count = playerMatchCount.get(player.id) || 0;
     if (count < settings.minMatchesPerPlayer) {
-      errors.push(`正式選手 ${player.name} 出賽 ${count} 場，應至少${settings.minMatchesPerPlayer}場`);
+      errors.push(`選手 ${player.name} 出賽 ${count} 場，應至少${settings.minMatchesPerPlayer}場`);
     }
   });
   

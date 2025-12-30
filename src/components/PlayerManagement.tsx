@@ -8,7 +8,9 @@ interface PlayerManagementProps {
   onUpdatePlayer: (player: Player) => void;
   onDeletePlayer: (playerId: string) => void;
   onExportPlayers?: () => void;
+  onExportPlayersExcel?: () => void;
   onImportPlayers?: (file: File) => void;
+  onImportPlayersExcel?: (file: File) => void;
 }
 
 export const PlayerManagement: React.FC<PlayerManagementProps> = ({
@@ -18,14 +20,15 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
   onUpdatePlayer,
   onDeletePlayer,
   onExportPlayers,
+  onExportPlayersExcel,
   onImportPlayers,
+  onImportPlayersExcel,
 }) => {
   const [name, setName] = useState('');
   const [age, setAge] = useState('');
   const [gender, setGender] = useState<Gender>('男');
   const [skillLevel, setSkillLevel] = useState<SkillLevel>('B');
   const [team, setTeam] = useState<TeamName>('甲隊');
-  const [isAlternate, setIsAlternate] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const teams: TeamName[] = ['甲隊', '乙隊', '丙隊', '丁隊'];
@@ -44,13 +47,6 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
       return;
     }
 
-    // 檢查該隊是否已滿（不計候補）
-    const teamPlayers = players.filter(p => p.team === team && p.id !== editingId && !p.isAlternate);
-    if (!isAlternate && teamPlayers.length >= settings.playersPerTeam) {
-      alert(`${team}已滿${settings.playersPerTeam}人，請選擇其他隊伍或設為候補`);
-      return;
-    }
-
     if (editingId) {
       // 更新現有選手
       const player = players.find(p => p.id === editingId);
@@ -62,7 +58,6 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
           gender,
           skillLevel,
           team,
-          isAlternate,
         });
       }
       setEditingId(null);
@@ -76,7 +71,6 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
         skillLevel,
         team,
         matchesPlayed: 0,
-        isAlternate,
       };
       onAddPlayer(newPlayer);
     }
@@ -86,7 +80,6 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
     setAge('');
     setGender('男');
     setSkillLevel('B');
-    setIsAlternate(false);
   };
 
   const handleEdit = (player: Player) => {
@@ -96,7 +89,6 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
     setGender(player.gender);
     setSkillLevel(player.skillLevel);
     setTeam(player.team);
-    setIsAlternate(player.isAlternate);
   };
 
   const handleCancelEdit = () => {
@@ -105,11 +97,10 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
     setAge('');
     setGender('男');
     setSkillLevel('B');
-    setIsAlternate(false);
   };
 
   const getTeamCount = (teamName: TeamName) => {
-    return players.filter(p => p.team === teamName && !p.isAlternate).length;
+    return players.filter(p => p.team === teamName).length;
   };
 
   // Debug: 檢查 players 資料
@@ -124,37 +115,52 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
       <div className="header-actions" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '0.5rem' }}>
         <h2 style={{ margin: 0 }}>選手管理</h2>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
-          {onExportPlayers && (
-            <button className="btn-secondary" onClick={onExportPlayers}>
-              📤 匯出選手
+          {(onExportPlayers || onExportPlayersExcel) && (
+            <button className="btn-secondary" onClick={() => {
+              const format = prompt('選擇匯出格式：\n1 - Excel\n2 - JSON', '1');
+              if (format === '1' && onExportPlayersExcel) {
+                onExportPlayersExcel();
+              } else if (format === '2' && onExportPlayers) {
+                onExportPlayers();
+              }
+            }}>
+              📤 匯出
             </button>
           )}
-          {onImportPlayers && (
+          {(onImportPlayers || onImportPlayersExcel) && (
             <button className="btn-secondary" onClick={() => {
+              const format = prompt('選擇匯入格式：\n1 - Excel\n2 - JSON', '1');
               const input = document.createElement('input');
               input.type = 'file';
-              input.accept = '.json';
+              input.accept = format === '1' ? '.xlsx,.xls' : '.json';
               input.onchange = (e) => {
                 const file = (e.target as HTMLInputElement).files?.[0];
-                if (file) onImportPlayers(file);
+                if (file) {
+                  if (format === '1' && onImportPlayersExcel) {
+                    onImportPlayersExcel(file);
+                  } else if (format === '2' && onImportPlayers) {
+                    onImportPlayers(file);
+                  }
+                }
               };
-              input.click();
+              if (format === '1' || format === '2') {
+                input.click();
+              }
             }}>
-              📂 匯入選手
+              📂 匯入
             </button>
           )}
         </div>
       </div>
       
       <div className="players-summary">
-        <h3>選手總覽 (正式選手：{players.filter(p => !p.isAlternate).length}/{settings.playersPerTeam * 4} 人)</h3>
+        <h3>選手總覽 (選手：{players.length}/{settings.playersPerTeam * 4}+ 人)</h3>
         
         {teams.map(teamName => {
-          const teamPlayers = players.filter(p => p.team === teamName && !p.isAlternate);
-          const alternatePlayers = players.filter(p => p.team === teamName && p.isAlternate);
+          const teamPlayers = players.filter(p => p.team === teamName);
           return (
             <div key={teamName} className="team-section">
-              <h4>{teamName} ({teamPlayers.length}/{settings.playersPerTeam} 人{alternatePlayers.length > 0 ? ` + ${alternatePlayers.length}候補` : ''})</h4>
+              <h4>{teamName} ({teamPlayers.length} 人)</h4>
               <table className="players-table">
                 <thead>
                   <tr>
@@ -162,22 +168,17 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
                     <th>年齡</th>
                     <th>性別</th>
                     <th>技術等級</th>
-                    <th>身份</th>
                     <th>已出賽</th>
                     <th>操作</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {[...teamPlayers, ...alternatePlayers].sort((a, b) => {
-                    if (a.isAlternate !== b.isAlternate) return a.isAlternate ? 1 : -1;
-                    return a.age - b.age;
-                  }).map(player => (
-                    <tr key={player.id} className={player.isAlternate ? 'alternate-player' : ''}>
+                  {teamPlayers.sort((a, b) => a.age - b.age).map(player => (
+                    <tr key={player.id}>
                       <td>{player.name || '未知'}</td>
                       <td>{player.age || '-'}</td>
                       <td>{player.gender || '-'}</td>
                       <td><span className={`skill-badge skill-${player.skillLevel || 'B'}`}>{player.skillLevel || 'B'}</span></td>
-                      <td>{player.isAlternate ? '候補' : '正式'}</td>
                       <td>{player.matchesPlayed || 0}</td>
                       <td>
                         <button
@@ -254,22 +255,11 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
           <label>隊伍：</label>
           <select value={team} onChange={(e) => setTeam(e.target.value as TeamName)}>
             {teams.map(t => (
-              <option key={t} value={t} disabled={getTeamCount(t) >= settings.playersPerTeam && !editingId && !isAlternate}>
-                {t} ({getTeamCount(t)}/{settings.playersPerTeam}人)
+              <option key={t} value={t}>
+                {t} ({getTeamCount(t)}人)
               </option>
             ))}
           </select>
-        </div>
-
-        <div className="form-group">
-          <label className="checkbox-label">
-            <input
-              type="checkbox"
-              checked={isAlternate}
-              onChange={(e) => setIsAlternate(e.target.checked)}
-            />
-            <span>候補選手（不計入隊伍{settings.playersPerTeam}人名額）</span>
-          </label>
         </div>
 
         <div className="form-actions">

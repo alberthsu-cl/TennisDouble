@@ -58,7 +58,6 @@ export function generateDemoPlayers(playersPerTeam: number = 10): Player[] {
       gender: '男',
       skillLevel: getSkillLevel(i, maleCount * 4),
       matchesPlayed: 0,
-      isAlternate: false,
     });
   }
   
@@ -70,7 +69,6 @@ export function generateDemoPlayers(playersPerTeam: number = 10): Player[] {
       gender: '女',
       skillLevel: getSkillLevel(i, femaleCount * 4),
       matchesPlayed: 0,
-      isAlternate: false,
     });
   }
   

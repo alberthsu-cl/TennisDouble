@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import type { Player, Match, TeamName, TournamentSettings } from './types';
+import * as XLSX from 'xlsx';
+import type { Player, Match, TeamName, TournamentSettings, Gender, SkillLevel } from './types';
 import { PlayerManagement } from './components/PlayerManagement';
 import { MatchList } from './components/MatchList';
 import { Standings } from './components/Standings';
@@ -87,19 +88,18 @@ function App() {
   };
 
   const handleStartTournament = () => {
-    const regularPlayers = players.filter(p => !p.isAlternate);
     const requiredPlayers = settings.playersPerTeam * 4;
     
-    if (regularPlayers.length !== requiredPlayers) {
-      alert(`請確保有正好${requiredPlayers}名正式選手（每隊${settings.playersPerTeam}人）`);
+    if (players.length < requiredPlayers) {
+      alert(`請確保至少有${requiredPlayers}名選手（每隊${settings.playersPerTeam}人）`);
       return;
     }
 
     const teams: { [key in TeamName]: Player[] } = {
-      '甲隊': regularPlayers.filter(p => p.team === '甲隊'),
-      '乙隊': regularPlayers.filter(p => p.team === '乙隊'),
-      '丙隊': regularPlayers.filter(p => p.team === '丙隊'),
-      '丁隊': regularPlayers.filter(p => p.team === '丁隊'),
+      '甲隊': players.filter(p => p.team === '甲隊'),
+      '乙隊': players.filter(p => p.team === '乙隊'),
+      '丙隊': players.filter(p => p.team === '丙隊'),
+      '丁隊': players.filter(p => p.team === '丁隊'),
     };
 
     // 檢查每隊人數（至少需要指定人數）
@@ -123,19 +123,18 @@ function App() {
   };
 
   const handleStartManualSetup = () => {
-    const regularPlayers = players.filter(p => !p.isAlternate);
     const requiredPlayers = settings.playersPerTeam * 4;
     
-    if (regularPlayers.length !== requiredPlayers) {
-      alert(`請確保有正好${requiredPlayers}名正式選手（每隊${settings.playersPerTeam}人）`);
+    if (players.length < requiredPlayers) {
+      alert(`請確保至少有${requiredPlayers}名選手（每隊${settings.playersPerTeam}人）`);
       return;
     }
 
     const teams: { [key in TeamName]: Player[] } = {
-      '甲隊': regularPlayers.filter(p => p.team === '甲隊'),
-      '乙隊': regularPlayers.filter(p => p.team === '乙隊'),
-      '丙隊': regularPlayers.filter(p => p.team === '丙隊'),
-      '丁隊': regularPlayers.filter(p => p.team === '丁隊'),
+      '甲隊': players.filter(p => p.team === '甲隊'),
+      '乙隊': players.filter(p => p.team === '乙隊'),
+      '丙隊': players.filter(p => p.team === '丙隊'),
+      '丁隊': players.filter(p => p.team === '丁隊'),
     };
 
     // 檢查每隊人數（至少需要指定人數）
@@ -206,6 +205,22 @@ function App() {
     URL.revokeObjectURL(url);
   };
 
+  const handleExportPlayersExcel = () => {
+    const exportData = players.map(p => ({
+      '姓名': p.name,
+      '年齡': p.age,
+      '性別': p.gender,
+      '技術等級': p.skillLevel,
+      '隊伍': p.team,
+      '已出賽': p.matchesPlayed,
+    }));
+    
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, '選手名單');
+    XLSX.writeFile(wb, `選手名單_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
+
   const handleImportPlayers = (file: File) => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -227,6 +242,42 @@ function App() {
     reader.readAsText(file);
   };
 
+  const handleImportPlayersExcel = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet) as any[];
+        
+        const imported: Player[] = jsonData.map((row, index) => ({
+          id: `imported-player-${Date.now()}-${index}`,
+          name: row['姓名'] || '',
+          age: parseInt(row['年齡']) || 25,
+          gender: (row['性別'] === '女' ? '女' : '男') as Gender,
+          skillLevel: (row['技術等級'] || 'B') as SkillLevel,
+          team: (row['隊伍'] || '甲隊') as TeamName,
+          matchesPlayed: parseInt(row['已出賽']) || 0,
+        }));
+        
+        if (imported.length > 0) {
+          if (players.length > 0 && !confirm('這將覆蓋現有選手資料，確定要匯入嗎？')) {
+            return;
+          }
+          setPlayers(imported);
+          alert(`成功匯入 ${imported.length} 名選手！`);
+        } else {
+          alert('無效的Excel檔案格式');
+        }
+      } catch (error) {
+        alert('匯入失敗：Excel檔案格式錯誤');
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
   const handleExportMatches = () => {
     const dataStr = JSON.stringify(matches, null, 2);
     const dataBlob = new Blob([dataStr], { type: 'application/json' });
@@ -236,6 +287,26 @@ function App() {
     link.download = `matches_${new Date().toISOString().slice(0, 10)}.json`;
     link.click();
     URL.revokeObjectURL(url);
+  };
+
+  const handleExportMatchesExcel = () => {
+    const exportData = matches.map(m => ({
+      '輪次': m.roundNumber,
+      '點數': m.pointNumber,
+      '對戰': `${m.team1} vs ${m.team2}`,
+      '${m.team1}選手1': m.pair1.player1.name,
+      '${m.team1}選手2': m.pair1.player2.name,
+      '${m.team2}選手1': m.pair2.player1.name,
+      '${m.team2}選手2': m.pair2.player2.name,
+      '${m.team1}局數': m.team1Games,
+      '${m.team2}局數': m.team2Games,
+      '狀態': m.status === 'completed' ? '已完成' : '未開始',
+    }));
+    
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, '比賽列表');
+    XLSX.writeFile(wb, `比賽列表_${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
   const handleImportMatches = (file: File) => {
@@ -260,13 +331,16 @@ function App() {
     reader.readAsText(file);
   };
 
+  const handleImportMatchesExcel = (_file: File) => {
+    alert('Excel匯入比賽功能建議使用JSON格式，因為比賽資料結構較複雜。請使用「匯出JSON」功能匯出後再匯入。');
+  };
+
   const getTeamCount = (teamName: TeamName) => {
-    return players.filter(p => p.team === teamName && !p.isAlternate).length;
+    return players.filter(p => p.team === teamName).length;
   };
 
   const totalRounds = matches.length > 0 ? Math.max(...matches.map(m => m.roundNumber)) : 0;
-  const regularPlayersCount = players.filter(p => !p.isAlternate).length;
-  const alternatePlayersCount = players.filter(p => p.isAlternate).length;
+  const totalPlayersCount = players.length;
 
   return (
     <div className="app">
@@ -412,14 +486,14 @@ function App() {
                     <button 
                       className="btn-primary btn-large"
                       onClick={handleStartTournament}
-                      disabled={regularPlayersCount !== settings.playersPerTeam * 4}
+                      disabled={totalPlayersCount < settings.playersPerTeam * 4}
                     >
                       自動生成賽程
                     </button>
                     <button 
                       className="btn-primary btn-large btn-manual"
                       onClick={handleStartManualSetup}
-                      disabled={regularPlayersCount !== settings.playersPerTeam * 4}
+                      disabled={totalPlayersCount < settings.playersPerTeam * 4}
                     >
                       手動配對設定
                     </button>
@@ -431,10 +505,9 @@ function App() {
                   >
                     載入示範資料
                   </button>
-                  {regularPlayersCount !== settings.playersPerTeam * 4 && (
+                  {totalPlayersCount < settings.playersPerTeam * 4 && (
                     <p className="warning">
-                      請先新增所有{settings.playersPerTeam * 4}名正式選手（目前：{regularPlayersCount}/{settings.playersPerTeam * 4}）
-                      {alternatePlayersCount > 0 && ` [另有${alternatePlayersCount}名候補]`}
+                      請至少新增{settings.playersPerTeam * 4}名選手（目前：{totalPlayersCount}/{settings.playersPerTeam * 4}）
                     </p>
                   )}
                 </>
@@ -464,7 +537,9 @@ function App() {
             onUpdatePlayer={handleUpdatePlayer}
             onDeletePlayer={handleDeletePlayer}
             onExportPlayers={handleExportPlayers}
+            onExportPlayersExcel={handleExportPlayersExcel}
             onImportPlayers={handleImportPlayers}
+            onImportPlayersExcel={handleImportPlayersExcel}
           />
         )}
 
@@ -473,20 +548,36 @@ function App() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <h2 style={{ margin: 0 }}>比賽列表</h2>
               <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <button className="btn-secondary" onClick={handleExportMatches}>
-                  📤 匯出比賽
+                <button className="btn-secondary" onClick={() => {
+                  const format = prompt('選擇匯出格式：\n1 - Excel\n2 - JSON', '1');
+                  if (format === '1') {
+                    handleExportMatchesExcel();
+                  } else if (format === '2') {
+                    handleExportMatches();
+                  }
+                }}>
+                  📤 匯出
                 </button>
                 <button className="btn-secondary" onClick={() => {
+                  const format = prompt('選擇匯入格式：\n1 - Excel\n2 - JSON\n\n注意：Excel匯入比賽功能建議使用JSON格式', '1');
                   const input = document.createElement('input');
                   input.type = 'file';
-                  input.accept = '.json';
+                  input.accept = format === '1' ? '.xlsx,.xls' : '.json';
                   input.onchange = (e) => {
                     const file = (e.target as HTMLInputElement).files?.[0];
-                    if (file) handleImportMatches(file);
+                    if (file) {
+                      if (format === '1') {
+                        handleImportMatchesExcel(file);
+                      } else if (format === '2') {
+                        handleImportMatches(file);
+                      }
+                    }
                   };
-                  input.click();
+                  if (format === '1' || format === '2') {
+                    input.click();
+                  }
                 }}>
-                  📂 匯入比賽
+                  📂 匯入
                 </button>
               </div>
             </div>
