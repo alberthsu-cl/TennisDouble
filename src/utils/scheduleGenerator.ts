@@ -36,8 +36,9 @@ function isValidLastPointPair(pair: Pair): boolean {
 /**
  * 檢查選手是否可以再出賽（檢查最少出賽次數）
  */
-function canPlayMore(player: Player, minMatches: number): boolean {
-  return player.matchesPlayed < (minMatches + 1);
+function canPlayMore(player: Player, minMatches: number, scheduledMatches: Map<string, number>): boolean {
+  const scheduled = scheduledMatches.get(player.id) || 0;
+  return scheduled < (minMatches + 1);
 }
 
 /**
@@ -48,9 +49,10 @@ function findPairForPoint(
   teamPlayers: Player[],
   usedPairs: Set<string>,
   existingPairs: Pair[] | null = null,
-  settings: TournamentSettings
+  settings: TournamentSettings,
+  scheduledMatches: Map<string, number>
 ): Pair | null {
-  const availablePlayers = teamPlayers.filter(p => canPlayMore(p, settings.minMatchesPerPlayer));
+  const availablePlayers = teamPlayers.filter(p => canPlayMore(p, settings.minMatchesPerPlayer, scheduledMatches));
   const allPairs = generatePairs(availablePlayers);
   
   // 根據點數過濾配對
@@ -94,7 +96,8 @@ function getPairKey(pair: Pair): string {
 export function generateRound(
   roundNumber: number,
   teams: { [key in TeamName]: Player[] },
-  settings: TournamentSettings
+  settings: TournamentSettings,
+  scheduledMatches: Map<string, number>
 ): Match[] {
   const matches: Match[] = [];
   const teamNames: TeamName[] = ['甲隊', '乙隊', '丙隊', '丁隊'];
@@ -134,7 +137,8 @@ export function generateRound(
         teams[team1],
         usedPairsInRound.get(team1)!,
         pointNumber >= 2 ? team1ExistingPairs : null,
-        settings
+        settings,
+        scheduledMatches
       );
       
       if (!pair1) {
@@ -148,7 +152,8 @@ export function generateRound(
         teams[team2],
         usedPairsInRound.get(team2)!,
         pointNumber >= 2 ? team2ExistingPairs : null,
-        settings
+        settings,
+        scheduledMatches
       );
       
       if (!pair2) {
@@ -191,17 +196,23 @@ export function generateFullSchedule(
   settings: TournamentSettings
 ): Match[] {
   const allMatches: Match[] = [];
+  // Track scheduled matches per player during generation
+  const scheduledMatches = new Map<string, number>();
+  
+  // Initialize counter for all players
+  Object.values(teams).flat().forEach(player => {
+    scheduledMatches.set(player.id, 0);
+  });
   
   for (let round = 1; round <= settings.totalRounds; round++) {
-    const roundMatches = generateRound(round, teams, settings);
+    const roundMatches = generateRound(round, teams, settings, scheduledMatches);
     allMatches.push(...roundMatches);
     
-    // 更新選手出賽次數
+    // Update scheduled match counts
     roundMatches.forEach(match => {
-      match.pair1.player1.matchesPlayed++;
-      match.pair1.player2.matchesPlayed++;
-      match.pair2.player1.matchesPlayed++;
-      match.pair2.player2.matchesPlayed++;
+      [match.pair1.player1, match.pair1.player2, match.pair2.player1, match.pair2.player2].forEach(player => {
+        scheduledMatches.set(player.id, (scheduledMatches.get(player.id) || 0) + 1);
+      });
     });
   }
   

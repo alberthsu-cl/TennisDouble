@@ -89,6 +89,25 @@ export function generateDemoPlayers(playersPerTeam: number = 10): Player[] {
     demoPlayers.push(...teamPlayers);
   });
   
+  // 為每隊的前兩名選手指定領隊/副領隊標籤
+  const groupTagMap: { [key in TeamName]: string[] } = {
+    '甲隊': ['A1', 'A2'],
+    '乙隊': ['B1', 'B2'],
+    '丙隊': ['C1', 'C2'],
+    '丁隊': ['D1', 'D2'],
+  };
+  
+  teams.forEach((team, teamIndex) => {
+    const teamPlayers = demoPlayers.filter(p => p.team === team);
+    // 為前兩名選手設定 groupTag
+    if (teamPlayers.length >= 1) {
+      teamPlayers[0].groupTag = groupTagMap[team][0]; // 領隊
+    }
+    if (teamPlayers.length >= 2) {
+      teamPlayers[1].groupTag = groupTagMap[team][1]; // 副領隊
+    }
+  });
+  
   // 隨機打亂每隊的選手順序（但保持隊伍分組）
   const shuffledPlayers: Player[] = [];
   teams.forEach(team => {

@@ -16,6 +16,7 @@ export interface Player {
   skillLevel: SkillLevel; // 技術等級 (A:最佳, B:良好, C:不错)
   team: TeamName;
   matchesPlayed: number; // 已出賽場次
+  groupTag?: string; // 分組標籤 (如 A1=甲隊領隊, A2=甲隊副領隊, B1=乙隊領隊...)
 }
 
 // 雙打配對

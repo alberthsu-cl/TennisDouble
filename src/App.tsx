@@ -233,6 +233,7 @@ function App() {
           skillLevel: (row['技術等級'] || 'B') as SkillLevel,
           team: (row['隊伍'] || '甲隊') as TeamName,
           matchesPlayed: parseInt(row['已出賽']) || 0,
+          groupTag: row['分組標籤'] ? String(row['分組標籤']).trim() : undefined,
         }));
         
         if (imported.length > 0) {
@@ -263,13 +264,16 @@ function App() {
   };
 
   const handleExportPlayersExcel = () => {
+    const shouldResetMatches = confirm('是否將「已出賽」重置為0？\n\n點擊「確定」將匯出範本資料（已出賽=0）\n點擊「取消」將匯出目前實際資料');
+    
     const exportData = players.map(p => ({
       '姓名': p.name,
       '年齡': p.age,
       '性別': p.gender,
       '技術等級': p.skillLevel,
       '隊伍': p.team,
-      '已出賽': p.matchesPlayed,
+      '分組標籤': p.groupTag || '',
+      '已出賽': shouldResetMatches ? 0 : (p.matchesPlayed || 0),
     }));
     
     const ws = XLSX.utils.json_to_sheet(exportData);
@@ -317,6 +321,7 @@ function App() {
           skillLevel: (row['技術等級'] || 'B') as SkillLevel,
           team: (row['隊伍'] || '甲隊') as TeamName,
           matchesPlayed: parseInt(row['已出賽']) || 0,
+          groupTag: row['分組標籤'] ? String(row['分組標籤']).trim() : undefined,
         }));
         
         if (imported.length > 0) {
@@ -410,7 +415,6 @@ function App() {
         <button 
           className={currentView === 'setup' ? 'active' : ''} 
           onClick={() => setCurrentView('setup')}
-          disabled={tournamentStarted}
         >
           賽事設定
         </button>
@@ -450,7 +454,7 @@ function App() {
               <h2>⚙️ 賽事設定</h2>
               <div className="settings-grid">
                   <div className="setting-item">
-                    <label>每隊人數：</label>
+                    <label>每隊人數(至少)：</label>
                     <input
                       type="number"
                       min="4"

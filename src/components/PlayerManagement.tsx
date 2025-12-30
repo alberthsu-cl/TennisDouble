@@ -29,6 +29,7 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
   const [gender, setGender] = useState<Gender>('男');
   const [skillLevel, setSkillLevel] = useState<SkillLevel>('B');
   const [team, setTeam] = useState<TeamName>('甲隊');
+  const [groupTag, setGroupTag] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const teams: TeamName[] = ['甲隊', '乙隊', '丙隊', '丁隊'];
@@ -58,6 +59,7 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
           gender,
           skillLevel,
           team,
+          groupTag: groupTag.trim() || undefined,
         });
       }
       setEditingId(null);
@@ -71,6 +73,7 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
         skillLevel,
         team,
         matchesPlayed: 0,
+        groupTag: groupTag.trim() || undefined,
       };
       onAddPlayer(newPlayer);
     }
@@ -80,6 +83,7 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
     setAge('');
     setGender('男');
     setSkillLevel('B');
+    setGroupTag('');
   };
 
   const handleEdit = (player: Player) => {
@@ -89,6 +93,7 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
     setGender(player.gender);
     setSkillLevel(player.skillLevel);
     setTeam(player.team);
+    setGroupTag(player.groupTag || '');
   };
 
   const handleCancelEdit = () => {
@@ -97,6 +102,7 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
     setAge('');
     setGender('男');
     setSkillLevel('B');
+    setGroupTag('');
   };
 
   const getTeamCount = (teamName: TeamName) => {
@@ -168,6 +174,7 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
                     <th>年齡</th>
                     <th>性別</th>
                     <th>技術等級</th>
+                    <th>分組標籤</th>
                     <th>已出賽</th>
                     <th>操作</th>
                   </tr>
@@ -179,6 +186,7 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
                       <td>{player.age || '-'}</td>
                       <td>{player.gender || '-'}</td>
                       <td><span className={`skill-badge skill-${player.skillLevel || 'B'}`}>{player.skillLevel || 'B'}</span></td>
+                      <td>{player.groupTag ? <span className="group-tag-badge">{player.groupTag}</span> : '-'}</td>
                       <td>{player.matchesPlayed || 0}</td>
                       <td>
                         <button
@@ -261,7 +269,19 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
             ))}
           </select>
         </div>
-
+        <div className="form-group">
+          <label>分組標籤：</label>
+          <input
+            type="text"
+            value={groupTag}
+            onChange={(e) => setGroupTag(e.target.value)}
+            placeholder="如 A1(甲隊領隊), B2(乙隊副領隊)"
+            maxLength={10}
+          />
+          <small style={{ display: 'block', marginTop: '0.25rem', color: '#666' }}>
+            用於標記領隊、副領隊等，相同標籤的選手應分在同一組
+          </small>
+        </div>
         <div className="form-actions">
           <button type="submit" className="btn-primary">
             {editingId ? '更新選手' : '新增選手'}
