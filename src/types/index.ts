@@ -13,7 +13,7 @@ export interface Player {
   name: string;
   age: number;
   gender: Gender;
-  skillLevel: SkillLevel; // 技術等級 (A:最佳, B:良好, C:初學)
+  skillLevel: SkillLevel; // 技術等級 (A:最佳, B:良好, C:不错)
   team: TeamName;
   matchesPlayed: number; // 已出賽場次
   isAlternate: boolean; // 是否為候補選手

@@ -219,7 +219,7 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
           <select value={skillLevel} onChange={(e) => setSkillLevel(e.target.value as SkillLevel)}>
             <option value="A">A - 最佳</option>
             <option value="B">B - 良好</option>
-            <option value="C">C - 初學</option>
+            <option value="C">C - 不错</option>
           </select>
         </div>
 

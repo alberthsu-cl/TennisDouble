@@ -299,9 +299,10 @@ function App() {
                 
                 <div className="settings-summary">
                   <h4>賽事總覽</h4>
-                  <p>• 總比賽數：{settings.totalRounds * 6 * settings.pointsPerRound} 場</p>
-                  <p>• 每輪對戰組合：6 組（甲乙、甲丙、甲丁、乙丙、乙丁、丙丁）</p>
+                  <p>• 總比賽數：{settings.totalRounds * 2 * settings.pointsPerRound} 場</p>
+                  <p>• 每輪對戰組合：2 組（循環賽制，每隊每輪打1場）</p>
                   <p>• 每組對戰點數：{settings.pointsPerRound} 點</p>
+                  <p>• 每位選手每輪出賽：1 場（共{settings.totalRounds}場）</p>
                 </div>
               </div>
             )}

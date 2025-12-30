@@ -102,15 +102,19 @@ export function generateRound(
   const matches: Match[] = [];
   const teamNames: TeamName[] = ['甲隊', '乙隊', '丙隊', '丁隊'];
   
-  // 生成所有可能的對戰組合
-  const matchups: [TeamName, TeamName][] = [
-    ['甲隊', '乙隊'],
-    ['甲隊', '丙隊'],
-    ['甲隊', '丁隊'],
-    ['乙隊', '丙隊'],
-    ['乙隊', '丁隊'],
-    ['丙隊', '丁隊'],
-  ];
+  // 每輪只進行2場對戰（每隊打1場），循環賽制
+  // Round 1: 甲vs乙, 丙vs丁
+  // Round 2: 甲vs丙, 乙vs丁  
+  // Round 3: 甲vs丁, 乙vs丙
+  const roundMatchups: { [key: number]: [TeamName, TeamName][] } = {
+    1: [['甲隊', '乙隊'], ['丙隊', '丁隊']],
+    2: [['甲隊', '丙隊'], ['乙隊', '丁隊']],
+    3: [['甲隊', '丁隊'], ['乙隊', '丙隊']],
+  };
+  
+  // 獲取本輪的對戰組合（循環使用）
+  const matchupIndex = ((roundNumber - 1) % 3) + 1;
+  const matchups = roundMatchups[matchupIndex];
   
   // 追蹤已使用的配對
   const usedPairsInRound = new Map<TeamName, Set<string>>();
