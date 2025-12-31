@@ -1,4 +1,4 @@
-import type { Player, TeamName, Pair, Match, PointType, TournamentSettings } from '../types';
+import type { Player, TeamName, Pair, Match, PointType, TournamentSettings, SkillLevel } from '../types';
 
 /**
  * Fisher-Yates shuffle algorithm for randomization
@@ -13,6 +13,22 @@ function shuffleArray<T>(array: T[]): T[] {
 }
 
 /**
+ * Calculate skill score for balancing (A=3, B=2, C=1)
+ */
+function getSkillScore(skillLevel: SkillLevel): number {
+  const scores = { 'A': 3, 'B': 2, 'C': 1 };
+  return scores[skillLevel];
+}
+
+/**
+ * Calculate total skill score for a pair
+ */
+function getPairSkillScore(pair: Pair): number {
+  if (!pair.player1 || !pair.player2) return 0;
+  return getSkillScore(pair.player1.skillLevel) + getSkillScore(pair.player2.skillLevel);
+}
+
+/**
  * 生成所有可能的雙打配對
  */
 export function generatePairs(players: Player[]): Pair[] {
@@ -20,11 +36,13 @@ export function generatePairs(players: Player[]): Pair[] {
   
   for (let i = 0; i < players.length; i++) {
     for (let j = i + 1; j < players.length; j++) {
-      pairs.push({
+      const pair: Pair = {
         player1: players[i],
         player2: players[j],
         totalAge: players[i].age + players[j].age,
-      });
+        skillScore: getSkillScore(players[i].skillLevel) + getSkillScore(players[j].skillLevel),
+      };
+      pairs.push(pair);
     }
   }
   
@@ -95,9 +113,27 @@ function findPairForPoint(
       validPairs = validPairs.filter(p => p.totalAge > maxExistingAge);
     }
     
-    // 從符合年齡條件的前N個配對中隨機選擇，確保公平性
+    // 從符合年齡條件的配對中，優先選擇技術等級平衡的配對
     if (validPairs.length > 0) {
-      const topCandidates = validPairs.slice(0, Math.min(5, validPairs.length));
+      // Calculate average skill score of existing pairs
+      let targetSkillScore = 4; // Default target (B+B = 2+2)
+      if (existingPairs && existingPairs.length > 0) {
+        const existingScores = existingPairs.map(p => getPairSkillScore(p));
+        targetSkillScore = existingScores.reduce((a, b) => a + b, 0) / existingScores.length;
+      }
+      
+      // Sort by skill balance (closer to target) then by age
+      validPairs.sort((a, b) => {
+        const aSkillDiff = Math.abs((a.skillScore || 0) - targetSkillScore);
+        const bSkillDiff = Math.abs((b.skillScore || 0) - targetSkillScore);
+        if (Math.abs(aSkillDiff - bSkillDiff) > 0.5) {
+          return aSkillDiff - bSkillDiff;
+        }
+        return a.totalAge - b.totalAge;
+      });
+      
+      // 從技術等級平衡的前幾個配對中隨機選擇，確保公平性
+      const topCandidates = validPairs.slice(0, Math.min(3, validPairs.length));
       const randomIndex = Math.floor(Math.random() * topCandidates.length);
       return topCandidates[randomIndex];
     }

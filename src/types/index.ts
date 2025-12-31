@@ -24,6 +24,7 @@ export interface Pair {
   player1: Player | null;
   player2: Player | null;
   totalAge: number;
+  skillScore?: number; // Total skill score for balancing
 }
 
 // 比賽點數類型 (動態，不再限制1-5)
