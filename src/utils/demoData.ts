@@ -97,7 +97,7 @@ export function generateDemoPlayers(playersPerTeam: number = 10): Player[] {
     '丁隊': ['D1', 'D2'],
   };
   
-  teams.forEach((team, teamIndex) => {
+  teams.forEach((team) => {
     const teamPlayers = demoPlayers.filter(p => p.team === team);
     // 為前兩名選手設定 groupTag
     if (teamPlayers.length >= 1) {

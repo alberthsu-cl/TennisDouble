@@ -133,28 +133,24 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
 
     matchupGroups.forEach((matches, matchup) => {
       matches.forEach(match => {
-        // 檢查是否有空位
-        if (!match.pair1[0] || !match.pair1[1]) {
-          errors.push(`${matchup} 第${match.pointNumber}點 ${match.team1}未配對完成`);
-        }
-        if (!match.pair2[0] || !match.pair2[1]) {
-          errors.push(`${matchup} 第${match.pointNumber}點 ${match.team2}未配對完成`);
-        }
+        // 只對已配對完成的比賽檢查規則約束
+        const team1Complete = match.pair1[0] && match.pair1[1];
+        const team2Complete = match.pair2[0] && match.pair2[1];
 
-        // 檢查最後一點是否為混雙或女雙（如果啟用規則約束）
+        // 檢查最後一點是否為混雙或女雙（如果啟用規則約束且已配對）
         if (settings.enforceRules && match.pointNumber === settings.pointsPerRound) {
-          if (match.pair1[0] && match.pair1[1]) {
+          if (team1Complete) {
             const isValid = 
-              (match.pair1[0].gender === '女' && match.pair1[1].gender === '女') ||
-              (match.pair1[0].gender !== match.pair1[1].gender);
+              (match.pair1[0]!.gender === '女' && match.pair1[1]!.gender === '女') ||
+              (match.pair1[0]!.gender !== match.pair1[1]!.gender);
             if (!isValid) {
               errors.push(`${matchup} 第${settings.pointsPerRound}點 ${match.team1}必須為混雙或女雙`);
             }
           }
-          if (match.pair2[0] && match.pair2[1]) {
+          if (team2Complete) {
             const isValid = 
-              (match.pair2[0].gender === '女' && match.pair2[1].gender === '女') ||
-              (match.pair2[0].gender !== match.pair2[1].gender);
+              (match.pair2[0]!.gender === '女' && match.pair2[1]!.gender === '女') ||
+              (match.pair2[0]!.gender !== match.pair2[1]!.gender);
             if (!isValid) {
               errors.push(`${matchup} 第${settings.pointsPerRound}點 ${match.team2}必須為混雙或女雙`);
             }
@@ -194,8 +190,11 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
   const handleNextRound = () => {
     const errors = validateAssignments();
     if (errors.length > 0) {
-      alert('請修正以下問題：\n' + errors.join('\n'));
-      return;
+      const proceed = window.confirm(
+        '發現以下問題：\n' + errors.join('\n') + 
+        '\n\n是否仍要繼續？（未配對的比賽可稍後配對）'
+      );
+      if (!proceed) return;
     }
     
     if (currentRound < settings.totalRounds) {
@@ -205,14 +204,21 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
 
   const handleFinishSetup = () => {
     const errors = validateAssignments();
-    if (errors.length > 0) {
-      alert('請修正以下問題：\n' + errors.join('\n'));
-      return;
+    const unassignedCount = assignments.filter(a => !a.pair1[0] || !a.pair1[1] || !a.pair2[0] || !a.pair2[1]).length;
+    
+    if (errors.length > 0 || unassignedCount > 0) {
+      const message = [
+        errors.length > 0 ? '規則檢查問題：\n' + errors.join('\n') : '',
+        unassignedCount > 0 ? `\n尚有 ${unassignedCount} 場比賽未配對完成` : '',
+        '\n\n未配對的比賽將顯示為「待定(TBD)」，可在賽事進行中隨時配對。\n是否要開始賽事？'
+      ].filter(Boolean).join('');
+      
+      const proceed = window.confirm(message);
+      if (!proceed) return;
     }
 
-    // 轉換為Match物件
+    // 轉換為Match物件（包含未配對的TBD比賽）
     const matches: Match[] = assignments
-      .filter(a => a.pair1[0] && a.pair1[1] && a.pair2[0] && a.pair2[1])
       .map(a => ({
         id: a.id,
         roundNumber: a.roundNumber,
@@ -220,14 +226,14 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
         team1: a.team1,
         team2: a.team2,
         pair1: {
-          player1: a.pair1[0]!,
-          player2: a.pair1[1]!,
-          totalAge: a.pair1[0]!.age + a.pair1[1]!.age,
+          player1: a.pair1[0] || null,
+          player2: a.pair1[1] || null,
+          totalAge: (a.pair1[0] && a.pair1[1]) ? a.pair1[0].age + a.pair1[1].age : 0,
         },
         pair2: {
-          player1: a.pair2[0]!,
-          player2: a.pair2[1]!,
-          totalAge: a.pair2[0]!.age + a.pair2[1]!.age,
+          player1: a.pair2[0] || null,
+          player2: a.pair2[1] || null,
+          totalAge: (a.pair2[0] && a.pair2[1]) ? a.pair2[0].age + a.pair2[1].age : 0,
         },
         team1Games: 0,
         team2Games: 0,

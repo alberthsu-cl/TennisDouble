@@ -23,6 +23,9 @@ export function generatePairs(players: Player[]): Pair[] {
  * 檢查配對是否符合最後一點的規則（混雙或女雙）
  */
 function isValidLastPointPair(pair: Pair): boolean {
+  // Check if players exist
+  if (!pair.player1 || !pair.player2) return false;
+  
   // 女雙：兩位都是女性
   const isWomensDouble = pair.player1.gender === '女' && pair.player2.gender === '女';
   
@@ -86,6 +89,7 @@ function findPairForPoint(
  * 生成配對的唯一鍵
  */
 function getPairKey(pair: Pair): string {
+  if (!pair.player1 || !pair.player2) return '';
   const ids = [pair.player1.id, pair.player2.id].sort();
   return `${ids[0]}-${ids[1]}`;
 }
@@ -211,7 +215,9 @@ export function generateFullSchedule(
     // Update scheduled match counts
     roundMatches.forEach(match => {
       [match.pair1.player1, match.pair1.player2, match.pair2.player1, match.pair2.player2].forEach(player => {
-        scheduledMatches.set(player.id, (scheduledMatches.get(player.id) || 0) + 1);
+        if (player) {
+          scheduledMatches.set(player.id, (scheduledMatches.get(player.id) || 0) + 1);
+        }
       });
     });
   }
@@ -229,7 +235,9 @@ export function validateSchedule(matches: Match[], players: Player[], settings: 
   const playerMatchCount = new Map<string, number>();
   matches.forEach(match => {
     [match.pair1.player1, match.pair1.player2, match.pair2.player1, match.pair2.player2].forEach(player => {
-      playerMatchCount.set(player.id, (playerMatchCount.get(player.id) || 0) + 1);
+      if (player) {
+        playerMatchCount.set(player.id, (playerMatchCount.get(player.id) || 0) + 1);
+      }
     });
   });
   

@@ -21,8 +21,8 @@ export interface Player {
 
 // 雙打配對
 export interface Pair {
-  player1: Player;
-  player2: Player;
+  player1: Player | null;
+  player2: Player | null;
   totalAge: number;
 }
 

@@ -6,6 +6,8 @@ import { MatchList } from './components/MatchList';
 import { Standings } from './components/Standings';
 import { RulesModal } from './components/RulesModal';
 import { ManualMatchSetup } from './components/ManualMatchSetup';
+import { CustomModal } from './components/CustomModal';
+import { useModal } from './hooks/useModal';
 import { generateFullSchedule } from './utils/scheduleGenerator';
 import { generateDemoPlayers } from './utils/demoData';
 import './App.css';
@@ -20,6 +22,9 @@ function App() {
   const [filterRound, setFilterRound] = useState<number | undefined>(undefined);
   const [filterStatus, setFilterStatus] = useState<'all' | 'scheduled' | 'in-progress' | 'completed'>('all');
   const [showRulesModal, setShowRulesModal] = useState(false);
+  
+  // Custom modal
+  const modal = useModal();
   
   // Tournament settings
   const [settings, setSettings] = useState<TournamentSettings>({
@@ -88,11 +93,11 @@ function App() {
     setPlayers(players.filter(p => p.id !== playerId));
   };
 
-  const handleStartTournament = () => {
+  const handleStartTournament = async () => {
     const requiredPlayers = settings.playersPerTeam * 4;
     
     if (players.length < requiredPlayers) {
-      alert(`請確保至少有${requiredPlayers}名選手（每隊${settings.playersPerTeam}人）`);
+      await modal.showAlert(`請確保至少有${requiredPlayers}名選手（每隊${settings.playersPerTeam}人）`);
       return;
     }
 
@@ -106,7 +111,7 @@ function App() {
     // 檢查每隊人數（至少需要指定人數）
     for (const [teamName, teamPlayers] of Object.entries(teams)) {
       if (teamPlayers.length < settings.playersPerTeam) {
-        alert(`${teamName}目前只有${teamPlayers.length}人，需要至少${settings.playersPerTeam}人`);
+        await modal.showAlert(`${teamName}目前只有${teamPlayers.length}人，需要至少${settings.playersPerTeam}人`);
         return;
       }
     }
@@ -116,18 +121,18 @@ function App() {
       setMatches(schedule);
       setTournamentStarted(true);
       setCurrentView('matches');
-      alert('賽程已生成！共 ' + schedule.length + ' 場比賽');
+      await modal.showAlert('賽程已生成！共 ' + schedule.length + ' 場比賽');
     } catch (error) {
       console.error('生成賽程失敗:', error);
-      alert('生成賽程時發生錯誤，請檢查選手資料');
+      await modal.showAlert('生成賽程時發生錯誤，請檢查選手資料');
     }
   };
 
-  const handleStartManualSetup = () => {
+  const handleStartManualSetup = async () => {
     const requiredPlayers = settings.playersPerTeam * 4;
     
     if (players.length < requiredPlayers) {
-      alert(`請確保至少有${requiredPlayers}名選手（每隊${settings.playersPerTeam}人）`);
+      await modal.showAlert(`請確保至少有${requiredPlayers}名選手（每隊${settings.playersPerTeam}人）`);
       return;
     }
 
@@ -141,7 +146,7 @@ function App() {
     // 檢查每隊人數（至少需要指定人數）
     for (const [teamName, teamPlayers] of Object.entries(teams)) {
       if (teamPlayers.length < settings.playersPerTeam) {
-        alert(`${teamName}目前只有${teamPlayers.length}人，需要至少${settings.playersPerTeam}人`);
+        await modal.showAlert(`${teamName}目前只有${teamPlayers.length}人，需要至少${settings.playersPerTeam}人`);
         return;
       }
     }
@@ -149,11 +154,11 @@ function App() {
     setCurrentView('manual-setup');
   };
 
-  const handleManualMatchesGenerated = (generatedMatches: Match[]) => {
+  const handleManualMatchesGenerated = async (generatedMatches: Match[]) => {
     setMatches(generatedMatches);
     setTournamentStarted(true);
     setCurrentView('matches');
-    alert('手動配對已完成！共 ' + generatedMatches.length + ' 場比賽');
+    await modal.showAlert('手動配對已完成！共 ' + generatedMatches.length + ' 場比賽');
   };
 
   const handleUpdateScore = (updatedMatch: Match) => {
@@ -168,16 +173,53 @@ function App() {
     const updatedPlayers = [...players];
     [completedMatch.pair1.player1, completedMatch.pair1.player2,
      completedMatch.pair2.player1, completedMatch.pair2.player2].forEach(matchPlayer => {
-      const player = updatedPlayers.find(p => p.id === matchPlayer.id);
-      if (player && player.matchesPlayed < settings.totalRounds) {
-        player.matchesPlayed++;
+      if (matchPlayer) {
+        const player = updatedPlayers.find(p => p.id === matchPlayer.id);
+        if (player && player.matchesPlayed < settings.totalRounds) {
+          player.matchesPlayed++;
+        }
       }
     });
     setPlayers(updatedPlayers);
   };
 
-  const handleResetTournament = () => {
-    if (confirm('確定要重置整個賽事嗎？這將清除所有選手和比賽資料。')) {
+  const handleResetMatch = async (matchToReset: Match) => {
+    const confirmed = await modal.showConfirm('確定要重置這場比賽嗎？比分將清零並重新記錄。');
+    if (!confirmed) {
+      return;
+    }
+
+    // 重置比賽狀態為進行中，使可立即重新記錄
+    const resetMatch: Match = {
+      ...matchToReset,
+      status: 'in-progress',
+      team1Games: 0,
+      team2Games: 0,
+      team1TiebreakScore: undefined,
+      team2TiebreakScore: undefined,
+      winner: undefined,
+    };
+    setMatches(matches.map(m => m.id === matchToReset.id ? resetMatch : m));
+
+    // 如果比賽之前已完成，減少選手出賽次數
+    if (matchToReset.status === 'completed') {
+      const updatedPlayers = [...players];
+      [matchToReset.pair1.player1, matchToReset.pair1.player2,
+       matchToReset.pair2.player1, matchToReset.pair2.player2].forEach(matchPlayer => {
+        if (matchPlayer) {
+          const player = updatedPlayers.find(p => p.id === matchPlayer.id);
+          if (player && player.matchesPlayed > 0) {
+            player.matchesPlayed--;
+          }
+        }
+      });
+      setPlayers(updatedPlayers);
+    }
+  };
+
+  const handleResetTournament = async () => {
+    const confirmed = await modal.showConfirm('確定要重置整個賽事嗎？這將清除所有選手和比賽資料。');
+    if (confirmed) {
       setPlayers([]);
       setMatches([]);
       setTournamentStarted(false);
@@ -186,31 +228,33 @@ function App() {
     }
   };
 
-  const handleLoadDemoData = () => {
-    if (players.length > 0 && !confirm('這將覆蓋現有選手資料，確定要載入示範資料嗎？')) {
-      return;
+  const handleLoadDemoData = async () => {
+    if (players.length > 0) {
+      const confirmed = await modal.showConfirm('這將覆蓋現有選手資料，確定要載入示範資料嗎？');
+      if (!confirmed) return;
     }
     const demoPlayers = generateDemoPlayers(settings.playersPerTeam);
     setPlayers(demoPlayers);
-    alert(`已載入${demoPlayers.length}名示範選手！請到「選手管理」查看或前往「賽事設定」開始賽事。`);
+    await modal.showAlert(`已載入${demoPlayers.length}名示範選手！請到「選手管理」查看或前往「賽事設定」開始賽事。`);
   };
 
   const handleImportDemoData = (file: File) => {
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         const imported = JSON.parse(e.target?.result as string);
         if (Array.isArray(imported) && imported.length > 0) {
-          if (players.length > 0 && !confirm('這將覆蓋現有選手資料，確定要從檔案載入示範資料嗎？')) {
-            return;
+          if (players.length > 0) {
+            const confirmed = await modal.showConfirm('這將覆蓋現有選手資料，確定要從檔案載入示範資料嗎？');
+            if (!confirmed) return;
           }
           setPlayers(imported);
-          alert(`成功從檔案載入 ${imported.length} 名示範選手！`);
+          await modal.showAlert(`成功從檔案載入 ${imported.length} 名示範選手！`);
         } else {
-          alert('無效的示範資料格式');
+          await modal.showAlert('無效的示範資料格式');
         }
       } catch (error) {
-        alert('載入失敗：檔案格式錯誤');
+        await modal.showAlert('載入失敗：檔案格式錯誤');
       }
     };
     reader.readAsText(file);
@@ -218,7 +262,7 @@ function App() {
 
   const handleImportDemoDataExcel = (file: File) => {
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         const data = new Uint8Array(e.target?.result as ArrayBuffer);
         const workbook = XLSX.read(data, { type: 'array' });
@@ -238,16 +282,17 @@ function App() {
         }));
         
         if (imported.length > 0) {
-          if (players.length > 0 && !confirm('這將覆蓋現有選手資料，確定要從Excel載入示範資料嗎？')) {
-            return;
+          if (players.length > 0) {
+            const confirmed = await modal.showConfirm('這將覆蓋現有選手資料，確定要從Excel載入示範資料嗎？');
+            if (!confirmed) return;
           }
           setPlayers(imported);
-          alert(`成功從Excel載入 ${imported.length} 名示範選手！`);
+          await modal.showAlert(`成功從Excel載入 ${imported.length} 名示範選手！`);
         } else {
-          alert('無效的Excel資料格式');
+          await modal.showAlert('無效的Excel資料格式');
         }
       } catch (error) {
-        alert('載入失敗：Excel檔案格式錯誤');
+        await modal.showAlert('載入失敗：Excel檔案格式錯誤');
       }
     };
     reader.readAsArrayBuffer(file);
@@ -264,8 +309,8 @@ function App() {
     URL.revokeObjectURL(url);
   };
 
-  const handleExportPlayersExcel = () => {
-    const shouldResetMatches = confirm('是否將「已出賽」重置為0？\n\n點擊「確定」將匯出範本資料（已出賽=0）\n點擊「取消」將匯出目前實際資料');
+  const handleExportPlayersExcel = async () => {
+    const shouldResetMatches = await modal.showConfirm('是否將「已出賽」重置為0？\n\n點擊「確定」將匯出範本資料（已出賽=0）\n點擊「取消」將匯出目前實際資料');
     
     const exportData = players.map(p => ({
       '姓名': p.name,
@@ -285,20 +330,21 @@ function App() {
 
   const handleImportPlayers = (file: File) => {
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         const imported = JSON.parse(e.target?.result as string);
         if (Array.isArray(imported) && imported.length > 0) {
-          if (players.length > 0 && !confirm('這將覆蓋現有選手資料，確定要匯入嗎？')) {
-            return;
+          if (players.length > 0) {
+            const confirmed = await modal.showConfirm('這將覆蓋現有選手資料，確定要匯入嗎？');
+            if (!confirmed) return;
           }
           setPlayers(imported);
-          alert(`成功匯入 ${imported.length} 名選手！`);
+          await modal.showAlert(`成功匯入 ${imported.length} 名選手！`);
         } else {
-          alert('無效的選手資料格式');
+          await modal.showAlert('無效的選手資料格式');
         }
       } catch (error) {
-        alert('匯入失敗：檔案格式錯誤');
+        await modal.showAlert('匯入失敗：檔案格式錯誤');
       }
     };
     reader.readAsText(file);
@@ -306,7 +352,7 @@ function App() {
 
   const handleImportPlayersExcel = (file: File) => {
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         const data = new Uint8Array(e.target?.result as ArrayBuffer);
         const workbook = XLSX.read(data, { type: 'array' });
@@ -326,16 +372,17 @@ function App() {
         }));
         
         if (imported.length > 0) {
-          if (players.length > 0 && !confirm('這將覆蓋現有選手資料，確定要匯入嗎？')) {
-            return;
+          if (players.length > 0) {
+            const confirmed = await modal.showConfirm('這將覆蓋現有選手資料，確定要匯入嗎？');
+            if (!confirmed) return;
           }
           setPlayers(imported);
-          alert(`成功匯入 ${imported.length} 名選手！`);
+          await modal.showAlert(`成功匯入 ${imported.length} 名選手！`);
         } else {
-          alert('無效的Excel檔案格式');
+          await modal.showAlert('無效的Excel檔案格式');
         }
       } catch (error) {
-        alert('匯入失敗：Excel檔案格式錯誤');
+        await modal.showAlert('匯入失敗：Excel檔案格式錯誤');
       }
     };
     reader.readAsArrayBuffer(file);
@@ -357,10 +404,10 @@ function App() {
       '輪次': m.roundNumber,
       '點數': m.pointNumber,
       '對戰': `${m.team1} vs ${m.team2}`,
-      '${m.team1}選手1': m.pair1.player1.name,
-      '${m.team1}選手2': m.pair1.player2.name,
-      '${m.team2}選手1': m.pair2.player1.name,
-      '${m.team2}選手2': m.pair2.player2.name,
+      '${m.team1}選手1': m.pair1.player1?.name || 'TBD',
+      '${m.team1}選手2': m.pair1.player2?.name || 'TBD',
+      '${m.team2}選手1': m.pair2.player1?.name || 'TBD',
+      '${m.team2}選手2': m.pair2.player2?.name || 'TBD',
       '${m.team1}局數': m.team1Games,
       '${m.team2}局數': m.team2Games,
       '狀態': m.status === 'completed' ? '已完成' : '未開始',
@@ -374,28 +421,29 @@ function App() {
 
   const handleImportMatches = (file: File) => {
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         const imported = JSON.parse(e.target?.result as string);
         if (Array.isArray(imported) && imported.length > 0) {
-          if (matches.length > 0 && !confirm('這將覆蓋現有比賽資料，確定要匯入嗎？')) {
-            return;
+          if (matches.length > 0) {
+            const confirmed = await modal.showConfirm('這將覆蓋現有比賽資料，確定要匯入嗎？');
+            if (!confirmed) return;
           }
           setMatches(imported);
           setTournamentStarted(true);
-          alert(`成功匯入 ${imported.length} 場比賽！`);
+          await modal.showAlert(`成功匯入 ${imported.length} 場比賽！`);
         } else {
-          alert('無效的比賽資料格式');
+          await modal.showAlert('無效的比賽資料格式');
         }
       } catch (error) {
-        alert('匯入失敗：檔案格式錯誤');
+        await modal.showAlert('匯入失敗：檔案格式錯誤');
       }
     };
     reader.readAsText(file);
   };
 
-  const handleImportMatchesExcel = (_file: File) => {
-    alert('Excel匯入比賽功能建議使用JSON格式，因為比賽資料結構較複雜。請使用「匯出JSON」功能匯出後再匯入。');
+  const handleImportMatchesExcel = async (_file: File) => {
+    await modal.showAlert('Excel匯入比賽功能建議使用JSON格式，因為比賽資料結構較複雜。請使用「匯出JSON」功能匯出後再匯入。');
   };
 
   const getTeamCount = (teamName: TeamName) => {
@@ -766,6 +814,7 @@ function App() {
               matches={matches}
               onUpdateScore={handleUpdateScore}
               onCompleteMatch={handleCompleteMatch}
+              onResetMatch={handleResetMatch}
               filterRound={filterRound}
               filterStatus={filterStatus}
             />
@@ -794,6 +843,14 @@ function App() {
         isOpen={showRulesModal} 
         onClose={() => setShowRulesModal(false)} 
         settings={settings}
+      />
+
+      <CustomModal
+        isOpen={modal.isOpen}
+        message={modal.message}
+        type={modal.type}
+        onConfirm={modal.handleConfirm}
+        onCancel={modal.handleCancel}
       />
     </div>
   );

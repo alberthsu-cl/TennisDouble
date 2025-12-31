@@ -5,12 +5,14 @@ interface ScoreRecorderProps {
   match: Match;
   onUpdateScore: (match: Match) => void;
   onCompleteMatch: (match: Match) => void;
+  onResetMatch: (match: Match) => void;
 }
 
 export const ScoreRecorder: React.FC<ScoreRecorderProps> = ({
   match,
   onUpdateScore,
   onCompleteMatch,
+  onResetMatch,
 }) => {
   const [showTiebreak, setShowTiebreak] = useState(false);
 
@@ -111,7 +113,16 @@ export const ScoreRecorder: React.FC<ScoreRecorderProps> = ({
     return (
       <div className="score-recorder completed">
         <div className="match-info">
-          <h3>第{match.roundNumber}輪 - 第{match.pointNumber}點</h3>
+          <div className="match-header">
+            <h3>第{match.roundNumber}輪 - 第{match.pointNumber}點</h3>
+            <button 
+              className="btn-reset-icon" 
+              onClick={() => onResetMatch(match)}
+              title="重置比賽結果"
+            >
+              ✏️
+            </button>
+          </div>
           <div className="teams">
             <div className={`team ${match.winner === match.team1 ? 'winner' : ''}`}>
               {match.team1}
@@ -146,13 +157,25 @@ export const ScoreRecorder: React.FC<ScoreRecorderProps> = ({
         <div className="players-info">
           <div className="team-players">
             <h4>{match.team1}</h4>
-            <p>{match.pair1.player1.name} ({match.pair1.player1.age}歲 {match.pair1.player1.gender})</p>
-            <p>{match.pair1.player2.name} ({match.pair1.player2.age}歲 {match.pair1.player2.gender})</p>
+            {match.pair1.player1 && match.pair1.player2 ? (
+              <>
+                <p>{match.pair1.player1.name} ({match.pair1.player1.age}歲 {match.pair1.player1.gender})</p>
+                <p>{match.pair1.player2.name} ({match.pair1.player2.age}歲 {match.pair1.player2.gender})</p>
+              </>
+            ) : (
+              <p className="tbd-text">待定 (TBD)</p>
+            )}
           </div>
           <div className="team-players">
             <h4>{match.team2}</h4>
-            <p>{match.pair2.player1.name} ({match.pair2.player1.age}歲 {match.pair2.player1.gender})</p>
-            <p>{match.pair2.player2.name} ({match.pair2.player2.age}歲 {match.pair2.player2.gender})</p>
+            {match.pair2.player1 && match.pair2.player2 ? (
+              <>
+                <p>{match.pair2.player1.name} ({match.pair2.player1.age}歲 {match.pair2.player2.gender})</p>
+                <p>{match.pair2.player2.name} ({match.pair2.player2.age}歲 {match.pair2.player2.gender})</p>
+              </>
+            ) : (
+              <p className="tbd-text">待定 (TBD)</p>
+            )}
           </div>
         </div>
       </div>
@@ -160,8 +183,12 @@ export const ScoreRecorder: React.FC<ScoreRecorderProps> = ({
   }
 
   if (match.status === 'scheduled') {
+    const isPair1Complete = match.pair1.player1 && match.pair1.player2;
+    const isPair2Complete = match.pair2.player1 && match.pair2.player2;
+    const canStart = isPair1Complete && isPair2Complete;
+
     return (
-      <div className="score-recorder scheduled">
+      <div className={`score-recorder scheduled ${!canStart ? 'tbd' : ''}`}>
         <div className="match-info">
           <h3>第{match.roundNumber}輪 - 第{match.pointNumber}點</h3>
           <div className="teams">
@@ -172,20 +199,45 @@ export const ScoreRecorder: React.FC<ScoreRecorderProps> = ({
         </div>
 
         <div className="players-info">
-          <div className="team-players">
+          <div className={`team-players ${!isPair1Complete ? 'tbd' : ''}`}>
             <h4>{match.team1}</h4>
-            <p>{match.pair1.player1.name} ({match.pair1.player1.age}歲 {match.pair1.player1.gender})</p>
-            <p>{match.pair1.player2.name} ({match.pair1.player2.age}歲 {match.pair1.player2.gender})</p>
+            {isPair1Complete ? (
+              <>
+                <p>{match.pair1.player1!.name} ({match.pair1.player1!.age}歲 {match.pair1.player1!.gender})</p>
+                <p>{match.pair1.player2!.name} ({match.pair1.player2!.age}歲 {match.pair1.player2!.gender})</p>
+              </>
+            ) : (
+              <div className="tbd-notice">
+                <span className="tbd-icon">⏳</span>
+                <span className="tbd-text">待定 (TBD)</span>
+                <span className="tbd-hint">選手尚未指派</span>
+              </div>
+            )}
           </div>
-          <div className="team-players">
+          <div className={`team-players ${!isPair2Complete ? 'tbd' : ''}`}>
             <h4>{match.team2}</h4>
-            <p>{match.pair2.player1.name} ({match.pair2.player1.age}歲 {match.pair2.player1.gender})</p>
-            <p>{match.pair2.player2.name} ({match.pair2.player2.age}歲 {match.pair2.player2.gender})</p>
+            {isPair2Complete ? (
+              <>
+                <p>{match.pair2.player1!.name} ({match.pair2.player1!.age}歲 {match.pair2.player1!.gender})</p>
+                <p>{match.pair2.player2!.name} ({match.pair2.player2!.age}歲 {match.pair2.player2!.gender})</p>
+              </>
+            ) : (
+              <div className="tbd-notice">
+                <span className="tbd-icon">⏳</span>
+                <span className="tbd-text">待定 (TBD)</span>
+                <span className="tbd-hint">選手尚未指派</span>
+              </div>
+            )}
           </div>
         </div>
 
-        <button className="btn-primary btn-large" onClick={startMatch}>
-          開始比賽
+        <button 
+          className="btn-primary btn-large" 
+          onClick={startMatch}
+          disabled={!canStart}
+          title={!canStart ? '請先指派所有選手才能開始比賽' : ''}
+        >
+          {canStart ? '開始比賽' : '⚠️ 選手未齊 - 無法開始'}
         </button>
       </div>
     );
@@ -203,7 +255,11 @@ export const ScoreRecorder: React.FC<ScoreRecorderProps> = ({
         <div className="team-control">
           <h4>{match.team1}</h4>
           <div className="players-compact">
-            <div>{match.pair1.player1.name} & {match.pair1.player2.name}</div>
+            <div>
+              {match.pair1.player1 && match.pair1.player2 
+                ? `${match.pair1.player1.name} & ${match.pair1.player2.name}` 
+                : 'TBD'}
+            </div>
           </div>
           <div className="score-display-large">{match.team1Games}</div>
           <div className="control-buttons">
@@ -221,7 +277,11 @@ export const ScoreRecorder: React.FC<ScoreRecorderProps> = ({
         <div className="team-control">
           <h4>{match.team2}</h4>
           <div className="players-compact">
-            <div>{match.pair2.player1.name} & {match.pair2.player2.name}</div>
+            <div>
+              {match.pair2.player1 && match.pair2.player2 
+                ? `${match.pair2.player1.name} & ${match.pair2.player2.name}` 
+                : 'TBD'}
+            </div>
           </div>
           <div className="score-display-large">{match.team2Games}</div>
           <div className="control-buttons">

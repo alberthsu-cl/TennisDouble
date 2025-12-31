@@ -6,6 +6,7 @@ interface MatchListProps {
   matches: Match[];
   onUpdateScore: (match: Match) => void;
   onCompleteMatch: (match: Match) => void;
+  onResetMatch: (match: Match) => void;
   filterRound?: number;
   filterTeam?: TeamName;
   filterStatus?: 'all' | 'scheduled' | 'in-progress' | 'completed';
@@ -15,6 +16,7 @@ export const MatchList: React.FC<MatchListProps> = ({
   matches,
   onUpdateScore,
   onCompleteMatch,
+  onResetMatch,
   filterRound,
   filterTeam,
   filterStatus = 'all',
@@ -81,6 +83,7 @@ export const MatchList: React.FC<MatchListProps> = ({
                           match={match}
                           onUpdateScore={onUpdateScore}
                           onCompleteMatch={onCompleteMatch}
+                          onResetMatch={onResetMatch}
                         />
                       </div>
                     ))}

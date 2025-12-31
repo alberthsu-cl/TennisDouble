@@ -77,8 +77,8 @@ export const Standings: React.FC<StandingsProps> = ({ matches, players, settings
         matches.forEach(match => {
           if (match.status !== 'completed') return;
 
-          const isInPair1 = match.pair1.player1.id === player.id || match.pair1.player2.id === player.id;
-          const isInPair2 = match.pair2.player1.id === player.id || match.pair2.player2.id === player.id;
+          const isInPair1 = match.pair1.player1?.id === player.id || match.pair1.player2?.id === player.id;
+          const isInPair2 = match.pair2.player1?.id === player.id || match.pair2.player2?.id === player.id;
 
           if (isInPair1) {
             gamesWon += match.team1Games;
