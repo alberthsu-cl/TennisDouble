@@ -4,8 +4,9 @@ import type { Player, TeamName, PointType, Match, TournamentSettings } from '../
 interface ManualMatchSetupProps {
   players: Player[];
   settings: TournamentSettings;
+  existingMatches?: Match[];
   onGenerateMatches: (matches: Match[]) => void;
-  onBack: () => void;
+  onCancel: () => void;
 }
 
 interface MatchAssignment {
@@ -36,8 +37,9 @@ interface SavedTemplate {
 export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
   players,
   settings,
+  existingMatches,
   onGenerateMatches,
-  onBack,
+  onCancel,
 }) => {
   const [currentRound, setCurrentRound] = useState(1);
   const [assignments, setAssignments] = useState<MatchAssignment[]>([]);
@@ -58,23 +60,40 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
     ];
 
     const initialAssignments: MatchAssignment[] = [];
-    for (let round = 1; round <= settings.totalRounds; round++) {
-      matchups.forEach(([team1, team2]) => {
-        for (let point = 1; point <= settings.pointsPerRound; point++) {
-          initialAssignments.push({
-            id: `R${round}-${team1}-${team2}-P${point}`,
-            roundNumber: round,
-            pointNumber: point,
-            team1,
-            team2,
-            pair1: [null, null],
-            pair2: [null, null],
-          });
-        }
+    
+    // If there are existing matches, load them into assignments
+    if (existingMatches && existingMatches.length > 0) {
+      existingMatches.forEach(match => {
+        initialAssignments.push({
+          id: match.id,
+          roundNumber: match.roundNumber,
+          pointNumber: match.pointNumber,
+          team1: match.team1,
+          team2: match.team2,
+          pair1: [match.pair1.player1, match.pair1.player2],
+          pair2: [match.pair2.player1, match.pair2.player2],
+        });
       });
+    } else {
+      // Otherwise create new empty assignments
+      for (let round = 1; round <= settings.totalRounds; round++) {
+        matchups.forEach(([team1, team2]) => {
+          for (let point = 1; point <= settings.pointsPerRound; point++) {
+            initialAssignments.push({
+              id: `R${round}-${team1}-${team2}-P${point}`,
+              roundNumber: round,
+              pointNumber: point,
+              team1,
+              team2,
+              pair1: [null, null],
+              pair2: [null, null],
+            });
+          }
+        });
+      }
     }
     setAssignments(initialAssignments);
-  }, [settings.totalRounds, settings.pointsPerRound]);
+  }, [settings.totalRounds, settings.pointsPerRound, existingMatches]);
 
   // 載入儲存的範本
   useEffect(() => {
@@ -539,6 +558,14 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
                     <div className="pair-setup">
                       <div className="team-pair-setup">
                         <h5>{team1}</h5>
+                        {existingMatches && (
+                          <div className="current-assignment">
+                            <span className="assignment-label">目前配對：</span>
+                            <span className="assignment-players">
+                              {match.pair1[0]?.name || 'TBD'} & {match.pair1[1]?.name || 'TBD'}
+                            </span>
+                          </div>
+                        )}
                         <div className="player-selects">
                           <select
                             value={match.pair1[0]?.id || ''}
@@ -574,6 +601,14 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
 
                       <div className="team-pair-setup">
                         <h5>{team2}</h5>
+                        {existingMatches && (
+                          <div className="current-assignment">
+                            <span className="assignment-label">目前配對：</span>
+                            <span className="assignment-players">
+                              {match.pair2[0]?.name || 'TBD'} & {match.pair2[1]?.name || 'TBD'}
+                            </span>
+                          </div>
+                        )}
                         <div className="player-selects">
                           <select
                             value={match.pair2[0]?.id || ''}
@@ -614,8 +649,8 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
       </div>
 
       <div className="setup-actions">
-        <button className="btn-secondary" onClick={onBack}>
-          返回
+        <button className="btn-secondary" onClick={onCancel}>
+          {existingMatches ? '返回比賽列表' : '返回'}
         </button>
         {currentRound < settings.totalRounds ? (
           <button className="btn-primary" onClick={handleNextRound}>
@@ -623,7 +658,7 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
           </button>
         ) : (
           <button className="btn-primary btn-large" onClick={handleFinishSetup}>
-            完成配對並開始賽事
+            {existingMatches ? '儲存調整' : '完成配對並開始賽事'}
           </button>
         )}
       </div>

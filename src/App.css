@@ -1516,10 +1516,17 @@ button {
 }
 
 .point-setup-card {
-  border: 2px solid #e0e0e0;
+  border: 2px solid #d1d5db;
   border-radius: 8px;
   padding: 1rem;
-  background: #f9f9f9;
+  background: white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  transition: all 0.2s ease;
+}
+
+.point-setup-card:hover {
+  border-color: #a5b4fc;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
 }
 
 .point-header {
@@ -1571,17 +1578,58 @@ button {
 
 .player-selects select {
   padding: 0.5rem;
-  border: 1px solid #ddd;
+  border: 2px solid #9ca3af;
   border-radius: 4px;
   font-size: 0.9rem;
   background: white;
   cursor: pointer;
+  transition: all 0.2s ease;
+  color: #1f2937;
+  font-weight: 500;
+  min-height: 38px;
+}
+
+.player-selects select option {
+  padding: 0.5rem;
+  background: white;
+  color: #1f2937;
+  font-size: 0.9rem;
+}
+
+.player-selects select option:hover {
+  background: #e5e7eb;
+}
+
+.player-selects select:hover {
+  border-color: #667eea;
+  background: #f8f9ff;
 }
 
 .player-selects select:focus {
   outline: none;
   border-color: #667eea;
-  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.25);
+  background: white;
+}
+
+.current-assignment {
+  margin-bottom: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  background: #fef3c7;
+  border-left: 3px solid #f59e0b;
+  border-radius: 4px;
+  font-size: 0.85rem;
+}
+
+.assignment-label {
+  color: #92400e;
+  font-weight: 600;
+  margin-right: 0.5rem;
+}
+
+.assignment-players {
+  color: #78350f;
+  font-weight: 500;
 }
 
 .pair-info {

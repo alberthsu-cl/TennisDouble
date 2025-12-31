@@ -749,6 +749,9 @@ function App() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <h2 style={{ margin: 0 }}>比賽列表</h2>
               <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button className="btn-primary" onClick={() => setCurrentView('manual-setup')}>
+                  ✏️ 手動調整
+                </button>
                 <button className="btn-secondary" onClick={() => {
                   const format = prompt('選擇匯出格式：\n1 - Excel\n2 - JSON', '1');
                   if (format === '1') {
@@ -829,8 +832,9 @@ function App() {
           <ManualMatchSetup
             players={players}
             settings={settings}
+            existingMatches={tournamentStarted ? matches : undefined}
             onGenerateMatches={handleManualMatchesGenerated}
-            onBack={() => setCurrentView('setup')}
+            onCancel={() => setCurrentView(tournamentStarted ? 'matches' : 'setup')}
           />
         )}
       </main>
