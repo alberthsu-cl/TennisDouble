@@ -250,21 +250,25 @@ export function validateSchedule(matches: Match[], players: Player[], settings: 
     matchesByRound.get(key)!.push(match);
   });
   
-  matchesByRound.forEach((roundMatches, key) => {
-    const sorted = roundMatches.filter(m => m.pointNumber <= 4).sort((a, b) => a.pointNumber - b.pointNumber);
-    for (let i = 1; i < sorted.length; i++) {
-      if (sorted[i].pair1.totalAge <= sorted[i-1].pair1.totalAge) {
-        errors.push(`${key}: 第${sorted[i].pointNumber}點年齡未遞增`);
+  // 檢查規則約束（如果啟用）
+  if (settings.enforceRules) {
+    // 檢查年齡遞增規則
+    matchesByRound.forEach((roundMatches, key) => {
+      const sorted = roundMatches.filter(m => m.pointNumber <= 4).sort((a, b) => a.pointNumber - b.pointNumber);
+      for (let i = 1; i < sorted.length; i++) {
+        if (sorted[i].pair1.totalAge <= sorted[i-1].pair1.totalAge) {
+          errors.push(`${key}: 第${sorted[i].pointNumber}點年齡未遞增`);
+        }
       }
-    }
-  });
-  
-  // 檢查最後一點是否為混雙或女雙
-  matches.filter(m => m.pointNumber === settings.pointsPerRound).forEach(match => {
-    if (!isValidLastPointPair(match.pair1) || !isValidLastPointPair(match.pair2)) {
-      errors.push(`${match.id}: 第${settings.pointsPerRound}點必須為混雙或女雙`);
-    }
-  });
+    });
+    
+    // 檢查最後一點是否為混雙或女雙
+    matches.filter(m => m.pointNumber === settings.pointsPerRound).forEach(match => {
+      if (!isValidLastPointPair(match.pair1) || !isValidLastPointPair(match.pair2)) {
+        errors.push(`${match.id}: 第${settings.pointsPerRound}點必須為混雙或女雙`);
+      }
+    });
+  }
   
   return errors;
 }

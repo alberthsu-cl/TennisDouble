@@ -141,8 +141,8 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
           errors.push(`${matchup} 第${match.pointNumber}點 ${match.team2}未配對完成`);
         }
 
-        // 檢查最後一點是否為混雙或女雙
-        if (match.pointNumber === settings.pointsPerRound) {
+        // 檢查最後一點是否為混雙或女雙（如果啟用規則約束）
+        if (settings.enforceRules && match.pointNumber === settings.pointsPerRound) {
           if (match.pair1[0] && match.pair1[1]) {
             const isValid = 
               (match.pair1[0].gender === '女' && match.pair1[1].gender === '女') ||
@@ -162,25 +162,27 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
         }
       });
 
-      // 檢查年齡遞增（第1到倒數第2點）
-      const sortedMatches = matches.filter(m => m.pointNumber < settings.pointsPerRound).sort((a, b) => a.pointNumber - b.pointNumber);
-      for (let i = 1; i < sortedMatches.length; i++) {
-        const prevMatch = sortedMatches[i - 1];
-        const currMatch = sortedMatches[i];
-        
-        if (prevMatch.pair1[0] && prevMatch.pair1[1] && currMatch.pair1[0] && currMatch.pair1[1]) {
-          const prevAge = prevMatch.pair1[0].age + prevMatch.pair1[1].age;
-          const currAge = currMatch.pair1[0].age + currMatch.pair1[1].age;
-          if (currAge <= prevAge) {
-            errors.push(`${matchup} ${currMatch.team1} 第${currMatch.pointNumber}點年齡未遞增`);
+      // 檢查年齡遞增（第1到倒數第2點）（如果啟用規則約束）
+      if (settings.enforceRules) {
+        const sortedMatches = matches.filter(m => m.pointNumber < settings.pointsPerRound).sort((a, b) => a.pointNumber - b.pointNumber);
+        for (let i = 1; i < sortedMatches.length; i++) {
+          const prevMatch = sortedMatches[i - 1];
+          const currMatch = sortedMatches[i];
+          
+          if (prevMatch.pair1[0] && prevMatch.pair1[1] && currMatch.pair1[0] && currMatch.pair1[1]) {
+            const prevAge = prevMatch.pair1[0].age + prevMatch.pair1[1].age;
+            const currAge = currMatch.pair1[0].age + currMatch.pair1[1].age;
+            if (currAge <= prevAge) {
+              errors.push(`${matchup} ${currMatch.team1} 第${currMatch.pointNumber}點年齡未遞增`);
+            }
           }
-        }
-        
-        if (prevMatch.pair2[0] && prevMatch.pair2[1] && currMatch.pair2[0] && currMatch.pair2[1]) {
-          const prevAge = prevMatch.pair2[0].age + prevMatch.pair2[1].age;
-          const currAge = currMatch.pair2[0].age + currMatch.pair2[1].age;
-          if (currAge <= prevAge) {
-            errors.push(`${matchup} ${currMatch.team2} 第${currMatch.pointNumber}點年齡未遞增`);
+          
+          if (prevMatch.pair2[0] && prevMatch.pair2[1] && currMatch.pair2[0] && currMatch.pair2[1]) {
+            const prevAge = prevMatch.pair2[0].age + prevMatch.pair2[1].age;
+            const currAge = currMatch.pair2[0].age + currMatch.pair2[1].age;
+            if (currAge <= prevAge) {
+              errors.push(`${matchup} ${currMatch.team2} 第${currMatch.pointNumber}點年齡未遞增`);
+            }
           }
         }
       }
@@ -523,7 +525,7 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
                   <div key={match.id} className="point-setup-card">
                     <div className="point-header">
                       <span className="point-badge">第 {match.pointNumber} 點</span>
-                      {match.pointNumber === settings.pointsPerRound && (
+                      {settings.enforceRules && match.pointNumber === settings.pointsPerRound && (
                         <span className="rule-hint">混雙或女雙</span>
                       )}
                     </div>

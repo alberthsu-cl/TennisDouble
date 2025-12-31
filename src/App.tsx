@@ -27,6 +27,7 @@ function App() {
     pointsPerRound: 5,
     totalRounds: 3,
     minMatchesPerPlayer: 2,
+    enforceRules: true,
   });
 
   // 從 localStorage 載入資料
@@ -555,7 +556,21 @@ function App() {
             
             <h2>賽事規則說明</h2>
             <div className="rules-box">
-              <h3>本次會內賽比賽規則：</h3>
+              <div className="rules-header">
+                <h3>本次會內賽比賽規則：</h3>
+                <div className="rules-toggle">
+                  <label>規則約束：</label>
+                  <button
+                    className={`btn-toggle ${settings.enforceRules ? 'active' : ''}`}
+                    onClick={() => setSettings({ ...settings, enforceRules: !settings.enforceRules })}
+                  >
+                    <span className="toggle-slider">
+                      {settings.enforceRules ? '✓' : '✕'}
+                    </span>
+                    <span className="toggle-label">{settings.enforceRules ? 'ON' : 'OFF'}</span>
+                  </button>
+                </div>
+              </div>
               <ul>
                 <li>參賽共{settings.playersPerTeam * 4}名，分成四隊：每隊{settings.playersPerTeam}人</li>
                 <li>打{settings.pointsPerRound}點雙打：

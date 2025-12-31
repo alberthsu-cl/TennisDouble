@@ -69,6 +69,7 @@ export interface TournamentSettings {
   pointsPerRound: number;      // 每輪點數 (default: 5)
   totalRounds: number;         // 總輪數 (default: 3)
   minMatchesPerPlayer: number; // 每人最少出賽場次（動態計算）
+  enforceRules: boolean;       // 是否強制執行規則約束 (default: true)
 }
 
 // 賽程設定

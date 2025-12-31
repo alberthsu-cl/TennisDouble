@@ -187,6 +187,78 @@
   cursor: not-allowed;
 }
 
+.toggle-control {
+  display: flex;
+  justify-content: center;
+  margin: 0.5rem 0;
+}
+
+.btn-toggle {
+  position: relative;
+  width: 140px;
+  height: 56px;
+  background: #e74c3c;
+  border: 3px solid #c0392b;
+  border-radius: 28px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.btn-toggle:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  transform: scale(1.02);
+}
+
+.btn-toggle.active {
+  background: #27ae60;
+  border-color: #229954;
+}
+
+.toggle-slider {
+  position: absolute;
+  top: 5px;
+  left: 5px;
+  width: 42px;
+  height: 42px;
+  background: white;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #e74c3c;
+}
+
+.btn-toggle.active .toggle-slider {
+  transform: translateX(84px);
+  color: #27ae60;
+}
+
+.toggle-label {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 1rem;
+  font-weight: bold;
+  color: white;
+  transition: all 0.3s ease;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.btn-toggle .toggle-label {
+  right: 18px;
+}
+
+.btn-toggle.active .toggle-label {
+  left: 18px;
+}
+
 .setting-item input[type="number"] {
   flex: 1;
   padding: 0.75rem;
@@ -249,9 +321,40 @@
   color: #333;
 }
 
+.rules-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.rules-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.rules-toggle label {
+  font-weight: 600;
+  color: #667eea;
+  font-size: 1.1rem;
+}
+
+.toggle-description {
+  font-size: 1rem;
+  color: #333;
+  font-weight: 600;
+  padding: 0.5rem 1rem;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 6px;
+  border-left: 4px solid currentColor;
+}
+
 .rules-box h3 {
   margin-top: 0;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0;
   color: #667eea;
 }
 
@@ -1611,6 +1714,17 @@ button {
 
   .setting-item input[type="number"] {
     font-size: 1.4rem;
+  }
+
+  /* Rules header mobile optimization */
+  .rules-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .rules-toggle {
+    width: 100%;
+    justify-content: space-between;
   }
 }
 
