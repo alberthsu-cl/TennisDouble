@@ -1,6 +1,18 @@
 import type { Player, TeamName, SkillLevel } from '../types';
 
 /**
+ * Fisher-Yates shuffle algorithm for randomization
+ */
+function shuffleArray<T>(array: T[]): T[] {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
+
+/**
  * 生成示範選手資料
  * @param playersPerTeam 每隊人數（默認10人）
  */
@@ -72,11 +84,14 @@ export function generateDemoPlayers(playersPerTeam: number = 10): Player[] {
     });
   }
   
+  // 隨機打亂所有選手，確保每次載入示範資料都有不同的分組結果
+  const shuffledAllPlayers = shuffleArray(allPlayers);
+  
   // 平均分配到四隊（確保每隊正好有 playersPerTeam 人）
   const teamAssignments: Player[][] = [[], [], [], []];
   
   // Round-robin 分配所有選手，確保每隊人數相同
-  allPlayers.forEach((player, index) => {
+  shuffledAllPlayers.forEach((player, index) => {
     const teamIndex = index % 4;
     teamAssignments[teamIndex].push({
       ...player,

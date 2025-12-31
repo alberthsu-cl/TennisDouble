@@ -12,6 +12,46 @@ import { generateFullSchedule } from './utils/scheduleGenerator';
 import { generateDemoPlayers } from './utils/demoData';
 import './App.css';
 
+// Fisher-Yates shuffle for randomization
+const shuffleArray = <T,>(array: T[]): T[] => {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+};
+
+// Auto-distribute players to teams evenly
+const autoDistributeTeams = (players: Player[]): Player[] => {
+  const teams: TeamName[] = ['甲隊', '乙隊', '丙隊', '丁隊'];
+  const teamMap: { [key: string]: TeamName } = {
+    'A1': '甲隊', 'A2': '甲隊',
+    'B1': '乙隊', 'B2': '乙隊',
+    'C1': '丙隊', 'C2': '丙隊',
+    'D1': '丁隊', 'D2': '丁隊',
+  };
+  
+  // Separate captains and regular players
+  const captains = players.filter(p => p.groupTag && teamMap[p.groupTag]);
+  const regularPlayers = players.filter(p => !p.groupTag || !teamMap[p.groupTag]);
+  
+  // Assign captains to their designated teams
+  captains.forEach(captain => {
+    if (captain.groupTag && teamMap[captain.groupTag]) {
+      captain.team = teamMap[captain.groupTag];
+    }
+  });
+  
+  // Shuffle regular players and distribute evenly
+  const shuffledRegular = shuffleArray(regularPlayers);
+  shuffledRegular.forEach((player, index) => {
+    player.team = teams[index % 4];
+  });
+  
+  return [...captains, ...shuffledRegular];
+};
+
 type View = 'setup' | 'players' | 'matches' | 'standings' | 'manual-setup';
 
 function App() {
@@ -234,6 +274,7 @@ function App() {
       if (!confirmed) return;
     }
     const demoPlayers = generateDemoPlayers(settings.playersPerTeam);
+    // Demo data is already randomized in generateDemoPlayers
     setPlayers(demoPlayers);
     await modal.showAlert(`已載入${demoPlayers.length}名示範選手！請到「選手管理」查看或前往「賽事設定」開始賽事。`);
   };
@@ -248,7 +289,12 @@ function App() {
             const confirmed = await modal.showConfirm('這將覆蓋現有選手資料，確定要從檔案載入示範資料嗎？');
             if (!confirmed) return;
           }
-          setPlayers(imported);
+          // Check if any player has team assigned
+          const hasTeamAssigned = imported.some(p => p.team && p.team !== '甲隊');
+          
+          // If no teams assigned, auto-distribute; otherwise shuffle with existing teams
+          const finalPlayers = hasTeamAssigned ? shuffleArray(imported) : autoDistributeTeams(imported);
+          setPlayers(finalPlayers);
           await modal.showAlert(`成功從檔案載入 ${imported.length} 名示範選手！`);
         } else {
           await modal.showAlert('無效的示範資料格式');
@@ -276,8 +322,8 @@ function App() {
           age: parseInt(row['年齡']) || 25,
           gender: (row['性別'] === '女' ? '女' : '男') as Gender,
           skillLevel: (row['技術等級'] || 'B') as SkillLevel,
-          team: (row['隊伍'] || '甲隊') as TeamName,
-          matchesPlayed: parseInt(row['已出賽']) || 0,
+          team: row['隊伍'] ? (row['隊伍'] as TeamName) : '甲隊', // Temporary assignment
+          matchesPlayed: 0,
           groupTag: row['分組標籤'] ? String(row['分組標籤']).trim() : undefined,
         }));
         
@@ -286,7 +332,12 @@ function App() {
             const confirmed = await modal.showConfirm('這將覆蓋現有選手資料，確定要從Excel載入示範資料嗎？');
             if (!confirmed) return;
           }
-          setPlayers(imported);
+          // Check if any player has team assigned
+          const hasTeamAssigned = imported.some(p => jsonData[imported.indexOf(p)]['隊伍']);
+          
+          // If no teams assigned, auto-distribute; otherwise shuffle with existing teams
+          const finalPlayers = hasTeamAssigned ? shuffleArray(imported) : autoDistributeTeams(imported);
+          setPlayers(finalPlayers);
           await modal.showAlert(`成功從Excel載入 ${imported.length} 名示範選手！`);
         } else {
           await modal.showAlert('無效的Excel資料格式');
@@ -310,8 +361,6 @@ function App() {
   };
 
   const handleExportPlayersExcel = async () => {
-    const shouldResetMatches = await modal.showConfirm('是否將「已出賽」重置為0？\n\n點擊「確定」將匯出範本資料（已出賽=0）\n點擊「取消」將匯出目前實際資料');
-    
     const exportData = players.map(p => ({
       '姓名': p.name,
       '年齡': p.age,
@@ -319,7 +368,6 @@ function App() {
       '技術等級': p.skillLevel,
       '隊伍': p.team,
       '分組標籤': p.groupTag || '',
-      '已出賽': shouldResetMatches ? 0 : (p.matchesPlayed || 0),
     }));
     
     const ws = XLSX.utils.json_to_sheet(exportData);
@@ -367,7 +415,7 @@ function App() {
           gender: (row['性別'] === '女' ? '女' : '男') as Gender,
           skillLevel: (row['技術等級'] || 'B') as SkillLevel,
           team: (row['隊伍'] || '甲隊') as TeamName,
-          matchesPlayed: parseInt(row['已出賽']) || 0,
+          matchesPlayed: 0,
           groupTag: row['分組標籤'] ? String(row['分組標籤']).trim() : undefined,
         }));
         
