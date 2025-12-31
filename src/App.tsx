@@ -455,37 +455,85 @@ function App() {
               <div className="settings-grid">
                   <div className="setting-item">
                     <label>每隊人數(至少)：</label>
-                    <input
-                      type="number"
-                      min="4"
-                      max="20"
-                      value={settings.playersPerTeam}
-                      onChange={(e) => setSettings({ ...settings, playersPerTeam: parseInt(e.target.value) || 10 })}
-                    />
+                    <div className="setting-control">
+                      <button 
+                        className="btn-adjust"
+                        onClick={() => setSettings({ ...settings, playersPerTeam: Math.max(4, settings.playersPerTeam - 1) })}
+                        disabled={settings.playersPerTeam <= 4}
+                      >
+                        −
+                      </button>
+                      <input
+                        type="number"
+                        min="4"
+                        max="20"
+                        value={settings.playersPerTeam}
+                        onChange={(e) => setSettings({ ...settings, playersPerTeam: parseInt(e.target.value) || 10 })}
+                      />
+                      <button 
+                        className="btn-adjust"
+                        onClick={() => setSettings({ ...settings, playersPerTeam: Math.min(20, settings.playersPerTeam + 1) })}
+                        disabled={settings.playersPerTeam >= 20}
+                      >
+                        +
+                      </button>
+                    </div>
                     <span className="setting-note">總人數: {settings.playersPerTeam * 4}</span>
                   </div>
                   
                   <div className="setting-item">
                     <label>每輪點數：</label>
-                    <input
-                      type="number"
-                      min="3"
-                      max="10"
-                      value={settings.pointsPerRound}
-                      onChange={(e) => setSettings({ ...settings, pointsPerRound: parseInt(e.target.value) || 5 })}
-                    />
+                    <div className="setting-control">
+                      <button 
+                        className="btn-adjust"
+                        onClick={() => setSettings({ ...settings, pointsPerRound: Math.max(3, settings.pointsPerRound - 1) })}
+                        disabled={settings.pointsPerRound <= 3}
+                      >
+                        −
+                      </button>
+                      <input
+                        type="number"
+                        min="3"
+                        max="10"
+                        value={settings.pointsPerRound}
+                        onChange={(e) => setSettings({ ...settings, pointsPerRound: parseInt(e.target.value) || 5 })}
+                      />
+                      <button 
+                        className="btn-adjust"
+                        onClick={() => setSettings({ ...settings, pointsPerRound: Math.min(10, settings.pointsPerRound + 1) })}
+                        disabled={settings.pointsPerRound >= 10}
+                      >
+                        +
+                      </button>
+                    </div>
                     <span className="setting-note">每場對戰打幾點</span>
                   </div>
                   
                   <div className="setting-item">
                     <label>總輪數：</label>
-                    <input
-                      type="number"
-                      min="1"
-                      max="5"
-                      value={settings.totalRounds}
-                      onChange={(e) => setSettings({ ...settings, totalRounds: parseInt(e.target.value) || 3 })}
-                    />
+                    <div className="setting-control">
+                      <button 
+                        className="btn-adjust"
+                        onClick={() => setSettings({ ...settings, totalRounds: Math.max(1, settings.totalRounds - 1) })}
+                        disabled={settings.totalRounds <= 1}
+                      >
+                        −
+                      </button>
+                      <input
+                        type="number"
+                        min="1"
+                        max="5"
+                        value={settings.totalRounds}
+                        onChange={(e) => setSettings({ ...settings, totalRounds: parseInt(e.target.value) || 3 })}
+                      />
+                      <button 
+                        className="btn-adjust"
+                        onClick={() => setSettings({ ...settings, totalRounds: Math.min(5, settings.totalRounds + 1) })}
+                        disabled={settings.totalRounds >= 5}
+                      >
+                        +
+                      </button>
+                    </div>
                     <span className="setting-note">全部打幾輪</span>
                   </div>
                   

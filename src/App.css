@@ -150,8 +150,45 @@
   font-size: 1.1rem;
 }
 
+.setting-control {
+  display: flex;
+  gap: 0.5rem;
+  align-items: stretch;
+}
+
+.btn-adjust {
+  flex: 0 0 50px;
+  padding: 0.75rem;
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  border-radius: 8px;
+  font-size: 1.5rem;
+  font-weight: bold;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn-adjust:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: white;
+  transform: scale(1.05);
+}
+
+.btn-adjust:active:not(:disabled) {
+  transform: scale(0.95);
+  background: rgba(255, 255, 255, 0.4);
+}
+
+.btn-adjust:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
 .setting-item input[type="number"] {
-  width: 100%;
+  flex: 1;
   padding: 0.75rem;
   border: 2px solid rgba(255, 255, 255, 0.3);
   border-radius: 6px;
@@ -1559,6 +1596,21 @@ button {
   .template-dialog {
     width: 95%;
     padding: 1.5rem;
+  }
+
+  /* Settings panel mobile optimization */
+  .settings-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .btn-adjust {
+    flex: 0 0 60px;
+    font-size: 1.8rem;
+    padding: 1rem;
+  }
+
+  .setting-item input[type="number"] {
+    font-size: 1.4rem;
   }
 }
 
