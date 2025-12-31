@@ -1,6 +1,18 @@
 import type { Player, TeamName, Pair, Match, PointType, TournamentSettings } from '../types';
 
 /**
+ * Fisher-Yates shuffle algorithm for randomization
+ */
+function shuffleArray<T>(array: T[]): T[] {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
+
+/**
  * 生成所有可能的雙打配對
  */
 export function generatePairs(players: Player[]): Pair[] {
@@ -55,7 +67,9 @@ function findPairForPoint(
   settings: TournamentSettings,
   scheduledMatches: Map<string, number>
 ): Pair | null {
-  const availablePlayers = teamPlayers.filter(p => canPlayMore(p, settings.minMatchesPerPlayer, scheduledMatches));
+  // Shuffle players to randomize pairing priority
+  const shuffledPlayers = shuffleArray(teamPlayers);
+  const availablePlayers = shuffledPlayers.filter(p => canPlayMore(p, settings.minMatchesPerPlayer, scheduledMatches));
   const allPairs = generatePairs(availablePlayers);
   
   // 根據點數過濾配對
@@ -80,6 +94,16 @@ function findPairForPoint(
       const maxExistingAge = Math.max(...existingPairs.map(p => p.totalAge));
       validPairs = validPairs.filter(p => p.totalAge > maxExistingAge);
     }
+    
+    // 從符合年齡條件的前N個配對中隨機選擇，確保公平性
+    if (validPairs.length > 0) {
+      const topCandidates = validPairs.slice(0, Math.min(5, validPairs.length));
+      const randomIndex = Math.floor(Math.random() * topCandidates.length);
+      return topCandidates[randomIndex];
+    }
+  } else {
+    // 最後一點（混雙或女雙）：從所有符合規則的配對中隨機選擇
+    validPairs = shuffleArray(validPairs);
   }
   
   return validPairs[0] || null;
