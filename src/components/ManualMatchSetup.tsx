@@ -7,6 +7,7 @@ interface ManualMatchSetupProps {
   existingMatches?: Match[];
   onGenerateMatches: (matches: Match[]) => void;
   onCancel: () => void;
+  showSensitiveInfo?: boolean;
 }
 
 interface MatchAssignment {
@@ -40,6 +41,7 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
   existingMatches,
   onGenerateMatches,
   onCancel,
+  showSensitiveInfo = true,
 }) => {
   const [currentRound, setCurrentRound] = useState(1);
   const [assignments, setAssignments] = useState<MatchAssignment[]>([]);
@@ -47,6 +49,7 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
   const [templateName, setTemplateName] = useState('');
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [showLoadDialog, setShowLoadDialog] = useState(false);
+  const [selectedTeam, setSelectedTeam] = useState<TeamName | 'all'>('all');
 
   // 初始化所有對戰組合
   useEffect(() => {
@@ -462,6 +465,25 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
             </button>
           ))}
         </div>
+
+        {/* 隊伍篩選按鈕 */}
+        <div className="team-filter">
+          <button
+            className={`filter-btn ${selectedTeam === 'all' ? 'active' : ''}`}
+            onClick={() => setSelectedTeam('all')}
+          >
+            顯示全部
+          </button>
+          {(['甲隊', '乙隊', '丙隊', '丁隊'] as const).map(team => (
+            <button
+              key={team}
+              className={`filter-btn ${selectedTeam === team ? 'active' : ''}`}
+              onClick={() => setSelectedTeam(team)}
+            >
+              {team}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* 儲存範本對話框 */}
@@ -536,116 +558,211 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
       )}
 
       <div className="matchups-container">
-        {Array.from(matchupGroups.entries()).map(([matchup, matches]) => {
-          const [team1, team2] = matchup.split('-') as [TeamName, TeamName];
-          const team1Players = getTeamPlayers(team1);
-          const team2Players = getTeamPlayers(team2);
+        {selectedTeam !== 'all' ? (
+          // Privacy-focused view: show only selected team's assignments
+          <div className="team-focused-view">
+            <h3>{selectedTeam} 配對設定</h3>
+            
+            {/* Group assignments by opponent team */}
+            {Array.from(matchupGroups.entries())
+              .filter(([matchup]) => matchup.includes(selectedTeam))
+              .map(([matchup, matches]) => {
+                const [team1, team2] = matchup.split('-') as [TeamName, TeamName];
+                const isSelectedTeam1 = team1 === selectedTeam;
+                const teamPlayers = getTeamPlayers(selectedTeam);
+                const opponentTeam = isSelectedTeam1 ? team2 : team1;
 
-          return (
-            <div key={matchup} className="matchup-setup-section">
-              <h3>{matchup}</h3>
-              
-              <div className="points-setup-grid">
-                {matches.sort((a, b) => a.pointNumber - b.pointNumber).map(match => (
-                  <div key={match.id} className="point-setup-card">
-                    <div className="point-header">
-                      <span className="point-badge">第 {match.pointNumber} 點</span>
-                      {settings.enforceRules && match.pointNumber === settings.pointsPerRound && (
-                        <span className="rule-hint">混雙或女雙</span>
-                      )}
-                    </div>
-
-                    <div className="pair-setup">
-                      <div className="team-pair-setup">
-                        <h5>{team1}</h5>
-                        {existingMatches && (
-                          <div className="current-assignment">
-                            <span className="assignment-label">目前配對：</span>
-                            <span className="assignment-players">
-                              {match.pair1[0]?.name || 'TBD'} & {match.pair1[1]?.name || 'TBD'}
-                            </span>
+                return (
+                  <div key={matchup} className="team-matchup-section">
+                    <h4>對戰 {opponentTeam}</h4>
+                    
+                    <div className="points-list">
+                      {matches.sort((a, b) => a.pointNumber - b.pointNumber).map(match => {
+                        const currentPair = isSelectedTeam1 ? match.pair1 : match.pair2;
+                        
+                        return (
+                          <div key={match.id} className="point-assignment">
+                            <div className="point-info">
+                              <span className="point-badge">第 {match.pointNumber} 點</span>
+                              {settings.enforceRules && match.pointNumber === settings.pointsPerRound && (
+                                <span className="rule-hint">混雙或女雙</span>
+                              )}
+                            </div>
+                            
+                            <div className="team-players-only">
+                              {existingMatches && (
+                                <div className="current-assignment">
+                                  <span className="assignment-label">目前配對：</span>
+                                  <span className="assignment-players">
+                                    {currentPair[0]?.name || 'TBD'} & {currentPair[1]?.name || 'TBD'}
+                                  </span>
+                                </div>
+                              )}
+                              
+                              <div className="player-selects">
+                                <select
+                                  value={currentPair[0]?.id || ''}
+                                  onChange={(e) => updateAssignment(
+                                    match.id,
+                                    isSelectedTeam1 ? 'pair1' : 'pair2',
+                                    0,
+                                    e.target.value || null
+                                  )}
+                                >
+                                  <option value="">選擇選手1</option>
+                                  {teamPlayers.map(p => (
+                                    <option key={p.id} value={p.id}>
+                                      {p.name} ({showSensitiveInfo && `${p.age}歲 `}{p.gender})
+                                    </option>
+                                  ))}
+                                </select>
+                                <select
+                                  value={currentPair[1]?.id || ''}
+                                  onChange={(e) => updateAssignment(
+                                    match.id,
+                                    isSelectedTeam1 ? 'pair1' : 'pair2',
+                                    1,
+                                    e.target.value || null
+                                  )}
+                                >
+                                  <option value="">選擇選手2</option>
+                                  {teamPlayers.map(p => (
+                                    <option key={p.id} value={p.id}>
+                                      {p.name} ({showSensitiveInfo && `${p.age}歲 `}{p.gender})
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                              
+                              {currentPair[0] && currentPair[1] && (
+                                <div className="pair-info">
+                                  總年齡: {currentPair[0].age + currentPair[1].age}
+                                </div>
+                              )}
+                            </div>
                           </div>
-                        )}
-                        <div className="player-selects">
-                          <select
-                            value={match.pair1[0]?.id || ''}
-                            onChange={(e) => updateAssignment(match.id, 'pair1', 0, e.target.value || null)}
-                          >
-                            <option value="">選擇選手1</option>
-                            {team1Players.map(p => (
-                              <option key={p.id} value={p.id}>
-                                {p.name} ({p.age}歲 {p.gender})
-                              </option>
-                            ))}
-                          </select>
-                          <select
-                            value={match.pair1[1]?.id || ''}
-                            onChange={(e) => updateAssignment(match.id, 'pair1', 1, e.target.value || null)}
-                          >
-                            <option value="">選擇選手2</option>
-                            {team1Players.map(p => (
-                              <option key={p.id} value={p.id}>
-                                {p.name} ({p.age}歲 {p.gender})
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        {match.pair1[0] && match.pair1[1] && (
-                          <div className="pair-info">
-                            總年齡: {match.pair1[0].age + match.pair1[1].age}
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="vs-divider">VS</div>
-
-                      <div className="team-pair-setup">
-                        <h5>{team2}</h5>
-                        {existingMatches && (
-                          <div className="current-assignment">
-                            <span className="assignment-label">目前配對：</span>
-                            <span className="assignment-players">
-                              {match.pair2[0]?.name || 'TBD'} & {match.pair2[1]?.name || 'TBD'}
-                            </span>
-                          </div>
-                        )}
-                        <div className="player-selects">
-                          <select
-                            value={match.pair2[0]?.id || ''}
-                            onChange={(e) => updateAssignment(match.id, 'pair2', 0, e.target.value || null)}
-                          >
-                            <option value="">選擇選手1</option>
-                            {team2Players.map(p => (
-                              <option key={p.id} value={p.id}>
-                                {p.name} ({p.age}歲 {p.gender})
-                              </option>
-                            ))}
-                          </select>
-                          <select
-                            value={match.pair2[1]?.id || ''}
-                            onChange={(e) => updateAssignment(match.id, 'pair2', 1, e.target.value || null)}
-                          >
-                            <option value="">選擇選手2</option>
-                            {team2Players.map(p => (
-                              <option key={p.id} value={p.id}>
-                                {p.name} ({p.age}歲 {p.gender})
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        {match.pair2[0] && match.pair2[1] && (
-                          <div className="pair-info">
-                            總年齡: {match.pair2[0].age + match.pair2[1].age}
-                          </div>
-                        )}
-                      </div>
+                        );
+                      })}
                     </div>
                   </div>
-                ))}
-              </div>
-            </div>
-          );
-        })}
+                );
+              })}
+          </div>
+        ) : (
+          // Full view: show all matchups with both teams
+          <>
+            {Array.from(matchupGroups.entries()).map(([matchup, matches]) => {
+              const [team1, team2] = matchup.split('-') as [TeamName, TeamName];
+              const team1Players = getTeamPlayers(team1);
+              const team2Players = getTeamPlayers(team2);
+
+              return (
+                <div key={matchup} className="matchup-setup-section">
+                  <h3>{matchup}</h3>
+                  
+                  <div className="points-setup-grid">
+                    {matches.sort((a, b) => a.pointNumber - b.pointNumber).map(match => (
+                      <div key={match.id} className="point-setup-card">
+                        <div className="point-header">
+                          <span className="point-badge">第 {match.pointNumber} 點</span>
+                          {settings.enforceRules && match.pointNumber === settings.pointsPerRound && (
+                            <span className="rule-hint">混雙或女雙</span>
+                          )}
+                        </div>
+
+                        <div className="pair-setup">
+                          <div className="team-pair-setup">
+                            <h5>{team1}</h5>
+                            {existingMatches && (
+                              <div className="current-assignment">
+                                <span className="assignment-label">目前配對：</span>
+                                <span className="assignment-players">
+                                  {match.pair1[0]?.name || 'TBD'} & {match.pair1[1]?.name || 'TBD'}
+                                </span>
+                              </div>
+                            )}
+                            <div className="player-selects">
+                              <select
+                                value={match.pair1[0]?.id || ''}
+                                onChange={(e) => updateAssignment(match.id, 'pair1', 0, e.target.value || null)}
+                              >
+                                <option value="">選擇選手1</option>
+                                {team1Players.map(p => (
+                                  <option key={p.id} value={p.id}>
+                                  {p.name} ({showSensitiveInfo && `${p.age}歲 `}{p.gender})
+                                  </option>
+                                ))}
+                              </select>
+                              <select
+                                value={match.pair1[1]?.id || ''}
+                                onChange={(e) => updateAssignment(match.id, 'pair1', 1, e.target.value || null)}
+                              >
+                                <option value="">選擇選手2</option>
+                                {team1Players.map(p => (
+                                  <option key={p.id} value={p.id}>
+                                  {p.name} ({showSensitiveInfo && `${p.age}歲 `}{p.gender})
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            {match.pair1[0] && match.pair1[1] && (
+                              <div className="pair-info">
+                                總年齡: {match.pair1[0].age + match.pair1[1].age}
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="vs-divider">VS</div>
+
+                          <div className="team-pair-setup">
+                            <h5>{team2}</h5>
+                            {existingMatches && (
+                              <div className="current-assignment">
+                                <span className="assignment-label">目前配對：</span>
+                                <span className="assignment-players">
+                                  {match.pair2[0]?.name || 'TBD'} & {match.pair2[1]?.name || 'TBD'}
+                                </span>
+                              </div>
+                            )}
+                            <div className="player-selects">
+                              <select
+                                value={match.pair2[0]?.id || ''}
+                                onChange={(e) => updateAssignment(match.id, 'pair2', 0, e.target.value || null)}
+                              >
+                                <option value="">選擇選手1</option>
+                                {team2Players.map(p => (
+                                  <option key={p.id} value={p.id}>
+                                  {p.name} ({showSensitiveInfo && `${p.age}歲 `}{p.gender})
+                                  </option>
+                                ))}
+                              </select>
+                              <select
+                                value={match.pair2[1]?.id || ''}
+                                onChange={(e) => updateAssignment(match.id, 'pair2', 1, e.target.value || null)}
+                              >
+                                <option value="">選擇選手2</option>
+                                {team2Players.map(p => (
+                                  <option key={p.id} value={p.id}>
+                                  {p.name} ({showSensitiveInfo && `${p.age}歲 `}{p.gender})
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            {match.pair2[0] && match.pair2[1] && (
+                              <div className="pair-info">
+                                總年齡: {match.pair2[0].age + match.pair2[1].age}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </>
+        )}
       </div>
 
       <div className="setup-actions">

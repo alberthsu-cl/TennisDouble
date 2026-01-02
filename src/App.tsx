@@ -897,6 +897,7 @@ function App() {
             existingMatches={tournamentStarted ? matches : undefined}
             onGenerateMatches={handleManualMatchesGenerated}
             onCancel={() => setCurrentView(tournamentStarted ? 'matches' : 'setup')}
+            showSensitiveInfo={showSensitiveInfo}
           />
         )}
       </main>
