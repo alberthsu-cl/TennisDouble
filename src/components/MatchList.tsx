@@ -10,6 +10,7 @@ interface MatchListProps {
   filterRound?: number;
   filterTeam?: TeamName;
   filterStatus?: 'all' | 'scheduled' | 'in-progress' | 'completed';
+  showSensitiveInfo?: boolean;
 }
 
 export const MatchList: React.FC<MatchListProps> = ({
@@ -20,6 +21,7 @@ export const MatchList: React.FC<MatchListProps> = ({
   filterRound,
   filterTeam,
   filterStatus = 'all',
+  showSensitiveInfo = true,
 }) => {
   // 過濾比賽
   const filteredMatches = matches.filter(match => {
@@ -84,6 +86,7 @@ export const MatchList: React.FC<MatchListProps> = ({
                           onUpdateScore={onUpdateScore}
                           onCompleteMatch={onCompleteMatch}
                           onResetMatch={onResetMatch}
+                          showSensitiveInfo={showSensitiveInfo}
                         />
                       </div>
                     ))}

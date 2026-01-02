@@ -62,6 +62,7 @@ function App() {
   const [filterRound, setFilterRound] = useState<number | undefined>(undefined);
   const [filterStatus, setFilterStatus] = useState<'all' | 'scheduled' | 'in-progress' | 'completed'>('all');
   const [showRulesModal, setShowRulesModal] = useState(false);
+  const [showSensitiveInfo, setShowSensitiveInfo] = useState(true);
   
   // Custom modal
   const modal = useModal();
@@ -542,6 +543,17 @@ function App() {
         >
           📋 規則說明
         </button>
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.9rem', cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={showSensitiveInfo}
+              onChange={(e) => setShowSensitiveInfo(e.target.checked)}
+              style={{ cursor: 'pointer' }}
+            />
+            🔒 顯示敏感資訊
+          </label>
+        </div>
       </nav>
 
       <main className="app-main">
@@ -789,6 +801,7 @@ function App() {
             onExportPlayersExcel={handleExportPlayersExcel}
             onImportPlayers={handleImportPlayers}
             onImportPlayersExcel={handleImportPlayersExcel}
+            showSensitiveInfo={showSensitiveInfo}
           />
         )}
 
@@ -868,12 +881,13 @@ function App() {
               onResetMatch={handleResetMatch}
               filterRound={filterRound}
               filterStatus={filterStatus}
+              showSensitiveInfo={showSensitiveInfo}
             />
           </div>
         )}
 
         {currentView === 'standings' && tournamentStarted && (
-          <Standings matches={matches} players={players} settings={settings} />
+          <Standings matches={matches} players={players} settings={settings} showSensitiveInfo={showSensitiveInfo} />
         )}
 
         {currentView === 'manual-setup' && (

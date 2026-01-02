@@ -11,6 +11,7 @@ interface PlayerManagementProps {
   onExportPlayersExcel?: () => void;
   onImportPlayers?: (file: File) => void;
   onImportPlayersExcel?: (file: File) => void;
+  showSensitiveInfo?: boolean;
 }
 
 export const PlayerManagement: React.FC<PlayerManagementProps> = ({
@@ -23,6 +24,7 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
   onExportPlayersExcel,
   onImportPlayers,
   onImportPlayersExcel,
+  showSensitiveInfo = true,
 }) => {
   const [name, setName] = useState('');
   const [age, setAge] = useState('');
@@ -171,9 +173,9 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
                 <thead>
                   <tr>
                     <th>姓名</th>
-                    <th>年齡</th>
+                    {showSensitiveInfo && <th>年齡</th>}
                     <th>性別</th>
-                    <th>技術等級</th>
+                    {showSensitiveInfo && <th>技術等級</th>}
                     <th>分組標籤</th>
                     <th>已出賽</th>
                     <th>操作</th>
@@ -183,9 +185,9 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
                   {teamPlayers.sort((a, b) => a.age - b.age).map(player => (
                     <tr key={player.id}>
                       <td>{player.name || '未知'}</td>
-                      <td>{player.age || '-'}</td>
+                      {showSensitiveInfo && <td>{player.age || '-'}</td>}
                       <td>{player.gender || '-'}</td>
-                      <td><span className={`skill-badge skill-${player.skillLevel || 'B'}`}>{player.skillLevel || 'B'}</span></td>
+                      {showSensitiveInfo && <td><span className={`skill-badge skill-${player.skillLevel || 'B'}`}>{player.skillLevel || 'B'}</span></td>}
                       <td>{player.groupTag ? <span className="group-tag-badge">{player.groupTag}</span> : '-'}</td>
                       <td>{player.matchesPlayed || 0}</td>
                       <td>

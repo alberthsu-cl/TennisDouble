@@ -6,6 +6,7 @@ interface ScoreRecorderProps {
   onUpdateScore: (match: Match) => void;
   onCompleteMatch: (match: Match) => void;
   onResetMatch: (match: Match) => void;
+  showSensitiveInfo?: boolean;
 }
 
 export const ScoreRecorder: React.FC<ScoreRecorderProps> = ({
@@ -13,6 +14,7 @@ export const ScoreRecorder: React.FC<ScoreRecorderProps> = ({
   onUpdateScore,
   onCompleteMatch,
   onResetMatch,
+  showSensitiveInfo = true,
 }) => {
   const [showTiebreak, setShowTiebreak] = useState(false);
 
@@ -159,8 +161,8 @@ export const ScoreRecorder: React.FC<ScoreRecorderProps> = ({
             <h4>{match.team1}</h4>
             {match.pair1.player1 && match.pair1.player2 ? (
               <>
-                <p>{match.pair1.player1.name} ({match.pair1.player1.age}歲 {match.pair1.player1.gender})</p>
-                <p>{match.pair1.player2.name} ({match.pair1.player2.age}歲 {match.pair1.player2.gender})</p>
+                <p>{match.pair1.player1.name} ({showSensitiveInfo && `${match.pair1.player1.age}歲 `}{match.pair1.player1.gender})</p>
+                <p>{match.pair1.player2.name} ({showSensitiveInfo && `${match.pair1.player2.age}歲 `}{match.pair1.player2.gender})</p>
               </>
             ) : (
               <p className="tbd-text">待定 (TBD)</p>
@@ -170,8 +172,8 @@ export const ScoreRecorder: React.FC<ScoreRecorderProps> = ({
             <h4>{match.team2}</h4>
             {match.pair2.player1 && match.pair2.player2 ? (
               <>
-                <p>{match.pair2.player1.name} ({match.pair2.player1.age}歲 {match.pair2.player2.gender})</p>
-                <p>{match.pair2.player2.name} ({match.pair2.player2.age}歲 {match.pair2.player2.gender})</p>
+                <p>{match.pair2.player1.name} ({showSensitiveInfo && `${match.pair2.player1.age}歲 `}{match.pair2.player2.gender})</p>
+                <p>{match.pair2.player2.name} ({showSensitiveInfo && `${match.pair2.player2.age}歲 `}{match.pair2.player2.gender})</p>
               </>
             ) : (
               <p className="tbd-text">待定 (TBD)</p>
@@ -203,8 +205,8 @@ export const ScoreRecorder: React.FC<ScoreRecorderProps> = ({
             <h4>{match.team1}</h4>
             {isPair1Complete ? (
               <>
-                <p>{match.pair1.player1!.name} ({match.pair1.player1!.age}歲 {match.pair1.player1!.gender})</p>
-                <p>{match.pair1.player2!.name} ({match.pair1.player2!.age}歲 {match.pair1.player2!.gender})</p>
+                <p>{match.pair1.player1!.name} ({showSensitiveInfo && `${match.pair1.player1!.age}歲 `}{match.pair1.player1!.gender})</p>
+                <p>{match.pair1.player2!.name} ({showSensitiveInfo && `${match.pair1.player2!.age}歲 `}{match.pair1.player2!.gender})</p>
               </>
             ) : (
               <div className="tbd-notice">
@@ -218,8 +220,8 @@ export const ScoreRecorder: React.FC<ScoreRecorderProps> = ({
             <h4>{match.team2}</h4>
             {isPair2Complete ? (
               <>
-                <p>{match.pair2.player1!.name} ({match.pair2.player1!.age}歲 {match.pair2.player1!.gender})</p>
-                <p>{match.pair2.player2!.name} ({match.pair2.player2!.age}歲 {match.pair2.player2!.gender})</p>
+                <p>{match.pair2.player1!.name} ({showSensitiveInfo && `${match.pair2.player1!.age}歲 `}{match.pair2.player1!.gender})</p>
+                <p>{match.pair2.player2!.name} ({showSensitiveInfo && `${match.pair2.player2!.age}歲 `}{match.pair2.player2!.gender})</p>
               </>
             ) : (
               <div className="tbd-notice">

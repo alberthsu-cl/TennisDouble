@@ -5,9 +5,10 @@ interface StandingsProps {
   matches: Match[];
   players: Player[];
   settings: TournamentSettings;
+  showSensitiveInfo?: boolean;
 }
 
-export const Standings: React.FC<StandingsProps> = ({ matches, players, settings }) => {
+export const Standings: React.FC<StandingsProps> = ({ matches, players, settings, showSensitiveInfo = true }) => {
   // 計算隊伍統計
   const calculateTeamStats = (): TeamStats[] => {
     const teams: TeamName[] = ['甲隊', '乙隊', '丙隊', '丁隊'];
@@ -173,7 +174,7 @@ export const Standings: React.FC<StandingsProps> = ({ matches, players, settings
                 <thead>
                   <tr>
                     <th>選手</th>
-                    <th>年齡</th>
+                    {showSensitiveInfo && <th>年齡</th>}
                     <th>性別</th>
                     <th>出賽</th>
                     <th>勝</th>
@@ -187,7 +188,7 @@ export const Standings: React.FC<StandingsProps> = ({ matches, players, settings
                   {playerStats.map(ps => (
                     <tr key={ps.player.id}>
                       <td>{ps.player.name || '未知'}</td>
-                      <td>{ps.player.age || '-'}</td>
+                      {showSensitiveInfo && <td>{ps.player.age || '-'}</td>}
                       <td>{ps.player.gender || '-'}</td>
                       <td>{ps.matchesPlayed}/{settings.totalRounds}</td>
                       <td>{ps.wins}</td>
