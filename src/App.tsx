@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import * as XLSX from 'xlsx';
-import type { Player, Match, TeamName, TournamentSettings, Gender, SkillLevel } from './types';
+import type { Player, Match, TeamName, TournamentSettings, Gender, SkillLevel, InvoiceSettings } from './types';
 import { PlayerManagement } from './components/PlayerManagement';
 import { MatchList } from './components/MatchList';
 import { Standings } from './components/Standings';
@@ -10,6 +10,7 @@ import { CustomModal } from './components/CustomModal';
 import { useModal } from './hooks/useModal';
 import { generateFullSchedule } from './utils/scheduleGenerator';
 import { generateDemoPlayers } from './utils/demoData';
+import { exportPlayerInvoices, exportPlayerInvoicesExcel } from './utils/invoiceGenerator';
 import './App.css';
 
 // Fisher-Yates shuffle for randomization
@@ -495,6 +496,53 @@ function App() {
     await modal.showAlert('Excel匯入比賽功能建議使用JSON格式，因為比賽資料結構較複雜。請使用「匯出JSON」功能匯出後再匯入。');
   };
 
+  const handleExportInvoices = async () => {
+    if (players.length === 0) {
+      await modal.showAlert('目前沒有選手資料，無法匯出收據');
+      return;
+    }
+
+    // Get current year in ROC (Republic of China) calendar
+    const currentYear = new Date().getFullYear();
+    const rocYear = currentYear - 1911;
+
+    // Prompt user for invoice settings
+    const year = prompt('請輸入年份（例如：115）', rocYear.toString());
+    if (!year) return;
+
+    const type = prompt('請輸入費用類型（例如：會費）', '會費');
+    if (!type) return;
+
+    const expenseStr = prompt('請輸入金額（元）', '3000');
+    if (!expenseStr) return;
+    const expense = parseInt(expenseStr);
+    if (isNaN(expense) || expense <= 0) {
+      await modal.showAlert('請輸入有效的金額');
+      return;
+    }
+
+    const organization = prompt('請輸入組織名稱', '新北市中和區錦和網球聯誼會');
+    if (!organization) return;
+
+    const invoiceSettings: InvoiceSettings = {
+      year,
+      type,
+      expense,
+      organization,
+    };
+
+    // Ask for export format
+    const format = prompt('選擇匯出格式：\n1 - Excel (推薦)\n2 - 網頁列印', '1');
+    
+    if (format === '1') {
+      // Export as Excel
+      exportPlayerInvoicesExcel(players, invoiceSettings);
+    } else if (format === '2') {
+      // Export as HTML for printing
+      exportPlayerInvoices(players, invoiceSettings);
+    }
+  };
+
   const getTeamCount = (teamName: TeamName) => {
     return players.filter(p => p.team === teamName).length;
   };
@@ -801,6 +849,7 @@ function App() {
             onExportPlayersExcel={handleExportPlayersExcel}
             onImportPlayers={handleImportPlayers}
             onImportPlayersExcel={handleImportPlayersExcel}
+            onExportInvoices={handleExportInvoices}
             showSensitiveInfo={showSensitiveInfo}
           />
         )}

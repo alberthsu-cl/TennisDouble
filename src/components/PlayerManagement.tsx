@@ -11,6 +11,7 @@ interface PlayerManagementProps {
   onExportPlayersExcel?: () => void;
   onImportPlayers?: (file: File) => void;
   onImportPlayersExcel?: (file: File) => void;
+  onExportInvoices?: () => void;
   showSensitiveInfo?: boolean;
 }
 
@@ -24,6 +25,7 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
   onExportPlayersExcel,
   onImportPlayers,
   onImportPlayersExcel,
+  onExportInvoices,
   showSensitiveInfo = true,
 }) => {
   const [name, setName] = useState('');
@@ -123,6 +125,11 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
       <div className="header-actions" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '0.5rem' }}>
         <h2 style={{ margin: 0 }}>選手管理</h2>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
+          {onExportInvoices && (
+            <button className="btn-primary" onClick={onExportInvoices}>
+              🧾 匯出收據
+            </button>
+          )}
           {(onExportPlayers || onExportPlayersExcel) && (
             <button className="btn-secondary" onClick={() => {
               const format = prompt('選擇匯出格式：\n1 - Excel\n2 - JSON', '1');

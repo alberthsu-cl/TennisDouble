@@ -108,3 +108,11 @@ export interface MatchSetup {
   pair1Players?: [string, string]; // player IDs
   pair2Players?: [string, string]; // player IDs
 }
+
+// 收據設定
+export interface InvoiceSettings {
+  year: string;        // 年份 (如 "115")
+  type: string;        // 費用類型 (如 "會費")
+  expense: number;     // 金額
+  organization: string; // 組織名稱
+}
