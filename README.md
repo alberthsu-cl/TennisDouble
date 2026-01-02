@@ -62,7 +62,9 @@ A comprehensive and fully configurable web application for managing tennis doubl
 - **比賽形式**: 可設定每輪3-10點雙打
   - 第1點至倒數第2點：兩人歲數遞增
   - 最後一點：必須安排混雙或女雙出賽，歲數沒有限制
-- **出賽場次**: 根據設定自動計算每人最少出賽場次
+- **出賽限制**: 
+  - 每輪每位選手只能出賽一次
+  - 根據設定自動計算每人最少出賽場次
 - **賽制**: 比賽採5局NO-AD制，先達5局獲勝
 - **Tie-break**: 4:4時Tie-break搶7決勝
 

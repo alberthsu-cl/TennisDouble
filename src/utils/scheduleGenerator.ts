@@ -83,11 +83,16 @@ function findPairForPoint(
   usedPairs: Set<string>,
   existingPairs: Pair[] | null = null,
   settings: TournamentSettings,
-  scheduledMatches: Map<string, number>
+  scheduledMatches: Map<string, number>,
+  playersUsedInRound: Set<string>
 ): Pair | null {
   // Shuffle players to randomize pairing priority
   const shuffledPlayers = shuffleArray(teamPlayers);
-  const availablePlayers = shuffledPlayers.filter(p => canPlayMore(p, settings.minMatchesPerPlayer, scheduledMatches));
+  const availablePlayers = shuffledPlayers.filter(p => {
+    const hasEnoughMatches = canPlayMore(p, settings.minMatchesPerPlayer, scheduledMatches);
+    const notUsedInRound = settings.enforceRules ? !playersUsedInRound.has(p.id) : true; // 只在規則啟用時檢查本輪出賽
+    return hasEnoughMatches && notUsedInRound;
+  });
   const allPairs = generatePairs(availablePlayers);
   
   // 根據點數過濾配對
@@ -184,6 +189,9 @@ export function generateRound(
   const usedPairsInRound = new Map<TeamName, Set<string>>();
   teamNames.forEach(team => usedPairsInRound.set(team, new Set()));
   
+  // 追蹤本輪中每位選手已出賽的次數（確保每輪每人只出賽一次）
+  const playersUsedInRound = new Set<string>();
+  
   // 為每個對戰生成比賽
   for (const [team1, team2] of matchups) {
     const roundMatches: Match[] = [];
@@ -202,7 +210,8 @@ export function generateRound(
         usedPairsInRound.get(team1)!,
         pointNumber >= 2 ? team1ExistingPairs : null,
         settings,
-        scheduledMatches
+        scheduledMatches,
+        playersUsedInRound
       );
       
       if (!pair1) {
@@ -217,7 +226,8 @@ export function generateRound(
         usedPairsInRound.get(team2)!,
         pointNumber >= 2 ? team2ExistingPairs : null,
         settings,
-        scheduledMatches
+        scheduledMatches,
+        playersUsedInRound
       );
       
       if (!pair2) {
@@ -228,6 +238,15 @@ export function generateRound(
       // 記錄已使用的配對
       usedPairsInRound.get(team1)!.add(getPairKey(pair1));
       usedPairsInRound.get(team2)!.add(getPairKey(pair2));
+      
+      // 記錄本輪已出賽的選手（只在規則啟用時記錄）
+      if (settings.enforceRules) {
+        [pair1.player1, pair1.player2, pair2.player1, pair2.player2].forEach(player => {
+          if (player) {
+            playersUsedInRound.add(player.id);
+          }
+        });
+      }
       
       // 創建比賽
       const match: Match = {
@@ -336,6 +355,36 @@ export function validateSchedule(matches: Match[], players: Player[], settings: 
         errors.push(`${match.id}: 第${settings.pointsPerRound}點必須為混雙或女雙`);
       }
     });
+    
+    // 檢查每輪中每位選手是否只出賽一次（只在規則啟用時檢查）
+    if (settings.enforceRules) {
+      const matchesByRoundNumber = new Map<number, Match[]>();
+      matches.forEach(match => {
+        if (!matchesByRoundNumber.has(match.roundNumber)) {
+          matchesByRoundNumber.set(match.roundNumber, []);
+        }
+        matchesByRoundNumber.get(match.roundNumber)!.push(match);
+      });
+      
+      matchesByRoundNumber.forEach((roundMatches, roundNum) => {
+        const playerCountInRound = new Map<string, number>();
+        roundMatches.forEach(match => {
+          [match.pair1.player1, match.pair1.player2, match.pair2.player1, match.pair2.player2].forEach(player => {
+            if (player) {
+              playerCountInRound.set(player.id, (playerCountInRound.get(player.id) || 0) + 1);
+            }
+          });
+        });
+        
+        playerCountInRound.forEach((count, playerId) => {
+          if (count > 1) {
+            const player = players.find(p => p.id === playerId);
+            const playerName = player ? player.name : playerId;
+            errors.push(`第${roundNum}輪：選手 ${playerName} 出賽 ${count} 次，應該只出賽一次`);
+          }
+        });
+      });
+    }
   }
   
   return errors;
