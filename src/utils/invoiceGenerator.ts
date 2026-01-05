@@ -82,21 +82,6 @@ export const generateInvoiceHTML = (
       gap: 20px;
     }
     
-    .signature-stamp {
-      width: 80px;
-      height: 80px;
-      border: 3px solid #c00;
-      border-radius: 4px;
-      display: inline-flex;
-      justify-content: center;
-      align-items: center;
-      font-size: 18px;
-      color: #c00;
-      font-weight: bold;
-      writing-mode: vertical-rl;
-      letter-spacing: 4px;
-    }
-    
     @media print {
       body {
         background: linear-gradient(135deg, #a8c5dd 0%, #c8dae6 100%);
@@ -122,7 +107,7 @@ export const generateInvoiceHTML = (
       ${organization}
     </div>
     <div class="invoice-signature">
-      財務: <div class="signature-stamp">經辦人章</div>
+      財務: _______________
     </div>
   </div>
 </body>
@@ -200,21 +185,6 @@ export const generateAllInvoicesHTML = (
       gap: 20px;
     }
     
-    .signature-stamp {
-      width: 80px;
-      height: 80px;
-      border: 3px solid #c00;
-      border-radius: 4px;
-      display: inline-flex;
-      justify-content: center;
-      align-items: center;
-      font-size: 18px;
-      color: #c00;
-      font-weight: bold;
-      writing-mode: vertical-rl;
-      letter-spacing: 4px;
-    }
-    
     .print-controls {
       position: fixed;
       top: 20px;
@@ -275,13 +245,255 @@ export const generateAllInvoicesHTML = (
       ${settings.organization}
     </div>
     <div class="invoice-signature">
-      財務: <div class="signature-stamp">經辦人章</div>
+      財務: _______________
     </div>
   </div>
   `).join('\n')}
 </body>
 </html>
   `.trim();
+};
+
+/**
+ * Generate compact credit card-sized invoices for printing on A4
+ * Fits 10 invoices per A4 page (2 columns × 5 rows)
+ */
+export const generateCompactInvoicesHTML = (
+  players: Player[],
+  settings: InvoiceSettings
+): string => {
+  const { year, type, expense, organization } = settings;
+  
+  return `
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>收據列印 - 精簡版 (${players.length}張)</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 8mm;
+    }
+    
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: "Microsoft JhengHei", "微軟正黑體", Arial, sans-serif;
+      background: #fff;
+      padding: 0;
+      margin: 0;
+    }
+    
+    .page {
+      width: 210mm;
+      min-height: 297mm;
+      padding: 8mm;
+      margin: 0 auto;
+      background: white;
+      page-break-after: always;
+    }
+    
+    .page:last-child {
+      page-break-after: auto;
+    }
+    
+    .invoice-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 4mm;
+      width: 100%;
+    }
+    
+    .invoice-card {
+      width: 90mm;
+      height: 55mm;
+      border: 2px solid #333;
+      background: linear-gradient(135deg, #a8c5dd 0%, #c8dae6 100%);
+      padding: 3mm;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      page-break-inside: avoid;
+      position: relative;
+    }
+    
+    .invoice-header {
+      text-align: center;
+      border-bottom: 1px solid #333;
+      padding-bottom: 2mm;
+      margin-bottom: 2mm;
+    }
+    
+    .invoice-title {
+      font-size: 16px;
+      font-weight: bold;
+      letter-spacing: 6px;
+    }
+    
+    .invoice-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      text-align: center;
+      padding: 1mm 0;
+    }
+    
+    .invoice-text {
+      font-size: 11px;
+      line-height: 1.4;
+      margin-bottom: 1mm;
+    }
+    
+    .invoice-org {
+      font-size: 10px;
+      margin-top: 1mm;
+    }
+    
+    .invoice-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 9px;
+      border-top: 1px solid #333;
+      padding-top: 2mm;
+    }
+    
+    .print-controls {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: white;
+      padding: 20px;
+      border: 2px solid #333;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      z-index: 1000;
+    }
+    
+    .print-controls h3 {
+      margin-bottom: 10px;
+      font-size: 16px;
+    }
+    
+    .print-controls button {
+      padding: 10px 20px;
+      font-size: 14px;
+      cursor: pointer;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      margin: 5px;
+      display: block;
+      width: 100%;
+    }
+    
+    .print-controls button:hover {
+      background: #0056b3;
+    }
+    
+    .print-controls .info {
+      font-size: 12px;
+      color: #666;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid #ddd;
+    }
+    
+    @media print {
+      .print-controls {
+        display: none !important;
+      }
+      
+      .page {
+        margin: 0;
+        padding: 8mm;
+      }
+      
+      body {
+        margin: 0;
+        padding: 0;
+      }
+    }
+    
+    @media screen {
+      body {
+        background: #f5f5f5;
+        padding: 20px 0;
+      }
+      
+      .page {
+        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        margin: 20px auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="print-controls">
+    <h3>📄 收據列印</h3>
+    <div style="margin-bottom: 15px;">
+      <strong>總數:</strong> ${players.length} 張<br>
+      <strong>頁數:</strong> ${Math.ceil(players.length / 10)} 頁<br>
+      <strong>格式:</strong> A4 (每頁10張)
+    </div>
+    <button onclick="window.print()">🖨️ 列印全部</button>
+    <button onclick="window.close()">✖ 關閉視窗</button>
+    <div class="info">
+      💳 信用卡大小 (90×55mm)<br>
+      每頁 2列 × 5行 = 10張
+    </div>
+  </div>
+  
+  ${generatePages(players, settings)}
+</body>
+</html>
+  `.trim();
+  
+  function generatePages(players: Player[], settings: InvoiceSettings): string {
+    const pages: string[] = [];
+    const invoicesPerPage = 10;
+    
+    for (let i = 0; i < players.length; i += invoicesPerPage) {
+      const pageInvoices = players.slice(i, i + invoicesPerPage);
+      pages.push(generatePage(pageInvoices, settings));
+    }
+    
+    return pages.join('\n');
+  }
+  
+  function generatePage(players: Player[], settings: InvoiceSettings): string {
+    return `
+  <div class="page">
+    <div class="invoice-grid">
+      ${players.map(player => `
+      <div class="invoice-card">
+        <div class="invoice-header">
+          <div class="invoice-title">收　據</div>
+        </div>
+        <div class="invoice-body">
+          <div class="invoice-text">
+            茲收到 <strong>${player.name}</strong><br>
+            ${settings.year}年 ${settings.type}<br>
+            金額 <strong>${settings.expense}</strong> 元
+          </div>
+          <div class="invoice-org">${settings.organization}</div>
+        </div>
+        <div class="invoice-footer">
+          <span>財務經辦: _______________</span>
+        </div>
+      </div>
+      `).join('\n')}
+    </div>
+  </div>`;
+  }
 };
 
 /**
@@ -304,6 +516,42 @@ export const exportPlayerInvoices = (
 ): void => {
   const html = generateAllInvoicesHTML(players, settings);
   openInvoiceForPrint(html);
+};
+
+/**
+ * Export compact credit card-sized invoices (10 per A4 page)
+ */
+export const exportCompactInvoices = (
+  players: Player[],
+  settings: InvoiceSettings
+): void => {
+  const html = generateCompactInvoicesHTML(players, settings);
+  openInvoiceForPrint(html);
+};
+
+/**
+ * Export compact invoices as PDF (automatic download)
+ * Opens print dialog with print-to-PDF option
+ */
+export const exportCompactInvoicesPDF = async (
+  players: Player[],
+  settings: InvoiceSettings
+): Promise<void> => {
+  // Generate HTML and open in new window for printing
+  const html = generateCompactInvoicesHTML(players, settings);
+  const printWindow = window.open('', '_blank');
+  
+  if (printWindow) {
+    printWindow.document.write(html);
+    printWindow.document.close();
+    
+    // Wait for content to load, then trigger print dialog
+    printWindow.onload = () => {
+      setTimeout(() => {
+        printWindow.print();
+      }, 250);
+    };
+  }
 };
 
 /**

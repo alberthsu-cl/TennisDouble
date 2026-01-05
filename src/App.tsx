@@ -10,7 +10,7 @@ import { CustomModal } from './components/CustomModal';
 import { useModal } from './hooks/useModal';
 import { generateFullSchedule } from './utils/scheduleGenerator';
 import { generateDemoPlayers } from './utils/demoData';
-import { exportPlayerInvoices, exportPlayerInvoicesExcel } from './utils/invoiceGenerator';
+import { exportPlayerInvoices, exportPlayerInvoicesExcel, exportCompactInvoices, exportCompactInvoicesPDF } from './utils/invoiceGenerator';
 import './App.css';
 
 // Fisher-Yates shuffle for randomization
@@ -513,7 +513,7 @@ function App() {
     const type = prompt('請輸入費用類型（例如：會費）', '會費');
     if (!type) return;
 
-    const expenseStr = prompt('請輸入金額（元）', '3000');
+    const expenseStr = prompt('請輸入金額（元）', '3600');
     if (!expenseStr) return;
     const expense = parseInt(expenseStr);
     if (isNaN(expense) || expense <= 0) {
@@ -532,14 +532,14 @@ function App() {
     };
 
     // Ask for export format
-    const format = prompt('選擇匯出格式：\n1 - Excel (推薦)\n2 - 網頁列印', '1');
+    const format = prompt('選擇匯出格式：\n1 - Excel (推薦)\n2 - PDF/列印 (信用卡大小, 每頁10張)', '2');
     
     if (format === '1') {
       // Export as Excel
       exportPlayerInvoicesExcel(players, invoiceSettings);
     } else if (format === '2') {
-      // Export as HTML for printing
-      exportPlayerInvoices(players, invoiceSettings);
+      // Open print dialog for PDF export
+      await exportCompactInvoicesPDF(players, invoiceSettings);
     }
   };
 
