@@ -10,7 +10,7 @@ import { CustomModal } from './components/CustomModal';
 import { useModal } from './hooks/useModal';
 import { generateFullSchedule } from './utils/scheduleGenerator';
 import { generateDemoPlayers } from './utils/demoData';
-import { exportPlayerInvoices, exportPlayerInvoicesExcel, exportCompactInvoices, exportCompactInvoicesPDF } from './utils/invoiceGenerator';
+import { exportPlayerInvoicesExcel, exportCompactInvoicesPDF } from './utils/invoiceGenerator';
 import './App.css';
 
 // Fisher-Yates shuffle for randomization
@@ -410,16 +410,60 @@ function App() {
         const worksheet = workbook.Sheets[sheetName];
         const jsonData = XLSX.utils.sheet_to_json(worksheet) as any[];
         
-        const imported: Player[] = jsonData.map((row, index) => ({
-          id: `imported-player-${Date.now()}-${index}`,
-          name: row['姓名'] || '',
-          age: parseInt(row['年齡']) || 25,
-          gender: (row['性別'] === '女' ? '女' : '男') as Gender,
-          skillLevel: (row['技術等級'] || 'B') as SkillLevel,
-          team: (row['隊伍'] || '甲隊') as TeamName,
-          matchesPlayed: 0,
-          groupTag: row['分組標籤'] ? String(row['分組標籤']).trim() : undefined,
-        }));
+        // Debug: Log first row to see column names
+        if (jsonData.length > 0) {
+          console.log('Excel columns:', Object.keys(jsonData[0]));
+          console.log('First 3 rows:', jsonData.slice(0, 3));
+        }
+        
+        const imported: Player[] = jsonData.map((row, index) => {
+          // Handle gender: support both Chinese (男/女) and English (M/W) formats
+          // Check multiple possible column names for gender
+          const genderRaw = row['性別'] || row['gender'] || row['Gender'] || row['性别'] || 
+                            row['GENDER'] || row['SEX'] || row['sex'] || '';
+          
+          // Convert full-width to half-width and trim
+          const genderValue = String(genderRaw)
+            .replace(/Ｍ/g, '男')
+            .replace(/Ｗ/g, '女')
+            .replace(/Ｆ/g, '女')
+            .replace(/男/g, '男')
+            .replace(/女/g, '女')
+            .trim()
+            .toUpperCase();
+          
+          // Debug log for first 3 rows
+          if (index < 3) {
+            console.log(`Row ${index}: name="${row['姓名']}", Gender raw="${genderRaw}", processed="${genderValue}"`);
+          }
+          
+          let gender: Gender = '男';
+          if (genderValue === '女' || genderValue === 'W' || genderValue === 'WOMAN' || 
+              genderValue === 'F' || genderValue === 'FEMALE') {
+            gender = '女';
+          } else if (genderValue === '男' || genderValue === 'M' || genderValue === 'MAN' || 
+                     genderValue === 'MALE') {
+            gender = '男';
+          }
+          
+          // Handle skill level: A/B/C or default to B
+          const skillValue = String(row['技術等級'] || 'B').toUpperCase().trim();
+          let skillLevel: SkillLevel = 'B';
+          if (skillValue === 'A' || skillValue === 'B' || skillValue === 'C') {
+            skillLevel = skillValue as SkillLevel;
+          }
+          
+          return {
+            id: `imported-player-${Date.now()}-${index}`,
+            name: row['姓名'] || '',
+            age: parseInt(row['年齡']) || 25,
+            gender,
+            skillLevel,
+            team: (row['隊伍'] || '甲隊') as TeamName,
+            matchesPlayed: 0,
+            groupTag: row['分組標籤'] ? String(row['分組標籤']).trim() : undefined,
+          };
+        });
         
         if (imported.length > 0) {
           if (players.length > 0) {
@@ -532,14 +576,14 @@ function App() {
     };
 
     // Ask for export format
-    const format = prompt('選擇匯出格式：\n1 - Excel (推薦)\n2 - PDF/列印 (信用卡大小, 每頁10張)', '2');
+    const format = prompt('選擇匯出格式：\n1 - PDF/列印 (信用卡大小, 每頁10張)\n2 - Excel', '1');
     
     if (format === '1') {
-      // Export as Excel
-      exportPlayerInvoicesExcel(players, invoiceSettings);
-    } else if (format === '2') {
       // Open print dialog for PDF export
       await exportCompactInvoicesPDF(players, invoiceSettings);
+    } else if (format === '2') {
+      // Export as Excel
+      exportPlayerInvoicesExcel(players, invoiceSettings);
     }
   };
 

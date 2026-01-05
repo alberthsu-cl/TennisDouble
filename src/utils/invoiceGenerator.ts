@@ -262,7 +262,6 @@ export const generateCompactInvoicesHTML = (
   players: Player[],
   settings: InvoiceSettings
 ): string => {
-  const { year, type, expense, organization } = settings;
   
   return `
 <!DOCTYPE html>
