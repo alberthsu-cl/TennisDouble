@@ -229,8 +229,7 @@ export const RulesModal: React.FC<RulesModalProps> = ({ isOpen, onClose, setting
                     <span className="sub-rule">A2/B2/C2/D2：各隊副隊長或第二種子選手</span>
                     <span className="sub-rule">A3/B3/C3/D3：各隊第三種子選手</span>
                 </li>
-                <li><strong>自動配對考量：</strong>系統會優先使用<strong>技術等級（A/B/C）</strong>進行配對平衡<br/>
-                    <span className="sub-rule">分組標籤主要用於識別與管理，方便手動調整</span>
+                <li><strong>自動配對考量：</strong>系統會優先使用<strong>技術等級（A/B/C）</strong>進行配對平衡
                 </li>
               </ul>
             </div>
