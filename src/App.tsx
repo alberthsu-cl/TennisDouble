@@ -44,13 +44,21 @@ const autoDistributeTeams = (players: Player[]): Player[] => {
     }
   });
   
-  // Shuffle regular players and distribute evenly
-  const shuffledRegular = shuffleArray(regularPlayers);
-  shuffledRegular.forEach((player, index) => {
+  // Separate regular players by gender for balanced distribution
+  const femalePlayers = shuffleArray(regularPlayers.filter(p => p.gender === '女'));
+  const malePlayers = shuffleArray(regularPlayers.filter(p => p.gender === '男'));
+  
+  // Distribute female players first to ensure balance (important for point 5 mixed doubles rule)
+  femalePlayers.forEach((player, index) => {
     player.team = teams[index % 4];
   });
   
-  return [...captains, ...shuffledRegular];
+  // Then distribute male players
+  malePlayers.forEach((player, index) => {
+    player.team = teams[index % 4];
+  });
+  
+  return [...captains, ...femalePlayers, ...malePlayers];
 };
 
 type View = 'setup' | 'players' | 'matches' | 'standings' | 'manual-setup';

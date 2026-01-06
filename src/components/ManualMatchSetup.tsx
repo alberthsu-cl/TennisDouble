@@ -98,6 +98,36 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
     setAssignments(initialAssignments);
   }, [settings.totalRounds, settings.pointsPerRound, existingMatches]);
 
+  // 驗證並清除違反第5點規則的配對
+  useEffect(() => {
+    if (!settings.enforceRules) return;
+    
+    setAssignments(prev => prev.map(a => {
+      // 只檢查第5點
+      if (a.pointNumber !== settings.pointsPerRound) return a;
+      
+      const updated = { ...a };
+      
+      // 檢查並清除 pair1 如果違反規則（兩個男性）
+      if (a.pair1[0] && a.pair1[1]) {
+        const isMaleDouble = a.pair1[0].gender === '男' && a.pair1[1].gender === '男';
+        if (isMaleDouble) {
+          updated.pair1 = [null, null];
+        }
+      }
+      
+      // 檢查並清除 pair2 如果違反規則（兩個男性）
+      if (a.pair2[0] && a.pair2[1]) {
+        const isMaleDouble = a.pair2[0].gender === '男' && a.pair2[1].gender === '男';
+        if (isMaleDouble) {
+          updated.pair2 = [null, null];
+        }
+      }
+      
+      return updated;
+    }));
+  }, [settings.enforceRules, settings.pointsPerRound]);
+
   // 載入儲存的範本
   useEffect(() => {
     const saved = localStorage.getItem('matchTemplates');
@@ -139,6 +169,21 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
       
       return { ...a, [team]: newPair };
     }));
+  };
+
+  // 檢查選手是否可以在第5點被選擇（混雙或女雙規則）
+  const canSelectPlayerForPoint5 = (player: Player, otherPlayer: Player | null, pointNumber: number): boolean => {
+    // 如果不是第5點或規則未啟用，允許所有選手
+    if (!settings.enforceRules || pointNumber !== settings.pointsPerRound) return true;
+    
+    // 如果還沒選擇另一位選手，允許所有選手
+    if (!otherPlayer) return true;
+    
+    // 檢查組合是否為混雙或女雙
+    const isWomensDouble = player.gender === '女' && otherPlayer.gender === '女';
+    const isMixedDouble = player.gender !== otherPlayer.gender;
+    
+    return isWomensDouble || isMixedDouble;
   };
 
   const validateAssignments = (): string[] => {
@@ -610,11 +655,14 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
                                   )}
                                 >
                                   <option value="">選擇選手1</option>
-                                  {teamPlayers.map(p => (
-                                    <option key={p.id} value={p.id}>
-                                      {p.name} ({showSensitiveInfo && `${p.age}歲 `}{p.gender})
-                                    </option>
-                                  ))}
+                                  {teamPlayers.map(p => {
+                                    const canSelect = canSelectPlayerForPoint5(p, currentPair[1], match.pointNumber);
+                                    return (
+                                      <option key={p.id} value={p.id} disabled={!canSelect}>
+                                        {p.name} ({showSensitiveInfo && `${p.age}歲 `}{p.gender}){!canSelect && ' ❌'}
+                                      </option>
+                                    );
+                                  })}
                                 </select>
                                 <select
                                   value={currentPair[1]?.id || ''}
@@ -626,11 +674,14 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
                                   )}
                                 >
                                   <option value="">選擇選手2</option>
-                                  {teamPlayers.map(p => (
-                                    <option key={p.id} value={p.id}>
-                                      {p.name} ({showSensitiveInfo && `${p.age}歲 `}{p.gender})
-                                    </option>
-                                  ))}
+                                  {teamPlayers.map(p => {
+                                    const canSelect = canSelectPlayerForPoint5(p, currentPair[0], match.pointNumber);
+                                    return (
+                                      <option key={p.id} value={p.id} disabled={!canSelect}>
+                                        {p.name} ({showSensitiveInfo && `${p.age}歲 `}{p.gender}){!canSelect && ' ❌'}
+                                      </option>
+                                    );
+                                  })}
                                 </select>
                               </div>
                               
@@ -687,22 +738,28 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
                                 onChange={(e) => updateAssignment(match.id, 'pair1', 0, e.target.value || null)}
                               >
                                 <option value="">選擇選手1</option>
-                                {team1Players.map(p => (
-                                  <option key={p.id} value={p.id}>
-                                  {p.name} ({showSensitiveInfo && `${p.age}歲 `}{p.gender})
-                                  </option>
-                                ))}
+                                {team1Players.map(p => {
+                                  const canSelect = canSelectPlayerForPoint5(p, match.pair1[1], match.pointNumber);
+                                  return (
+                                    <option key={p.id} value={p.id} disabled={!canSelect}>
+                                      {p.name} ({showSensitiveInfo && `${p.age}歲 `}{p.gender}){!canSelect && ' ❌'}
+                                    </option>
+                                  );
+                                })}
                               </select>
                               <select
                                 value={match.pair1[1]?.id || ''}
                                 onChange={(e) => updateAssignment(match.id, 'pair1', 1, e.target.value || null)}
                               >
                                 <option value="">選擇選手2</option>
-                                {team1Players.map(p => (
-                                  <option key={p.id} value={p.id}>
-                                  {p.name} ({showSensitiveInfo && `${p.age}歲 `}{p.gender})
-                                  </option>
-                                ))}
+                                {team1Players.map(p => {
+                                  const canSelect = canSelectPlayerForPoint5(p, match.pair1[0], match.pointNumber);
+                                  return (
+                                    <option key={p.id} value={p.id} disabled={!canSelect}>
+                                      {p.name} ({showSensitiveInfo && `${p.age}歲 `}{p.gender}){!canSelect && ' ❌'}
+                                    </option>
+                                  );
+                                })}
                               </select>
                             </div>
                             {match.pair1[0] && match.pair1[1] && (
@@ -730,22 +787,28 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
                                 onChange={(e) => updateAssignment(match.id, 'pair2', 0, e.target.value || null)}
                               >
                                 <option value="">選擇選手1</option>
-                                {team2Players.map(p => (
-                                  <option key={p.id} value={p.id}>
-                                  {p.name} ({showSensitiveInfo && `${p.age}歲 `}{p.gender})
-                                  </option>
-                                ))}
+                                {team2Players.map(p => {
+                                  const canSelect = canSelectPlayerForPoint5(p, match.pair2[1], match.pointNumber);
+                                  return (
+                                    <option key={p.id} value={p.id} disabled={!canSelect}>
+                                      {p.name} ({showSensitiveInfo && `${p.age}歲 `}{p.gender}){!canSelect && ' ❌'}
+                                    </option>
+                                  );
+                                })}
                               </select>
                               <select
                                 value={match.pair2[1]?.id || ''}
                                 onChange={(e) => updateAssignment(match.id, 'pair2', 1, e.target.value || null)}
                               >
                                 <option value="">選擇選手2</option>
-                                {team2Players.map(p => (
-                                  <option key={p.id} value={p.id}>
-                                  {p.name} ({showSensitiveInfo && `${p.age}歲 `}{p.gender})
-                                  </option>
-                                ))}
+                                {team2Players.map(p => {
+                                  const canSelect = canSelectPlayerForPoint5(p, match.pair2[0], match.pointNumber);
+                                  return (
+                                    <option key={p.id} value={p.id} disabled={!canSelect}>
+                                      {p.name} ({showSensitiveInfo && `${p.age}歲 `}{p.gender}){!canSelect && ' ❌'}
+                                    </option>
+                                  );
+                                })}
                               </select>
                             </div>
                             {match.pair2[0] && match.pair2[1] && (

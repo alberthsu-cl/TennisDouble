@@ -103,13 +103,14 @@ function findPairForPoint(
   
   if (validPairs.length === 0) return null;
   
-  // 對於最後一點，優先選擇混雙或女雙，但如果沒有則允許男雙
+  // 對於最後一點，優先選擇混雙或女雙，但允許男雙作為備選
   if (pointNumber === settings.pointsPerRound) {
     const preferredPairs = validPairs.filter(pair => isValidLastPointPair(pair));
     if (preferredPairs.length > 0) {
+      // 優先使用符合規則的配對
       validPairs = preferredPairs;
     }
-    // 如果沒有符合混雙/女雙的配對，validPairs 仍包含所有可用配對（允許男雙）
+    // 如果沒有符合規則的配對，仍使用所有可用配對（允許男雙作為最後手段）
   }
   
   // 如果不是最後一點，需要按年齡排序
@@ -200,12 +201,23 @@ export function generateRound(
   for (const [team1, team2] of matchups) {
     const roundMatches: Match[] = [];
     
-    for (let point = 1; point <= settings.pointsPerRound; point++) {
+    // 如果啟用規則，先嘗試生成第5點（優先使用女性選手）
+    const pointOrder = settings.enforceRules && settings.pointsPerRound >= 5
+      ? [5, 1, 2, 3, 4].slice(0, settings.pointsPerRound)
+      : Array.from({ length: settings.pointsPerRound }, (_, i) => i + 1);
+    
+    const generatedMatches = new Map<number, Match>();
+    
+    for (const point of pointOrder) {
       const pointNumber = point;
       
       // 收集此對戰中已生成的配對（用於年齡遞增檢查）
-      const team1ExistingPairs = roundMatches.map(m => m.pair1);
-      const team2ExistingPairs = roundMatches.map(m => m.pair2);
+      const team1ExistingPairs = Array.from(generatedMatches.values())
+        .filter(m => m.pointNumber < pointNumber)
+        .map(m => m.pair1);
+      const team2ExistingPairs = Array.from(generatedMatches.values())
+        .filter(m => m.pointNumber < pointNumber)
+        .map(m => m.pair2);
       
       // 為team1找配對
       let pair1 = findPairForPoint(
@@ -263,7 +275,7 @@ export function generateRound(
       }
       
       if (!pair2) {
-        console.error(`無法為 ${team2} 找到第${point}點的配對，跳過此點`);
+        console.error(`無法為 ${team2} 找到第${pointNumber}點的配對，跳過此點`);
         continue;
       }
       
@@ -282,7 +294,7 @@ export function generateRound(
       
       // 創建比賽
       const match: Match = {
-        id: `R${roundNumber}-${team1}-${team2}-P${point}`,
+        id: `R${roundNumber}-${team1}-${team2}-P${pointNumber}`,
         roundNumber,
         pointNumber,
         team1,
@@ -294,10 +306,12 @@ export function generateRound(
         status: 'scheduled',
       };
       
-      roundMatches.push(match);
+      generatedMatches.set(pointNumber, match);
     }
     
-    matches.push(...roundMatches);
+    // 按點數順序添加到結果中
+    const sortedPoints = Array.from(generatedMatches.keys()).sort((a, b) => a - b);
+    matches.push(...sortedPoints.map(p => generatedMatches.get(p)!));
   }
   
   return matches;
