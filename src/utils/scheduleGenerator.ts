@@ -199,8 +199,6 @@ export function generateRound(
   
   // 為每個對戰生成比賽
   for (const [team1, team2] of matchups) {
-    const roundMatches: Match[] = [];
-    
     // 如果啟用規則，先嘗試生成第5點（優先使用女性選手）
     const pointOrder = settings.enforceRules && settings.pointsPerRound >= 5
       ? [5, 1, 2, 3, 4].slice(0, settings.pointsPerRound)
