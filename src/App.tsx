@@ -318,16 +318,31 @@ function App() {
         const worksheet = workbook.Sheets[sheetName];
         const jsonData = XLSX.utils.sheet_to_json(worksheet) as any[];
         
-        const imported: Player[] = jsonData.map((row, index) => ({
-          id: `demo-player-${Date.now()}-${index}`,
-          name: row['姓名'] || '',
-          age: parseInt(row['年齡']) || 25,
-          gender: (row['性別'] === '女' ? '女' : '男') as Gender,
-          skillLevel: (row['技術等級'] || 'B') as SkillLevel,
-          team: row['隊伍'] ? (row['隊伍'] as TeamName) : '甲隊', // Temporary assignment
-          matchesPlayed: 0,
-          groupTag: row['分組標籤'] ? String(row['分組標籤']).trim() : undefined,
-        }));
+        const imported: Player[] = jsonData.map((row, index) => {
+          // Handle age: support both 年齡 (age) and 年次 (ROC birth year)
+          let age = 25; // default
+          if (row['年齡']) {
+            // Direct age column
+            age = parseInt(row['年齡']) || 25;
+          } else if (row['年次']) {
+            // ROC birth year - convert to age
+            const currentYear = new Date().getFullYear();
+            const rocYear = currentYear - 1911;
+            const birthYear = parseInt(row['年次']) || (rocYear - 25);
+            age = rocYear - birthYear;
+          }
+          
+          return {
+            id: `demo-player-${Date.now()}-${index}`,
+            name: row['姓名'] || '',
+            age: age,
+            gender: (row['性別'] === '女' ? '女' : '男') as Gender,
+            skillLevel: (row['技術等級'] || 'B') as SkillLevel,
+            team: row['隊伍'] ? (row['隊伍'] as TeamName) : '甲隊', // Temporary assignment
+            matchesPlayed: 0,
+            groupTag: row['分組標籤'] ? String(row['分組標籤']).trim() : undefined,
+          };
+        });
         
         if (imported.length > 0) {
           if (players.length > 0) {
@@ -363,14 +378,33 @@ function App() {
   };
 
   const handleExportPlayersExcel = async () => {
-    const exportData = players.map(p => ({
-      '姓名': p.name,
-      '年齡': p.age,
-      '性別': p.gender,
-      '技術等級': p.skillLevel,
-      '隊伍': p.team,
-      '分組標籤': p.groupTag || '',
-    }));
+    // Ask user which format to use for age column
+    const format = prompt('選擇年齡格式：\n1 - 年齡（實際年齡）\n2 - 年次（民國）', '1');
+    if (!format || (format !== '1' && format !== '2')) return;
+    
+    const currentYear = new Date().getFullYear();
+    const rocYear = currentYear - 1911;
+    
+    const exportData = players.map(p => {
+      const data: any = {
+        '姓名': p.name,
+        '性別': p.gender,
+        '技術等級': p.skillLevel,
+        '隊伍': p.team,
+        '分組標籤': p.groupTag || '',
+      };
+      
+      // Add age or 年次 column based on user choice
+      if (format === '2') {
+        // Export as 年次 (ROC birth year)
+        data['年次'] = rocYear - p.age;
+      } else {
+        // Export as 年齡 (age)
+        data['年齡'] = p.age;
+      }
+      
+      return data;
+    });
     
     const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
@@ -453,10 +487,23 @@ function App() {
             skillLevel = skillValue as SkillLevel;
           }
           
+          // Handle age: support both 年齡 (age) and 年次 (ROC birth year)
+          let age = 25; // default
+          if (row['年齡']) {
+            // Direct age column
+            age = parseInt(row['年齡']) || 25;
+          } else if (row['年次']) {
+            // ROC birth year - convert to age
+            const currentYear = new Date().getFullYear();
+            const rocYear = currentYear - 1911;
+            const birthYear = parseInt(row['年次']) || (rocYear - 25);
+            age = rocYear - birthYear;
+          }
+          
           return {
             id: `imported-player-${Date.now()}-${index}`,
             name: row['姓名'] || '',
-            age: parseInt(row['年齡']) || 25,
+            age: age,
             gender,
             skillLevel,
             team: (row['隊伍'] || '甲隊') as TeamName,
