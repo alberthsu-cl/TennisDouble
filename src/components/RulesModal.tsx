@@ -269,7 +269,7 @@ export const RulesModal: React.FC<RulesModalProps> = ({ isOpen, onClose, setting
                     <span className="sub-rule">例如：5點制（前4點年齡遞增，第5點混雙/女雙）</span>
                     <span className="sub-rule">例如：7點制（前6點年齡遞增，第7點混雙/女雙）</span>
                 </li>
-                <li><strong>最少出賽：</strong>建議設定為輪數值<br/>
+                <li><strong>最少出賽：</strong>系統自動計算（根據總位置數 ÷ 總選手數）<br/>
                     <span className="sub-rule">確保每位選手至少出賽相應場次</span>
                 </li>
               </ul>
