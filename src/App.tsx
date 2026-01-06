@@ -675,12 +675,12 @@ function App() {
         >
           即時排名
         </button>
-        <button 
+        <button
           className="btn-rules"
           onClick={() => setShowRulesModal(true)}
-          title="查看賽事規則"
+          title="查看操作手冊與說明"
         >
-          📋 規則說明
+          📘 操作手冊
         </button>
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <label style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.9rem', cursor: 'pointer' }}>
