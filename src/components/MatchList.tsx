@@ -78,18 +78,24 @@ export const MatchList: React.FC<MatchListProps> = ({
                   <h4>{matchupKey}</h4>
                   
                   <div className="points-grid">
-                    {sortedMatchup.map(match => (
-                      <div key={match.id} className="match-card">
-                        <div className="point-badge">第 {match.pointNumber} 點</div>
-                        <ScoreRecorder
-                          match={match}
-                          onUpdateScore={onUpdateScore}
-                          onCompleteMatch={onCompleteMatch}
-                          onResetMatch={onResetMatch}
-                          showSensitiveInfo={showSensitiveInfo}
-                        />
-                      </div>
-                    ))}
+                    {sortedMatchup.map((match) => {
+                      const currentMatchNumber = matches.findIndex(m => m.id === match.id) + 1;
+                      return (
+                        <div key={match.id} className="match-card">
+                          <div className="match-header-badges">
+                            <div className="point-badge">第 {match.pointNumber} 點</div>
+                            <div className="match-counter">{currentMatchNumber}/{matches.length}</div>
+                          </div>
+                          <ScoreRecorder
+                            match={match}
+                            onUpdateScore={onUpdateScore}
+                            onCompleteMatch={onCompleteMatch}
+                            onResetMatch={onResetMatch}
+                            showSensitiveInfo={showSensitiveInfo}
+                          />
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               );

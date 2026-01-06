@@ -728,6 +728,13 @@ button {
   padding: 1rem;
 }
 
+.match-header-badges {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
 .point-badge {
   background: #667eea;
   color: white;
@@ -736,7 +743,18 @@ button {
   display: inline-block;
   font-size: 0.85rem;
   font-weight: 500;
-  margin-bottom: 1rem;
+}
+
+.match-counter {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+  letter-spacing: 0.5px;
 }
 
 /* 計分器 */
@@ -887,7 +905,7 @@ button {
 .match-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   gap: 1rem;
 }
 
@@ -895,6 +913,8 @@ button {
   margin: 0;
   flex: 1;
 }
+
+/* Duplicate .match-counter removed - now positioned absolutely in match-card */
 
 .btn-reset-icon {
   padding: 0.4rem;
