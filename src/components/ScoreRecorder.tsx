@@ -188,7 +188,7 @@ export const ScoreRecorder: React.FC<ScoreRecorderProps> = ({
     const isPair1Complete = match.pair1.player1 && match.pair1.player2;
     const isPair2Complete = match.pair2.player1 && match.pair2.player2;
     
-    // 檢查第5點是否為混雙或女雙
+    // 檢查第5點是否為混雙或女雙（僅用於顯示警告）
     const isPoint5 = match.pointNumber === 5;
     const isPair1Valid = !isPoint5 || !isPair1Complete || 
       (match.pair1.player1!.gender === '女' && match.pair1.player2!.gender === '女') ||
@@ -197,7 +197,9 @@ export const ScoreRecorder: React.FC<ScoreRecorderProps> = ({
       (match.pair2.player1!.gender === '女' && match.pair2.player2!.gender === '女') ||
       (match.pair2.player1!.gender !== match.pair2.player2!.gender);
     
-    const canStart = isPair1Complete && isPair2Complete && isPair1Valid && isPair2Valid;
+    // 只要配對完成就可以開始，不強制阻擋
+    const canStart = isPair1Complete && isPair2Complete;
+    const hasWarning = isPoint5 && (!isPair1Valid || !isPair2Valid);
 
     return (
       <div className={`score-recorder scheduled ${!canStart ? 'tbd' : ''}`}>
@@ -218,8 +220,8 @@ export const ScoreRecorder: React.FC<ScoreRecorderProps> = ({
                 <p>{match.pair1.player1!.name} ({showSensitiveInfo && `${match.pair1.player1!.age}歲 `}{match.pair1.player1!.gender})</p>
                 <p>{match.pair1.player2!.name} ({showSensitiveInfo && `${match.pair1.player2!.age}歲 `}{match.pair1.player2!.gender})</p>
                 {!isPair1Valid && (
-                  <div className="validation-error">
-                    ❌ 第5點必須為混雙或女雙
+                  <div className="validation-warning">
+                    ⚠️ 建議：第5點應為混雙或女雙
                   </div>
                 )}
               </>
@@ -238,8 +240,8 @@ export const ScoreRecorder: React.FC<ScoreRecorderProps> = ({
                 <p>{match.pair2.player1!.name} ({showSensitiveInfo && `${match.pair2.player1!.age}歲 `}{match.pair2.player1!.gender})</p>
                 <p>{match.pair2.player2!.name} ({showSensitiveInfo && `${match.pair2.player2!.age}歲 `}{match.pair2.player2!.gender})</p>
                 {!isPair2Valid && (
-                  <div className="validation-error">
-                    ❌ 第5點必須為混雙或女雙
+                  <div className="validation-warning">
+                    ⚠️ 建議：第5點應為混雙或女雙
                   </div>
                 )}
               </>
@@ -257,9 +259,9 @@ export const ScoreRecorder: React.FC<ScoreRecorderProps> = ({
           className="btn-primary btn-large" 
           onClick={startMatch}
           disabled={!canStart}
-          title={!canStart ? (!isPair1Complete || !isPair2Complete ? '請先指派所有選手才能開始比賽' : '第5點必須為混雙或女雙') : ''}
+          title={!canStart ? '請先指派所有選手才能開始比賽' : (hasWarning ? '建議：第5點應為混雙或女雙' : '')}
         >
-          {canStart ? '開始比賽' : (!isPair1Complete || !isPair2Complete ? '⚠️ 選手未齊 - 無法開始' : '❌ 違反規則 - 無法開始')}
+          {canStart ? '開始比賽' : '⚠️ 選手未齊 - 無法開始'}
         </button>
       </div>
     );
