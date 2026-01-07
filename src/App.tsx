@@ -48,14 +48,19 @@ const autoDistributeTeams = (players: Player[]): Player[] => {
   const femalePlayers = shuffleArray(regularPlayers.filter(p => p.gender === '女'));
   const malePlayers = shuffleArray(regularPlayers.filter(p => p.gender === '男'));
   
+  // Distribute all regular players with continuous round-robin to ensure even team distribution
+  let teamIndex = 0;
+  
   // Distribute female players first to ensure balance (important for point 5 mixed doubles rule)
-  femalePlayers.forEach((player, index) => {
-    player.team = teams[index % 4];
+  femalePlayers.forEach((player) => {
+    player.team = teams[teamIndex % 4];
+    teamIndex++;
   });
   
-  // Then distribute male players
-  malePlayers.forEach((player, index) => {
-    player.team = teams[index % 4];
+  // Continue with male players using the same counter
+  malePlayers.forEach((player) => {
+    player.team = teams[teamIndex % 4];
+    teamIndex++;
   });
   
   return [...captains, ...femalePlayers, ...malePlayers];
@@ -430,7 +435,9 @@ function App() {
             const confirmed = await modal.showConfirm('這將覆蓋現有選手資料，確定要匯入嗎？');
             if (!confirmed) return;
           }
-          setPlayers(imported);
+          // Auto-distribute teams to ensure balanced distribution
+          const distributedPlayers = autoDistributeTeams(imported);
+          setPlayers(distributedPlayers);
           await modal.showAlert(`成功匯入 ${imported.length} 名選手！`);
         } else {
           await modal.showAlert('無效的選手資料格式');
@@ -525,7 +532,9 @@ function App() {
             const confirmed = await modal.showConfirm('這將覆蓋現有選手資料，確定要匯入嗎？');
             if (!confirmed) return;
           }
-          setPlayers(imported);
+          // Auto-distribute teams to ensure balanced distribution
+          const distributedPlayers = autoDistributeTeams(imported);
+          setPlayers(distributedPlayers);
           await modal.showAlert(`成功匯入 ${imported.length} 名選手！`);
         } else {
           await modal.showAlert('無效的Excel檔案格式');
