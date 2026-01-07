@@ -98,6 +98,14 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
     setSkillLevel(player.skillLevel);
     setTeam(player.team);
     setGroupTag(player.groupTag || '');
+    
+    // Scroll to form smoothly
+    setTimeout(() => {
+      const form = document.querySelector('.player-form');
+      if (form) {
+        form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 100);
   };
 
   const handleCancelEdit = () => {
