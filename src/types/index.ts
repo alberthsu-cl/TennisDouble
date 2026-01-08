@@ -14,7 +14,7 @@ export interface Player {
   age: number;
   gender: Gender;
   skillLevel: SkillLevel; // 技術等級 (A:最佳, B:良好, C:不错)
-  team: TeamName;
+  team?: TeamName; // Optional to allow importing players without team assignment
   matchesPlayed: number; // 已出賽場次
   groupTag?: string; // 分組標籤 (如 A1=甲隊領隊, A2=甲隊副領隊, B1=乙隊領隊...)
 }

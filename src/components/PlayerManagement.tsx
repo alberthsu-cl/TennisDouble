@@ -96,7 +96,7 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
     setAge(player.age.toString());
     setGender(player.gender);
     setSkillLevel(player.skillLevel);
-    setTeam(player.team);
+    setTeam(player.team || '甲隊');
     setGroupTag(player.groupTag || '');
     
     // Scroll to form smoothly

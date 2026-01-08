@@ -1,134 +1,465 @@
-import type { Player, TeamName, SkillLevel } from '../types';
+import type { Player } from '../types';
 
 /**
- * Fisher-Yates shuffle algorithm for randomization
+ * 生成示範選手資料（使用2026-01-08的實際選手名單）
  */
-function shuffleArray<T>(array: T[]): T[] {
-  const shuffled = [...array];
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-  }
-  return shuffled;
-}
-
-/**
- * 生成示範選手資料
- * @param playersPerTeam 每隊人數（默認10人）
- */
-export function generateDemoPlayers(playersPerTeam: number = 10): Player[] {
-  const demoPlayers: Player[] = [];
-  
-  const teams: TeamName[] = ['甲隊', '乙隊', '丙隊', '丁隊'];
-  
-  // 技術等級分布：20% A級, 50% B級, 30% C級
-  const getSkillLevel = (index: number, total: number): SkillLevel => {
-    const ratio = index / total;
-    if (ratio < 0.2) return 'A';
-    if (ratio < 0.7) return 'B';
-    return 'C';
-  };
-  
-  // 男性名字 (ATP球員)
-  const maleNames = [
-    '羅傑費德勒', '拉法納達爾', '諾瓦克喬科維奇', '安迪穆雷', '卡洛斯阿爾卡拉斯',
-    '丹尼爾梅德韋傑夫', '斯特凡諾斯西西帕斯', '亞歷山大茲維列夫', '多米尼克蒂姆', '史坦瓦林卡',
-    '胡安馬丁德爾波特羅', '馬林西利奇', '凱文安德森', '大衛高芬', '格里戈爾迪米特洛夫',
-    '尼克基里奧斯', '丹尼斯沙波瓦洛夫', '亞歷克斯德米諾爾', '費利克斯奧傑阿里亞西姆', '揚尼克辛納',
-    '霍伯特胡卡茨', '卡斯珀魯德', '馬泰奧貝雷蒂尼', '安德烈盧布列夫', '迭戈施瓦茨曼',
-    '羅伯托包蒂斯塔阿古特', '法比奧福尼尼', '加埃爾蒙菲爾斯', '理查加斯奎特', '約翰伊斯內爾',
-    '米洛斯拉奧尼奇', '傑克索克', '休伯特胡卡茲', '卡梅隆諾里', '弗朗西斯蒂亞弗',
-    '洛倫佐穆塞蒂', '湯米保羅', '泰勒弗里茨', '塞巴斯蒂安柯達', '傑克德雷珀',
-  ];
-  
-  // 女性名字 (WTA球員)
-  const femaleNames = [
-    '塞蕾娜威廉斯', '維納斯威廉斯', '大坂直美', '西蒙娜哈勒普', '伊加斯維亞特克',
-    '阿琳娜薩巴倫卡', '可可高芙', '瑪麗亞莎拉波娃', '卡洛琳沃茲尼亞琪', '安潔莉克克柏',
-    '佩特拉克維托娃', '加比涅穆古魯扎', '維多利亞阿扎倫卡', '耶萊娜奧斯塔彭科', '卡洛琳娜普利斯科娃',
-    '艾莉絲梅爾滕斯', '斯隆斯蒂芬斯', '麥迪遜凱斯', '阿曼達安尼西莫娃', '比安卡安德萊斯庫',
-    '艾希莉巴蒂', '貝琳達本西奇', '瑪麗亞薩卡莉', '奧恩斯賈巴爾', '芭芭拉克雷吉茨科娃',
-    '艾蓮娜里巴基娜', '傑西卡佩古拉', '達莉亞卡薩金娜', '維羅妮卡庫德梅托娃', '卡洛琳加西亞',
-    '艾莉森里斯克', '鄭欽文', '張帥', '王薔', '王欣瑜',
-    '謝淑薇', '詹詠然', '詹皓晴', '彭帥', '李娜',
-  ];
-  
-  let playerIndex = 0;
-  
-  // 計算男女比例：60% 男性，40% 女性（四捨五入）
-  const maleCount = Math.round(playersPerTeam * 0.6);
-  const femaleCount = playersPerTeam - maleCount;
-  
-  // 先創建所有選手（不分配隊伍）
-  const allPlayers: Omit<Player, 'team'>[] = [];
-  
-  for (let i = 0; i < maleCount * 4; i++) {
-    allPlayers.push({
-      id: `demo-player-${playerIndex++}`,
-      name: maleNames[i % maleNames.length],
-      age: 25 + Math.floor(Math.random() * 30),
-      gender: '男',
-      skillLevel: getSkillLevel(i, maleCount * 4),
-      matchesPlayed: 0,
-    });
-  }
-  
-  for (let i = 0; i < femaleCount * 4; i++) {
-    allPlayers.push({
-      id: `demo-player-${playerIndex++}`,
-      name: femaleNames[i % femaleNames.length],
-      age: 25 + Math.floor(Math.random() * 30),
-      gender: '女',
-      skillLevel: getSkillLevel(i, femaleCount * 4),
-      matchesPlayed: 0,
-    });
-  }
-  
-  // 隨機打亂所有選手，確保每次載入示範資料都有不同的分組結果
-  const shuffledAllPlayers = shuffleArray(allPlayers);
-  
-  // 平均分配到四隊（確保每隊正好有 playersPerTeam 人）
-  const teamAssignments: Player[][] = [[], [], [], []];
-  
-  // Round-robin 分配所有選手，確保每隊人數相同
-  shuffledAllPlayers.forEach((player, index) => {
-    const teamIndex = index % 4;
-    teamAssignments[teamIndex].push({
-      ...player,
-      team: teams[teamIndex],
-    });
-  });
-  
-  // 合併所有隊伍的選手
-  teamAssignments.forEach(teamPlayers => {
-    demoPlayers.push(...teamPlayers);
-  });
-  
-  // 為每隊的前兩名選手指定領隊/副領隊標籤
-  const groupTagMap: { [key in TeamName]: string[] } = {
-    '甲隊': ['A1', 'A2'],
-    '乙隊': ['B1', 'B2'],
-    '丙隊': ['C1', 'C2'],
-    '丁隊': ['D1', 'D2'],
-  };
-  
-  teams.forEach((team) => {
-    const teamPlayers = demoPlayers.filter(p => p.team === team);
-    // 為前兩名選手設定 groupTag
-    if (teamPlayers.length >= 1) {
-      teamPlayers[0].groupTag = groupTagMap[team][0]; // 領隊
+export function generateDemoPlayers(): Player[] {
+  return [
+    {
+      "id": "demo-player-1767848400284-9",
+      "name": "簡麗娟",
+      "age": 61,
+      "gender": "女",
+      "skillLevel": "B",
+      "matchesPlayed": 0
+    },
+    {
+      "id": "demo-player-1767848400284-46",
+      "name": "吳美鳳",
+      "age": 58,
+      "gender": "女",
+      "skillLevel": "B",
+      "matchesPlayed": 0
+    },
+    {
+      "id": "demo-player-1767848400284-8",
+      "name": "車美芬",
+      "age": 58,
+      "gender": "女",
+      "skillLevel": "B",
+      "matchesPlayed": 0
+    },
+    {
+      "id": "demo-player-1767848400284-21",
+      "name": "李冠儀",
+      "age": 32,
+      "gender": "女",
+      "skillLevel": "B",
+      "matchesPlayed": 0
+    },
+    {
+      "id": "demo-player-1767848400284-28",
+      "name": "黃桂容",
+      "age": 68,
+      "gender": "女",
+      "skillLevel": "B",
+      "matchesPlayed": 0
+    },
+    {
+      "id": "demo-player-1767848400284-23",
+      "name": "吳阿桃",
+      "age": 70,
+      "gender": "女",
+      "skillLevel": "B",
+      "matchesPlayed": 0
+    },
+    {
+      "id": "demo-player-1767848400284-31",
+      "name": "黃淑琴",
+      "age": 64,
+      "gender": "女",
+      "skillLevel": "B",
+      "matchesPlayed": 0
+    },
+    {
+      "id": "demo-player-1767848400284-14",
+      "name": "李 朝",
+      "age": 51,
+      "gender": "女",
+      "skillLevel": "B",
+      "matchesPlayed": 0
+    },
+    {
+      "id": "demo-player-1767848400284-33",
+      "name": "韋美華",
+      "age": 67,
+      "gender": "女",
+      "skillLevel": "B",
+      "matchesPlayed": 0
+    },
+    {
+      "id": "demo-player-1767848400284-26",
+      "name": "何宜芸",
+      "age": 58,
+      "gender": "女",
+      "skillLevel": "B",
+      "matchesPlayed": 0
+    },
+    {
+      "id": "demo-player-1767848400284-44",
+      "name": "鄭遠喆",
+      "age": 10,
+      "gender": "男",
+      "skillLevel": "B",
+      "matchesPlayed": 0
+    },
+    {
+      "id": "demo-player-1767848400284-35",
+      "name": "林國榮",
+      "age": 60,
+      "gender": "男",
+      "skillLevel": "B",
+      "matchesPlayed": 0
+    },
+    {
+      "id": "demo-player-1767848400284-48",
+      "name": "陳孟鍠",
+      "age": 69,
+      "gender": "男",
+      "skillLevel": "B",
+      "matchesPlayed": 0
+    },
+    {
+      "id": "demo-player-1767848400284-2",
+      "name": "姚期興",
+      "age": 47,
+      "gender": "男",
+      "skillLevel": "B",
+      "matchesPlayed": 0
+    },
+    {
+      "id": "demo-player-1767848400284-56",
+      "name": "柯三民",
+      "age": 70,
+      "gender": "男",
+      "skillLevel": "B",
+      "matchesPlayed": 0
+    },
+    {
+      "id": "demo-player-1767848400284-39",
+      "name": "古杰華",
+      "age": 67,
+      "gender": "男",
+      "skillLevel": "B",
+      "matchesPlayed": 0
+    },
+    {
+      "id": "demo-player-1767848400284-0",
+      "name": "林宗德",
+      "age": 73,
+      "gender": "男",
+      "skillLevel": "B",
+      "matchesPlayed": 0
+    },
+    {
+      "id": "demo-player-1767848400284-7",
+      "name": "陳萬驪",
+      "age": 69,
+      "gender": "男",
+      "skillLevel": "B",
+      "matchesPlayed": 0
+    },
+    {
+      "id": "demo-player-1767848400284-3",
+      "name": "許僑方",
+      "age": 58,
+      "gender": "男",
+      "skillLevel": "B",
+      "matchesPlayed": 0
+    },
+    {
+      "id": "demo-player-1767848400284-4",
+      "name": "蔡偉仁",
+      "age": 55,
+      "gender": "男",
+      "skillLevel": "B",
+      "matchesPlayed": 0
+    },
+    {
+      "id": "demo-player-1767848400284-10",
+      "name": "鄭香岷",
+      "age": 46,
+      "gender": "男",
+      "skillLevel": "B",
+      "matchesPlayed": 0
+    },
+    {
+      "id": "demo-player-1767848400284-32",
+      "name": "林 翰",
+      "age": 55,
+      "gender": "男",
+      "skillLevel": "B",
+      "matchesPlayed": 0
+    },
+    {
+      "id": "demo-player-1767848400284-47",
+      "name": "黃鏡田",
+      "age": 71,
+      "gender": "男",
+      "skillLevel": "B",
+      "matchesPlayed": 0
+    },
+    {
+      "id": "demo-player-1767848400284-50",
+      "name": "張振欽",
+      "age": 67,
+      "gender": "男",
+      "skillLevel": "B",
+      "matchesPlayed": 0
+    },
+    {
+      "id": "demo-player-1767848400284-1",
+      "name": "楊洺濤",
+      "age": 51,
+      "gender": "男",
+      "skillLevel": "B",
+      "matchesPlayed": 0
+    },
+    {
+      "id": "demo-player-1767848400284-34",
+      "name": "高俊童",
+      "age": 73,
+      "gender": "男",
+      "skillLevel": "B",
+      "matchesPlayed": 0
+    },
+    {
+      "id": "demo-player-1767848400284-6",
+      "name": "賴俊明",
+      "age": 67,
+      "gender": "男",
+      "skillLevel": "B",
+      "matchesPlayed": 0
+    },
+    {
+      "id": "demo-player-1767848400284-13",
+      "name": "李文王",
+      "age": 67,
+      "gender": "男",
+      "skillLevel": "B",
+      "matchesPlayed": 0
+    },
+    {
+      "id": "demo-player-1767848400284-53",
+      "name": "傅聖國",
+      "age": 62,
+      "gender": "男",
+      "skillLevel": "B",
+      "matchesPlayed": 0
+    },
+    {
+      "id": "demo-player-1767848400284-29",
+      "name": "陳鴻杰",
+      "age": 46,
+      "gender": "男",
+      "skillLevel": "B",
+      "matchesPlayed": 0
+    },
+    {
+      "id": "demo-player-1767848400284-49",
+      "name": "彭裕平",
+      "age": 73,
+      "gender": "男",
+      "skillLevel": "B",
+      "matchesPlayed": 0
+    },
+    {
+      "id": "demo-player-1767848400284-45",
+      "name": "張輝麟",
+      "age": 66,
+      "gender": "男",
+      "skillLevel": "B",
+      "matchesPlayed": 0
+    },
+    {
+      "id": "demo-player-1767848400284-11",
+      "name": "蔡文乾",
+      "age": 58,
+      "gender": "男",
+      "skillLevel": "B",
+      "matchesPlayed": 0
+    },
+    {
+      "id": "demo-player-1767848400284-43",
+      "name": "蘇清河",
+      "age": 60,
+      "gender": "男",
+      "skillLevel": "B",
+      "matchesPlayed": 0
+    },
+    {
+      "id": "demo-player-1767848400284-22",
+      "name": "夏輔義",
+      "age": 58,
+      "gender": "男",
+      "skillLevel": "B",
+      "matchesPlayed": 0
+    },
+    {
+      "id": "demo-player-1767848400284-38",
+      "name": "施銘聰",
+      "age": 69,
+      "gender": "男",
+      "skillLevel": "B",
+      "matchesPlayed": 0
+    },
+    {
+      "id": "demo-player-1767848400284-27",
+      "name": "陳振訓",
+      "age": 72,
+      "gender": "男",
+      "skillLevel": "B",
+      "matchesPlayed": 0
+    },
+    {
+      "id": "demo-player-1767848400284-16",
+      "name": "吳金龍",
+      "age": 72,
+      "gender": "男",
+      "skillLevel": "B",
+      "matchesPlayed": 0
+    },
+    {
+      "id": "demo-player-1767848400284-24",
+      "name": "林忠勝",
+      "age": 75,
+      "gender": "男",
+      "skillLevel": "B",
+      "matchesPlayed": 0
+    },
+    {
+      "id": "demo-player-1767848400284-19",
+      "name": "張坤城",
+      "age": 79,
+      "gender": "男",
+      "skillLevel": "B",
+      "matchesPlayed": 0
+    },
+    {
+      "id": "demo-player-1767848400284-15",
+      "name": "方欽瑩",
+      "age": 59,
+      "gender": "男",
+      "skillLevel": "B",
+      "matchesPlayed": 0
+    },
+    {
+      "id": "demo-player-1767848400284-36",
+      "name": "陳旺村",
+      "age": 64,
+      "gender": "男",
+      "skillLevel": "B",
+      "matchesPlayed": 0
+    },
+    {
+      "id": "demo-player-1767848400284-42",
+      "name": "卓松柏",
+      "age": 66,
+      "gender": "男",
+      "skillLevel": "B",
+      "matchesPlayed": 0
+    },
+    {
+      "id": "demo-player-1767848400284-12",
+      "name": "劉檳樅",
+      "age": 60,
+      "gender": "男",
+      "skillLevel": "B",
+      "matchesPlayed": 0
+    },
+    {
+      "id": "demo-player-1767848400284-54",
+      "name": "黃慶銓",
+      "age": 44,
+      "gender": "男",
+      "skillLevel": "B",
+      "matchesPlayed": 0
+    },
+    {
+      "id": "demo-player-1767848400284-17",
+      "name": "曾傳智",
+      "age": 61,
+      "gender": "男",
+      "skillLevel": "B",
+      "matchesPlayed": 0
+    },
+    {
+      "id": "demo-player-1767848400284-5",
+      "name": "傅紹捷",
+      "age": 32,
+      "gender": "男",
+      "skillLevel": "B",
+      "matchesPlayed": 0
+    },
+    {
+      "id": "demo-player-1767848400284-18",
+      "name": "陳志勇",
+      "age": 62,
+      "gender": "男",
+      "skillLevel": "B",
+      "matchesPlayed": 0
+    },
+    {
+      "id": "demo-player-1767848400284-55",
+      "name": "許及煌",
+      "age": 64,
+      "gender": "男",
+      "skillLevel": "B",
+      "matchesPlayed": 0
+    },
+    {
+      "id": "demo-player-1767848400284-37",
+      "name": "藍義鈞",
+      "age": 37,
+      "gender": "男",
+      "skillLevel": "B",
+      "matchesPlayed": 0
+    },
+    {
+      "id": "demo-player-1767848400284-51",
+      "name": "李先景",
+      "age": 69,
+      "gender": "男",
+      "skillLevel": "B",
+      "matchesPlayed": 0
+    },
+    {
+      "id": "demo-player-1767848400284-52",
+      "name": "沈正洋",
+      "age": 38,
+      "gender": "男",
+      "skillLevel": "B",
+      "matchesPlayed": 0
+    },
+    {
+      "id": "demo-player-1767848400284-41",
+      "name": "劉勝源",
+      "age": 70,
+      "gender": "男",
+      "skillLevel": "B",
+      "matchesPlayed": 0
+    },
+    {
+      "id": "demo-player-1767848400284-30",
+      "name": "范玉峰",
+      "age": 59,
+      "gender": "男",
+      "skillLevel": "B",
+      "matchesPlayed": 0
+    },
+    {
+      "id": "demo-player-1767848400284-20",
+      "name": "鄭靖騰",
+      "age": 62,
+      "gender": "男",
+      "skillLevel": "B",
+      "matchesPlayed": 0
+    },
+    {
+      "id": "demo-player-1767848400284-40",
+      "name": "董永吉",
+      "age": 74,
+      "gender": "男",
+      "skillLevel": "B",
+      "matchesPlayed": 0
+    },
+    {
+      "id": "demo-player-1767848400284-25",
+      "name": "游順吉",
+      "age": 61,
+      "gender": "男",
+      "skillLevel": "B",
+      "matchesPlayed": 0
     }
-    if (teamPlayers.length >= 2) {
-      teamPlayers[1].groupTag = groupTagMap[team][1]; // 副領隊
-    }
-  });
-  
-  // 隨機打亂每隊的選手順序（但保持隊伍分組）
-  const shuffledPlayers: Player[] = [];
-  teams.forEach(team => {
-    const teamPlayers = demoPlayers.filter(p => p.team === team);
-    shuffledPlayers.push(...teamPlayers);
-  });
-  
-  return shuffledPlayers;
+  ];
 }

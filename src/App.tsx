@@ -288,10 +288,10 @@ function App() {
       const confirmed = await modal.showConfirm('這將覆蓋現有選手資料，確定要載入示範資料嗎？');
       if (!confirmed) return;
     }
-    const demoPlayers = generateDemoPlayers(settings.playersPerTeam);
-    // Demo data is already randomized in generateDemoPlayers
-    setPlayers(demoPlayers);
-    await modal.showAlert(`已載入${demoPlayers.length}名示範選手！請到「選手管理」查看或前往「賽事設定」開始賽事。`);
+    const demoPlayers = generateDemoPlayers();
+    const distributedPlayers = autoDistributeTeams(demoPlayers);
+    setPlayers(distributedPlayers);
+    await modal.showAlert(`已載入${distributedPlayers.length}名示範選手！請到「選手管理」查看或前往「賽事設定」開始賽事。`);
   };
 
   const handleImportDemoData = (file: File) => {
