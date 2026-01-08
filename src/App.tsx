@@ -76,7 +76,7 @@ function App() {
   const [filterRound, setFilterRound] = useState<number | undefined>(undefined);
   const [filterStatus, setFilterStatus] = useState<'all' | 'scheduled' | 'in-progress' | 'completed'>('all');
   const [showRulesModal, setShowRulesModal] = useState(false);
-  const [showSensitiveInfo, setShowSensitiveInfo] = useState(true);
+  const [showSensitiveInfo, setShowSensitiveInfo] = useState(false);
   
   // Custom modal
   const modal = useModal();
