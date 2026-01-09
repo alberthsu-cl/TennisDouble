@@ -78,9 +78,12 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
 
     const initialAssignments: MatchAssignment[] = [];
     
-    // If there are existing matches, load them into assignments
+    // If there are existing matches, load them into assignments (excluding completed matches)
     if (existingMatches && existingMatches.length > 0) {
       existingMatches.forEach(match => {
+        // Skip completed matches - they should not be editable
+        if (match.status === 'completed') return;
+        
         initialAssignments.push({
           id: match.id,
           roundNumber: match.roundNumber,
