@@ -25,13 +25,22 @@ const shuffleArray = <T,>(array: T[]): T[] => {
 
 // Auto-distribute players to teams evenly
 const autoDistributeTeams = (players: Player[], mode: 'internal' | 'inter-club' = 'internal'): Player[] => {
+  // Separate players with assigned teams from those without
+  const playersWithTeams = players.filter(p => p.team && p.team.trim() !== '');
+  const playersWithoutTeams = players.filter(p => !p.team || p.team.trim() === '');
+  
+  // If no players need distribution, return as-is
+  if (playersWithoutTeams.length === 0) {
+    return players;
+  }
+  
   if (mode === 'inter-club') {
     // Inter-club mode: distribute evenly between 主隊 (甲隊+乙隊) and 客隊 (丙隊+丁隊)
     const teams: TeamName[] = ['甲隊', '乙隊', '丙隊', '丁隊'];
     
     // Separate players by gender for balanced distribution
-    const femalePlayers = shuffleArray(players.filter(p => p.gender === '女'));
-    const malePlayers = shuffleArray(players.filter(p => p.gender === '男'));
+    const femalePlayers = shuffleArray(playersWithoutTeams.filter(p => p.gender === '女'));
+    const malePlayers = shuffleArray(playersWithoutTeams.filter(p => p.gender === '男'));
     
     // Distribute evenly: 主隊 gets 甲隊+乙隊, 客隊 gets 丙隊+丁隊
     let teamIndex = 0;
@@ -48,7 +57,7 @@ const autoDistributeTeams = (players: Player[], mode: 'internal' | 'inter-club' 
       teamIndex++;
     });
     
-    return [...femalePlayers, ...malePlayers];
+    return [...playersWithTeams, ...femalePlayers, ...malePlayers];
   }
   
   // Internal mode: original 4-team distribution
@@ -60,9 +69,9 @@ const autoDistributeTeams = (players: Player[], mode: 'internal' | 'inter-club' 
     'D1': '丁隊', 'D2': '丁隊',
   };
   
-  // Separate captains and regular players
-  const captains = players.filter(p => p.groupTag && teamMap[p.groupTag]);
-  const regularPlayers = players.filter(p => !p.groupTag || !teamMap[p.groupTag]);
+  // Separate captains and regular players (only from those without teams)
+  const captains = playersWithoutTeams.filter(p => p.groupTag && teamMap[p.groupTag]);
+  const regularPlayers = playersWithoutTeams.filter(p => !p.groupTag || !teamMap[p.groupTag]);
   
   // Assign captains to their designated teams
   captains.forEach(captain => {
@@ -90,7 +99,7 @@ const autoDistributeTeams = (players: Player[], mode: 'internal' | 'inter-club' 
     teamIndex++;
   });
   
-  return [...captains, ...femalePlayers, ...malePlayers];
+  return [...playersWithTeams, ...captains, ...femalePlayers, ...malePlayers];
 };
 
 type View = 'setup' | 'players' | 'matches' | 'standings' | 'manual-setup';
@@ -386,29 +395,66 @@ function App() {
             age = rocYear - birthYear;
           }
           
+          // Handle team: map club names to internal teams in inter-club mode
+          let teamValue = row['隊伍'] || '';
+          let team: TeamName = '甲隊'; // default
+          
+          if (settings.tournamentMode === 'inter-club') {
+            // In inter-club mode, recognize club names and map to internal teams
+            console.log(`[Import Demo Debug] Row ${index}: teamValue="${teamValue}", homeClub="${settings.homeClubName}", awayClub="${settings.awayClubName}"`);
+            if (teamValue === settings.homeClubName || teamValue === '主隊') {
+              // Alternate between 甲隊 and 乙隊 for home club
+              team = (index % 2 === 0) ? '甲隊' : '乙隊';
+              console.log(`[Import Demo Debug] Matched home club -> assigned ${team}`);
+            } else if (teamValue === settings.awayClubName || teamValue === '客隊') {
+              // Alternate between 丙隊 and 丁隊 for away club
+              team = (index % 2 === 0) ? '丙隊' : '丁隊';
+              console.log(`[Import Demo Debug] Matched away club -> assigned ${team}`);
+            } else if (teamValue === '甲隊' || teamValue === '乙隊' || teamValue === '丙隊' || teamValue === '丁隊') {
+              // If already using internal team names, keep them
+              team = teamValue as TeamName;
+              console.log(`[Import Demo Debug] Already internal team -> kept ${team}`);
+            } else if (teamValue.trim() === '') {
+              // Empty team, will be auto-distributed
+              team = '' as any;
+              console.log(`[Import Demo Debug] Empty team -> will auto-distribute`);
+            } else {
+              // Unknown team name, default to empty for auto-distribution
+              team = '' as any;
+              console.log(`[Import Demo Debug] Unknown team "${teamValue}" -> will auto-distribute`);
+            }
+          } else {
+            // Internal mode: use team value directly or default
+            if (teamValue === '甲隊' || teamValue === '乙隊' || teamValue === '丙隊' || teamValue === '丁隊') {
+              team = teamValue as TeamName;
+            } else if (teamValue.trim() !== '') {
+              // Try to map custom names, otherwise empty for auto-distribution
+              team = '' as any;
+            }
+          }
+          
           return {
             id: `demo-player-${Date.now()}-${index}`,
             name: row['姓名'] || '',
             age: age,
             gender: (row['性別'] === '女' ? '女' : '男') as Gender,
             skillLevel: (row['技術等級'] || 'B') as SkillLevel,
-            team: row['隊伍'] ? (row['隊伍'] as TeamName) : '甲隊', // Temporary assignment
+            team: team,
             matchesPlayed: 0,
             groupTag: row['分組標籤'] ? String(row['分組標籤']).trim() : undefined,
           };
         });
         
         if (imported.length > 0) {
+          console.log('[Import Demo Debug] Before auto-distribute:', imported.map(p => ({ name: p.name, team: p.team })));
           if (players.length > 0) {
             const confirmed = await modal.showConfirm('這將覆蓋現有選手資料，確定要從Excel載入示範資料嗎？');
             if (!confirmed) return;
           }
-          // Check if any player has team assigned
-          const hasTeamAssigned = imported.some(p => jsonData[imported.indexOf(p)]['隊伍']);
-          
-          // If no teams assigned, auto-distribute; otherwise shuffle with existing teams
-          const finalPlayers = hasTeamAssigned ? shuffleArray(imported) : autoDistributeTeams(imported, settings.tournamentMode);
-          setPlayers(finalPlayers);
+          // Auto-distribute teams to ensure balanced distribution
+          const distributedPlayers = autoDistributeTeams(imported, settings.tournamentMode);
+          console.log('[Import Demo Debug] After auto-distribute:', distributedPlayers.map(p => ({ name: p.name, team: p.team })));
+          setPlayers(distributedPlayers);
           await modal.showAlert(`成功從Excel載入 ${imported.length} 名示範選手！`);
         } else {
           await modal.showAlert('無效的Excel資料格式');
@@ -421,7 +467,27 @@ function App() {
   };
 
   const handleExportPlayers = () => {
-    const dataStr = JSON.stringify(players, null, 2);
+    // Sort players by team before exporting
+    const sortedPlayers = [...players].sort((a, b) => {
+      const teamOrder = ['甲隊', '乙隊', '丙隊', '丁隊'];
+      return teamOrder.indexOf(a.team || '甲隊') - teamOrder.indexOf(b.team || '甲隊');
+    });
+    
+    // Map internal teams to club names in inter-club mode
+    const exportData = sortedPlayers.map(p => {
+      if (settings.tournamentMode === 'inter-club') {
+        let teamName = p.team;
+        if (p.team === '甲隊' || p.team === '乙隊') {
+          teamName = settings.homeClubName as TeamName;
+        } else if (p.team === '丙隊' || p.team === '丁隊') {
+          teamName = settings.awayClubName as TeamName;
+        }
+        return { ...p, team: teamName };
+      }
+      return p;
+    });
+    
+    const dataStr = JSON.stringify(exportData, null, 2);
     const dataBlob = new Blob([dataStr], { type: 'application/json' });
     const url = URL.createObjectURL(dataBlob);
     const link = document.createElement('a');
@@ -433,29 +499,46 @@ function App() {
 
   const handleExportPlayersExcel = async () => {
     // Ask user which format to use for age column
-    const format = prompt('選擇年齡格式：\n1 - 年齡（實際年齡）\n2 - 年次（民國）', '1');
+    const format = prompt('選擇年齡格式：\n1 - 年次（民國）\n2 - 年齡（實際年齡）', '1');
     if (!format || (format !== '1' && format !== '2')) return;
     
     const currentYear = new Date().getFullYear();
     const rocYear = currentYear - 1911;
     
-    const exportData = players.map(p => {
-      const data: any = {
-        '姓名': p.name,
-        '性別': p.gender,
-        '技術等級': p.skillLevel,
-        '隊伍': p.team,
-        '分組標籤': p.groupTag || '',
-      };
+    // Sort players by team before exporting
+    const sortedPlayers = [...players].sort((a, b) => {
+      const teamOrder = ['甲隊', '乙隊', '丙隊', '丁隊'];
+      return teamOrder.indexOf(a.team || '甲隊') - teamOrder.indexOf(b.team || '甲隊');
+    });
+    
+    const exportData = sortedPlayers.map(p => {
+      // Map internal teams to club names in inter-club mode
+      let teamName: string = p.team || '甲隊';
+      if (settings.tournamentMode === 'inter-club') {
+        if (p.team === '甲隊' || p.team === '乙隊') {
+          teamName = settings.homeClubName;
+        } else if (p.team === '丙隊' || p.team === '丁隊') {
+          teamName = settings.awayClubName;
+        }
+      }
       
-      // Add age or 年次 column based on user choice
-      if (format === '2') {
+      const data: any = {};
+      
+      // Add age or 年次 column based on user choice (as first column)
+      if (format === '1') {
         // Export as 年次 (ROC birth year)
         data['年次'] = rocYear - p.age;
       } else {
         // Export as 年齡 (age)
         data['年齡'] = p.age;
       }
+      
+      // Add remaining columns
+      data['姓名'] = p.name;
+      data['性別'] = p.gender;
+      data['技術等級'] = p.skillLevel;
+      data['隊伍'] = teamName;
+      data['分組標籤'] = p.groupTag || '';
       
       return data;
     });
@@ -556,25 +639,64 @@ function App() {
             age = rocYear - birthYear;
           }
           
+          // Handle team: map club names to internal teams in inter-club mode
+          let teamValue = row['隊伍'] || '';
+          let team: TeamName = '甲隊'; // default
+          
+          if (settings.tournamentMode === 'inter-club') {
+            // In inter-club mode, recognize club names and map to internal teams
+            console.log(`[Import Debug] Row ${index}: teamValue="${teamValue}", homeClub="${settings.homeClubName}", awayClub="${settings.awayClubName}"`);
+            if (teamValue === settings.homeClubName || teamValue === '主隊') {
+              // Alternate between 甲隊 and 乙隊 for home club
+              team = (index % 2 === 0) ? '甲隊' : '乙隊';
+              console.log(`[Import Debug] Matched home club -> assigned ${team}`);
+            } else if (teamValue === settings.awayClubName || teamValue === '客隊') {
+              // Alternate between 丙隊 and 丁隊 for away club
+              team = (index % 2 === 0) ? '丙隊' : '丁隊';
+              console.log(`[Import Debug] Matched away club -> assigned ${team}`);
+            } else if (teamValue === '甲隊' || teamValue === '乙隊' || teamValue === '丙隊' || teamValue === '丁隊') {
+              // If already using internal team names, keep them
+              team = teamValue as TeamName;
+              console.log(`[Import Debug] Already internal team -> kept ${team}`);
+            } else if (teamValue.trim() === '') {
+              // Empty team, will be auto-distributed
+              team = '' as any;
+              console.log(`[Import Debug] Empty team -> will auto-distribute`);
+            } else {
+              // Unknown team name, default to empty for auto-distribution
+              team = '' as any;
+            }
+          } else {
+            // Internal mode: use team value directly or default
+            if (teamValue === '甲隊' || teamValue === '乙隊' || teamValue === '丙隊' || teamValue === '丁隊') {
+              team = teamValue as TeamName;
+            } else if (teamValue.trim() !== '') {
+              // Try to map custom names, otherwise empty for auto-distribution
+              team = '' as any;
+            }
+          }
+          
           return {
             id: `imported-player-${Date.now()}-${index}`,
             name: row['姓名'] || '',
             age: age,
             gender,
             skillLevel,
-            team: (row['隊伍'] || '甲隊') as TeamName,
+            team: team,
             matchesPlayed: 0,
             groupTag: row['分組標籤'] ? String(row['分組標籤']).trim() : undefined,
           };
         });
         
         if (imported.length > 0) {
+          console.log('[Import Debug] Before auto-distribute:', imported.map(p => ({ name: p.name, team: p.team })));
           if (players.length > 0) {
             const confirmed = await modal.showConfirm('這將覆蓋現有選手資料，確定要匯入嗎？');
             if (!confirmed) return;
           }
           // Auto-distribute teams to ensure balanced distribution
           const distributedPlayers = autoDistributeTeams(imported, settings.tournamentMode);
+          console.log('[Import Debug] After auto-distribute:', distributedPlayers.map(p => ({ name: p.name, team: p.team })));
           setPlayers(distributedPlayers);
           await modal.showAlert(`成功匯入 ${imported.length} 名選手！`);
         } else {

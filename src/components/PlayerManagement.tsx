@@ -187,6 +187,9 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
               { clubName: settings.awayClubName, teams: ['丙隊', '丁隊'] as TeamName[] }
             ].map(({ clubName, teams: clubTeams }) => {
               const clubPlayers = players.filter(p => clubTeams.includes(p.team as TeamName));
+              console.log(`[PlayerManagement Debug] ${clubName}: Looking for teams`, clubTeams);
+              console.log(`[PlayerManagement Debug] ${clubName}: All players:`, players.map(p => ({ name: p.name, team: p.team })));
+              console.log(`[PlayerManagement Debug] ${clubName}: Filtered players:`, clubPlayers.map(p => ({ name: p.name, team: p.team })));
               return (
                 <div key={clubName} className="team-section club-section">
                   <h4>{clubName} ({clubPlayers.length} 人)</h4>
