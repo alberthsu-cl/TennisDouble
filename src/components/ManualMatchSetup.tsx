@@ -282,6 +282,11 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
   };
 
   const validateAssignments = (): string[] => {
+    // Skip validation in inter-club mode
+    if (settings.tournamentMode === 'inter-club') {
+      return [];
+    }
+    
     const errors: string[] = [];
     const currentAssignments = assignments.filter(a => a.roundNumber === currentRound);
 
