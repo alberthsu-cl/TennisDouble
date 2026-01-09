@@ -59,7 +59,74 @@ export const Standings: React.FC<StandingsProps> = ({ matches, players, settings
     });
   };
 
+  // 計算俱樂部統計 (for inter-club mode)
+  const calculateClubStats = () => {
+    const homeClubStats = {
+      clubName: settings.homeClubName,
+      matchesWon: 0,
+      matchesLost: 0,
+      gamesWon: 0,
+      gamesLost: 0,
+      points: 0,
+    };
+    
+    const awayClubStats = {
+      clubName: settings.awayClubName,
+      matchesWon: 0,
+      matchesLost: 0,
+      gamesWon: 0,
+      gamesLost: 0,
+      points: 0,
+    };
+
+    matches.forEach(match => {
+      const isTeam1Home = match.team1 === '甲隊' || match.team1 === '乙隊';
+      const isTeam2Home = match.team2 === '甲隊' || match.team2 === '乙隊';
+      
+      // Accumulate games
+      if (isTeam1Home) {
+        homeClubStats.gamesWon += match.team1Games;
+        homeClubStats.gamesLost += match.team2Games;
+        awayClubStats.gamesWon += match.team2Games;
+        awayClubStats.gamesLost += match.team1Games;
+      } else {
+        awayClubStats.gamesWon += match.team1Games;
+        awayClubStats.gamesLost += match.team2Games;
+        homeClubStats.gamesWon += match.team2Games;
+        homeClubStats.gamesLost += match.team1Games;
+      }
+
+      // If match completed, calculate wins/losses
+      if (match.status === 'completed') {
+        if (match.winner === match.team1) {
+          if (isTeam1Home) {
+            homeClubStats.matchesWon++;
+            awayClubStats.matchesLost++;
+            homeClubStats.points += 3;
+          } else {
+            awayClubStats.matchesWon++;
+            homeClubStats.matchesLost++;
+            awayClubStats.points += 3;
+          }
+        } else if (match.winner === match.team2) {
+          if (isTeam2Home) {
+            homeClubStats.matchesWon++;
+            awayClubStats.matchesLost++;
+            homeClubStats.points += 3;
+          } else {
+            awayClubStats.matchesWon++;
+            homeClubStats.matchesLost++;
+            awayClubStats.points += 3;
+          }
+        }
+      }
+    });
+
+    return [homeClubStats, awayClubStats];
+  };
+
   const teamStats = calculateTeamStats();
+  const clubStats = settings.tournamentMode === 'inter-club' ? calculateClubStats() : null;
 
   // 計算比賽進度
   const completedMatches = matches.filter(m => m.status === 'completed').length;
@@ -257,47 +324,179 @@ export const Standings: React.FC<StandingsProps> = ({ matches, players, settings
       </div>
 
       <div className="team-standings">
-        <h3>隊伍排名</h3>
-        <table className="standings-table">
-          <thead>
-            <tr>
-              <th>排名</th>
-              <th>隊伍</th>
-              <th>積分</th>
-              <th>勝場</th>
-              <th>負場</th>
-              <th>總勝局</th>
-              <th>總失局</th>
-              <th>淨勝局</th>
-            </tr>
-          </thead>
-          <tbody>
-            {teamStats.map((stat, index) => (
-              <tr key={stat.teamName} className={index === 0 ? 'first-place' : ''}>
-                <td className="rank">{index + 1}</td>
-                <td className="team-name">{stat.teamName}</td>
-                <td className="points"><strong>{stat.points}</strong></td>
-                <td>{stat.matchesWon}</td>
-                <td>{stat.matchesLost}</td>
-                <td>{stat.gamesWon}</td>
-                <td>{stat.gamesLost}</td>
-                <td className={stat.gamesWon - stat.gamesLost >= 0 ? 'positive' : 'negative'}>
-                  {stat.gamesWon - stat.gamesLost >= 0 ? '+' : ''}
-                  {stat.gamesWon - stat.gamesLost}
-                </td>
+        <h3>{settings.tournamentMode === 'inter-club' ? '俱樂部排名' : '隊伍排名'}</h3>
+        {settings.tournamentMode === 'inter-club' && clubStats ? (
+          <table className="standings-table">
+            <thead>
+              <tr>
+                <th>排名</th>
+                <th>俱樂部</th>
+                <th>積分</th>
+                <th>勝場</th>
+                <th>負場</th>
+                <th>總勝局</th>
+                <th>總失局</th>
+                <th>淨勝局</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {clubStats.sort((a, b) => {
+                if (a.points !== b.points) return b.points - a.points;
+                if (a.matchesWon !== b.matchesWon) return b.matchesWon - a.matchesWon;
+                const aNetGames = a.gamesWon - a.gamesLost;
+                const bNetGames = b.gamesWon - b.gamesLost;
+                if (aNetGames !== bNetGames) return bNetGames - aNetGames;
+                return b.gamesWon - a.gamesWon;
+              }).map((stat, index) => (
+                <tr key={stat.clubName} className={index === 0 ? 'first-place' : ''}>
+                  <td className="rank">{index + 1}</td>
+                  <td className="team-name">{stat.clubName}</td>
+                  <td className="points"><strong>{stat.points}</strong></td>
+                  <td>{stat.matchesWon}</td>
+                  <td>{stat.matchesLost}</td>
+                  <td>{stat.gamesWon}</td>
+                  <td>{stat.gamesLost}</td>
+                  <td className={stat.gamesWon - stat.gamesLost >= 0 ? 'positive' : 'negative'}>
+                    {stat.gamesWon - stat.gamesLost >= 0 ? '+' : ''}
+                    {stat.gamesWon - stat.gamesLost}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <table className="standings-table">
+            <thead>
+              <tr>
+                <th>排名</th>
+                <th>隊伍</th>
+                <th>積分</th>
+                <th>勝場</th>
+                <th>負場</th>
+                <th>總勝局</th>
+                <th>總失局</th>
+                <th>淨勝局</th>
+              </tr>
+            </thead>
+            <tbody>
+              {teamStats.map((stat, index) => (
+                <tr key={stat.teamName} className={index === 0 ? 'first-place' : ''}>
+                  <td className="rank">{index + 1}</td>
+                  <td className="team-name">{stat.teamName}</td>
+                  <td className="points"><strong>{stat.points}</strong></td>
+                  <td>{stat.matchesWon}</td>
+                  <td>{stat.matchesLost}</td>
+                  <td>{stat.gamesWon}</td>
+                  <td>{stat.gamesLost}</td>
+                  <td className={stat.gamesWon - stat.gamesLost >= 0 ? 'positive' : 'negative'}>
+                    {stat.gamesWon - stat.gamesLost >= 0 ? '+' : ''}
+                    {stat.gamesWon - stat.gamesLost}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
 
       <div className="player-standings">
         <h3>選手表現</h3>
-        {teamStats.map(stat => {
-          const playerStats = getPlayerStats(stat.teamName);
-          return (
-            <div key={stat.teamName} className="team-player-stats">
-              <h4>{stat.teamName}</h4>
+        {settings.tournamentMode === 'inter-club' ? (
+          // Inter-club mode: Group by clubs
+          <>
+            {[
+              { clubName: settings.homeClubName, teams: ['甲隊', '乙隊'] as TeamName[] },
+              { clubName: settings.awayClubName, teams: ['丙隊', '丁隊'] as TeamName[] }
+            ].map(({ clubName, teams: clubTeams }) => {
+              const clubPlayers = players.filter(p => clubTeams.includes(p.team as TeamName));
+              const clubPlayerStats = clubPlayers.map(player => {
+                let wins = 0;
+                let losses = 0;
+                let gamesWon = 0;
+                let gamesLost = 0;
+
+                matches.forEach(match => {
+                  if (match.status !== 'completed') return;
+
+                  const isInPair1 = match.pair1.player1?.id === player.id || match.pair1.player2?.id === player.id;
+                  const isInPair2 = match.pair2.player1?.id === player.id || match.pair2.player2?.id === player.id;
+
+                  if (isInPair1) {
+                    gamesWon += match.team1Games;
+                    gamesLost += match.team2Games;
+                    if (match.winner === match.team1) wins++;
+                    else losses++;
+                  } else if (isInPair2) {
+                    gamesWon += match.team2Games;
+                    gamesLost += match.team1Games;
+                    if (match.winner === match.team2) wins++;
+                    else losses++;
+                  }
+                });
+
+                return {
+                  player,
+                  wins,
+                  losses,
+                  gamesWon,
+                  gamesLost,
+                  matchesPlayed: player.matchesPlayed,
+                };
+              }).sort((a, b) => {
+                if (a.wins !== b.wins) return b.wins - a.wins;
+                const aNetGames = a.gamesWon - a.gamesLost;
+                const bNetGames = b.gamesWon - b.gamesLost;
+                return bNetGames - aNetGames;
+              });
+
+              return (
+                <div key={clubName} className="team-player-stats">
+                  <h4>{clubName}</h4>
+                  <table className="player-stats-table">
+                    <thead>
+                      <tr>
+                        <th>選手</th>
+                        {showSensitiveInfo && <th>年齡</th>}
+                        <th>性別</th>
+                        <th>出賽</th>
+                        <th>勝</th>
+                        <th>負</th>
+                        <th>勝局</th>
+                        <th>失局</th>
+                        <th>淨勝局</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {clubPlayerStats.map(ps => (
+                        <tr key={ps.player.id}>
+                          <td>{ps.player.name || '未知'}</td>
+                          {showSensitiveInfo && <td>{ps.player.age || '-'}</td>}
+                          <td>{ps.player.gender || '-'}</td>
+                          <td>{ps.matchesPlayed}/{settings.totalRounds}</td>
+                          <td className={ps.wins > 0 ? 'positive' : ''}>{ps.wins}</td>
+                          <td className={ps.losses > 0 ? 'negative' : ''}>{ps.losses}</td>
+                          <td>{ps.gamesWon}</td>
+                          <td>{ps.gamesLost}</td>
+                          <td className={ps.gamesWon - ps.gamesLost >= 0 ? 'positive' : 'negative'}>
+                            {ps.gamesWon - ps.gamesLost >= 0 ? '+' : ''}
+                            {ps.gamesWon - ps.gamesLost}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              );
+            })}
+          </>
+        ) : (
+          // Internal mode: Group by teams
+          <>
+            {teamStats.map(stat => {
+              const playerStats = getPlayerStats(stat.teamName);
+              return (
+                <div key={stat.teamName} className="team-player-stats">
+                  <h4>{stat.teamName}</h4>
               <table className="player-stats-table">
                 <thead>
                   <tr>
@@ -319,8 +518,8 @@ export const Standings: React.FC<StandingsProps> = ({ matches, players, settings
                       {showSensitiveInfo && <td>{ps.player.age || '-'}</td>}
                       <td>{ps.player.gender || '-'}</td>
                       <td>{ps.matchesPlayed}/{settings.totalRounds}</td>
-                      <td>{ps.wins}</td>
-                      <td>{ps.losses}</td>
+                      <td className={ps.wins > 0 ? 'positive' : ''}>{ps.wins}</td>
+                      <td className={ps.losses > 0 ? 'negative' : ''}>{ps.losses}</td>
                       <td>{ps.gamesWon}</td>
                       <td>{ps.gamesLost}</td>
                       <td className={ps.gamesWon - ps.gamesLost >= 0 ? 'positive' : 'negative'}>
@@ -334,6 +533,8 @@ export const Standings: React.FC<StandingsProps> = ({ matches, players, settings
             </div>
           );
         })}
+          </>
+        )}
       </div>
     </div>
   );

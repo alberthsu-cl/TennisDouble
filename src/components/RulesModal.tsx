@@ -34,6 +34,23 @@ export const RulesModal: React.FC<RulesModalProps> = ({ isOpen, onClose, setting
       <body>
         <h1>🎾 網球雙打賽事系統 - 操作手冊</h1>
         
+        <h2>🏆 賽事模式說明</h2>
+        <ul>
+          <li><strong>內部賽模式（4隊循環賽）：</strong><br/>
+              <span class="sub-rule">適用於俱樂部內部4隊的完整循環比賽</span>
+              <span class="sub-rule">系統自動生成賽程，符合年齡遞增、混雙/女雙規則</span>
+              <span class="sub-rule">每隊與其他三隊各打一次，共3輪比賽</span>
+              <span class="sub-rule">需要每隊人數相同（建議10-12人）</span>
+          </li>
+          <li><strong>友誼賽模式（雙俱樂部對抗）：</strong><br/>
+              <span class="sub-rule">適用於兩個俱樂部之間的友誼賽</span>
+              <span class="sub-rule">可自訂主隊、客隊名稱（預設為「主隊」、「客隊」）</span>
+              <span class="sub-rule">無固定人數限制，彈性安排選手</span>
+              <span class="sub-rule">無輪數限制，可自由新增/刪除比賽場次</span>
+              <span class="sub-rule">所有設定簡化，專注於比賽安排與記錄</span>
+          </li>
+        </ul>
+        
         <h2>📥 如何匯入選手資料</h2>
         <ul>
           <li><strong>方式一：手動新增</strong><br/>
@@ -183,6 +200,25 @@ export const RulesModal: React.FC<RulesModalProps> = ({ isOpen, onClose, setting
         
         <div className="modal-body">
           <div className="rules-content">
+            
+            <div className="rule-section">
+              <h4>🏆 賽事模式說明</h4>
+              <ul>
+                <li><strong>內部賽模式（4隊循環賽）：</strong><br/>
+                    <span className="sub-rule">適用於俱樂部內部4隊的完整循環比賽</span>
+                    <span className="sub-rule">系統自動生成賽程，符合年齡遞增、混雙/女雙規則</span>
+                    <span className="sub-rule">每隊與其他三隊各打一次，共3輪比賽</span>
+                    <span className="sub-rule">需要每隊人數相同（建議10-12人）</span>
+                </li>
+                <li><strong>友誼賽模式（雙俱樂部對抗）：</strong><br/>
+                    <span className="sub-rule">適用於兩個俱樂部之間的友誼賽</span>
+                    <span className="sub-rule">可自訂主隊、客隊名稱（預設為「主隊」、「客隊」）</span>
+                    <span className="sub-rule">無固定人數限制，彈性安排選手</span>
+                    <span className="sub-rule">無輪數限制，可自由新增/刪除比賽場次</span>
+                    <span className="sub-rule">所有設定簡化，專注於比賽安排與記錄</span>
+                </li>
+              </ul>
+            </div>
             
             <div className="rule-section">
               <h4>📥 如何匯入選手資料</h4>

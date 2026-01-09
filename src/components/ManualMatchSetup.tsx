@@ -50,17 +50,31 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [showLoadDialog, setShowLoadDialog] = useState(false);
   const [selectedTeam, setSelectedTeam] = useState<TeamName | 'all'>('all');
+  const [hasAutoAddedFirstMatch, setHasAutoAddedFirstMatch] = useState(false);
 
   // 初始化所有對戰組合
   useEffect(() => {
-    const matchups: [TeamName, TeamName][] = [
-      ['甲隊', '乙隊'],
-      ['甲隊', '丙隊'],
-      ['甲隊', '丁隊'],
-      ['乙隊', '丙隊'],
-      ['乙隊', '丁隊'],
-      ['丙隊', '丁隊'],
-    ];
+    let matchups: [TeamName, TeamName][];
+    
+    if (settings.tournamentMode === 'inter-club') {
+      // Inter-club mode: only cross-club matches
+      matchups = [
+        ['甲隊', '丙隊'],
+        ['甲隊', '丁隊'],
+        ['乙隊', '丙隊'],
+        ['乙隊', '丁隊'],
+      ];
+    } else {
+      // Internal mode: all team combinations
+      matchups = [
+        ['甲隊', '乙隊'],
+        ['甲隊', '丙隊'],
+        ['甲隊', '丁隊'],
+        ['乙隊', '丙隊'],
+        ['乙隊', '丁隊'],
+        ['丙隊', '丁隊'],
+      ];
+    }
 
     const initialAssignments: MatchAssignment[] = [];
     
@@ -78,25 +92,30 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
         });
       });
     } else {
-      // Otherwise create new empty assignments
-      for (let round = 1; round <= settings.totalRounds; round++) {
-        matchups.forEach(([team1, team2]) => {
-          for (let point = 1; point <= settings.pointsPerRound; point++) {
-            initialAssignments.push({
-              id: `R${round}-${team1}-${team2}-P${point}`,
-              roundNumber: round,
-              pointNumber: point,
-              team1,
-              team2,
-              pair1: [null, null],
-              pair2: [null, null],
-            });
-          }
-        });
+      // In inter-club mode, don't pre-create assignments - let user add as needed
+      if (settings.tournamentMode === 'inter-club') {
+        // Start with empty assignments - user will add manually
+      } else {
+        // Internal mode: create all assignments based on settings
+        for (let round = 1; round <= settings.totalRounds; round++) {
+          matchups.forEach(([team1, team2]) => {
+            for (let point = 1; point <= settings.pointsPerRound; point++) {
+              initialAssignments.push({
+                id: `R${round}-${team1}-${team2}-P${point}`,
+                roundNumber: round,
+                pointNumber: point,
+                team1,
+                team2,
+                pair1: [null, null],
+                pair2: [null, null],
+              });
+            }
+          });
+        }
       }
     }
     setAssignments(initialAssignments);
-  }, [settings.totalRounds, settings.pointsPerRound, existingMatches]);
+  }, [settings.totalRounds, settings.pointsPerRound, settings.tournamentMode, existingMatches]);
 
   // 驗證並清除違反第5點規則的配對
   useEffect(() => {
@@ -128,6 +147,30 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
     }));
   }, [settings.enforceRules, settings.pointsPerRound]);
 
+  // Auto-add first match in inter-club mode when starting with no matches
+  useEffect(() => {
+    if (settings.tournamentMode === 'inter-club' && 
+        assignments.length === 0 && 
+        !hasAutoAddedFirstMatch &&
+        !existingMatches) {
+      // Small delay to ensure UI is ready
+      const timer = setTimeout(() => {
+        const newMatchId = `match-${Date.now()}`;
+        setAssignments([{
+          id: newMatchId,
+          roundNumber: 1,
+          pointNumber: 1,
+          team1: '甲隊',
+          team2: '丙隊',
+          pair1: [null, null],
+          pair2: [null, null],
+        }]);
+        setHasAutoAddedFirstMatch(true);
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [settings.tournamentMode, assignments.length, hasAutoAddedFirstMatch, existingMatches]);
+
   // 載入儲存的範本
   useEffect(() => {
     const saved = localStorage.getItem('matchTemplates');
@@ -148,6 +191,33 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
 
   const getTeamPlayers = (teamName: TeamName): Player[] => {
     return players.filter(p => p.team === teamName);
+  };
+
+  // Add new match (for inter-club mode)
+  const addNewMatch = () => {
+    const newMatchId = `match-${Date.now()}`;
+    const matchupOptions: [TeamName, TeamName][] = [
+      ['甲隊', '丙隊'],
+      ['甲隊', '丁隊'],
+      ['乙隊', '丙隊'],
+      ['乙隊', '丁隊'],
+    ];
+    const [team1, team2] = matchupOptions[0]; // Default to first option
+    
+    setAssignments(prev => [...prev, {
+      id: newMatchId,
+      roundNumber: 1, // In inter-club mode, round doesn't matter
+      pointNumber: prev.length + 1, // Just use sequential numbers
+      team1,
+      team2,
+      pair1: [null, null],
+      pair2: [null, null],
+    }]);
+  };
+
+  // Remove match (for inter-club mode)
+  const removeMatch = (matchId: string) => {
+    setAssignments(prev => prev.filter(a => a.id !== matchId));
   };
 
   const updateAssignment = (
@@ -184,6 +254,31 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
     const isMixedDouble = player.gender !== otherPlayer.gender;
     
     return isWomensDouble || isMixedDouble;
+  };
+
+  // 計算選手出賽次數（包含已完成和當前設定的比賽）
+  const getPlayerMatchCount = (playerId: string): number => {
+    const matchIds = new Set<string>();
+    
+    // 計算已存在的比賽
+    if (existingMatches) {
+      existingMatches.forEach(match => {
+        if (match.pair1.player1?.id === playerId || match.pair1.player2?.id === playerId ||
+            match.pair2.player1?.id === playerId || match.pair2.player2?.id === playerId) {
+          matchIds.add(match.id);
+        }
+      });
+    }
+    
+    // 計算當前配對中的比賽
+    assignments.forEach(assignment => {
+      if (assignment.pair1[0]?.id === playerId || assignment.pair1[1]?.id === playerId ||
+          assignment.pair2[0]?.id === playerId || assignment.pair2[1]?.id === playerId) {
+        matchIds.add(assignment.id);
+      }
+    });
+    
+    return matchIds.size;
   };
 
   const validateAssignments = (): string[] => {
@@ -476,7 +571,7 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
   return (
     <div className="manual-match-setup">
       <div className="setup-header">
-        <h2>手動配對設定 - 第 {currentRound} 輪</h2>
+        <h2>{settings.tournamentMode === 'inter-club' ? `配對設定 - ${settings.homeClubName} vs ${settings.awayClubName}` : `手動配對設定 - 第 ${currentRound} 輪`}</h2>
         
         <div className="header-actions">
           <button className="btn-template" onClick={() => setShowSaveDialog(true)}>
@@ -497,38 +592,47 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
               style={{ display: 'none' }}
             />
           </label>
+          {settings.tournamentMode === 'inter-club' && (
+            <button className="btn-primary" onClick={addNewMatch}>
+              ➕ 新增比賽
+            </button>
+          )}
         </div>
         
-        <div className="round-tabs">
-          {Array.from({ length: settings.totalRounds }, (_, i) => i + 1).map(round => (
-            <button
-              key={round}
-              className={`round-tab ${currentRound === round ? 'active' : ''}`}
-              onClick={() => setCurrentRound(round)}
-            >
-              第 {round} 輪
-            </button>
-          ))}
-        </div>
+        {settings.tournamentMode === 'internal' && (
+          <div className="round-tabs">
+            {Array.from({ length: settings.totalRounds }, (_, i) => i + 1).map(round => (
+              <button
+                key={round}
+                className={`round-tab ${currentRound === round ? 'active' : ''}`}
+                onClick={() => setCurrentRound(round)}
+              >
+                第 {round} 輪
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* 隊伍篩選按鈕 */}
-        <div className="team-filter">
-          <button
-            className={`filter-btn ${selectedTeam === 'all' ? 'active' : ''}`}
-            onClick={() => setSelectedTeam('all')}
-          >
-            顯示全部
-          </button>
-          {(['甲隊', '乙隊', '丙隊', '丁隊'] as const).map(team => (
+        {settings.tournamentMode === 'internal' && (
+          <div className="team-filter">
             <button
-              key={team}
-              className={`filter-btn ${selectedTeam === team ? 'active' : ''}`}
-              onClick={() => setSelectedTeam(team)}
+              className={`filter-btn ${selectedTeam === 'all' ? 'active' : ''}`}
+              onClick={() => setSelectedTeam('all')}
             >
-              {team}
+              顯示全部
             </button>
-          ))}
-        </div>
+            {(['甲隊', '乙隊', '丙隊', '丁隊'] as const).map(team => (
+              <button
+                key={team}
+                className={`filter-btn ${selectedTeam === team ? 'active' : ''}`}
+                onClick={() => setSelectedTeam(team)}
+              >
+                {team}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* 儲存範本對話框 */}
@@ -603,7 +707,84 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
       )}
 
       <div className="matchups-container">
-        {selectedTeam !== 'all' ? (
+        {settings.tournamentMode === 'inter-club' ? (
+          // Inter-club mode: show all matches in a simple list
+          <div className="interclub-matches">
+            <h3>比賽列表（共 {assignments.length} 場）</h3>
+            {assignments.length === 0 && (
+              <div className="empty-state">
+                <p>尚無比賽，請點擊上方「➕ 新增比賽」按鈕開始</p>
+              </div>
+            )}
+            {assignments.map((match, index) => (
+              <div key={match.id} className="interclub-match-card">
+                <div className="match-header">
+                  <h4>比賽 {index + 1}</h4>
+                  <button className="btn-delete-small" onClick={() => removeMatch(match.id)}>
+                    🗑️ 刪除
+                  </button>
+                </div>
+                <div className="match-teams-display">
+                  <h4>{settings.homeClubName}</h4>
+                  <span>vs</span>
+                  <h4>{settings.awayClubName}</h4>
+                </div>
+                <div className="match-pairs">
+                  <div className="pair-section">
+                    <h5>{settings.homeClubName}</h5>
+                    <select
+                      value={match.pair1[0]?.id || ''}
+                      onChange={(e) => updateAssignment(match.id, 'pair1', 0, e.target.value || null)}
+                    >
+                      <option value="">選擇選手1</option>
+                      {getTeamPlayers(match.team1).map(p => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} ({p.age}歲 {p.gender}) - 已安排{getPlayerMatchCount(p.id)}場
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      value={match.pair1[1]?.id || ''}
+                      onChange={(e) => updateAssignment(match.id, 'pair1', 1, e.target.value || null)}
+                    >
+                      <option value="">選擇選手2</option>
+                      {getTeamPlayers(match.team1).map(p => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} ({p.age}歲 {p.gender}) - 已安排{getPlayerMatchCount(p.id)}場
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="pair-section">
+                    <h5>{settings.awayClubName}</h5>
+                    <select
+                      value={match.pair2[0]?.id || ''}
+                      onChange={(e) => updateAssignment(match.id, 'pair2', 0, e.target.value || null)}
+                    >
+                      <option value="">選擇選手1</option>
+                      {getTeamPlayers(match.team2).map(p => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} ({p.age}歲 {p.gender}) - 已安排{getPlayerMatchCount(p.id)}場
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      value={match.pair2[1]?.id || ''}
+                      onChange={(e) => updateAssignment(match.id, 'pair2', 1, e.target.value || null)}
+                    >
+                      <option value="">選擇選手2</option>
+                      {getTeamPlayers(match.team2).map(p => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} ({p.age}歲 {p.gender}) - 已安排{getPlayerMatchCount(p.id)}場
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : selectedTeam !== 'all' ? (
           // Privacy-focused view: show only selected team's assignments
           <div className="team-focused-view">
             <h3>{selectedTeam} 配對設定</h3>
@@ -659,7 +840,7 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
                                     const canSelect = canSelectPlayerForPoint5(p, currentPair[1], match.pointNumber);
                                     return (
                                       <option key={p.id} value={p.id} disabled={!canSelect}>
-                                        {p.name} ({showSensitiveInfo && `${p.age}歲 `}{p.gender}){!canSelect && ' ❌'}
+                                        {p.name} ({showSensitiveInfo && `${p.age}歲 `}{p.gender}) - 已安排{getPlayerMatchCount(p.id)}場{!canSelect && ' ❌'}
                                       </option>
                                     );
                                   })}
@@ -678,7 +859,7 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
                                     const canSelect = canSelectPlayerForPoint5(p, currentPair[0], match.pointNumber);
                                     return (
                                       <option key={p.id} value={p.id} disabled={!canSelect}>
-                                        {p.name} ({showSensitiveInfo && `${p.age}歲 `}{p.gender}){!canSelect && ' ❌'}
+                                        {p.name} ({showSensitiveInfo && `${p.age}歲 `}{p.gender}) - 已安排{getPlayerMatchCount(p.id)}場{!canSelect && ' ❌'}
                                       </option>
                                     );
                                   })}
@@ -742,7 +923,7 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
                                   const canSelect = canSelectPlayerForPoint5(p, match.pair1[1], match.pointNumber);
                                   return (
                                     <option key={p.id} value={p.id} disabled={!canSelect}>
-                                      {p.name} ({showSensitiveInfo && `${p.age}歲 `}{p.gender}){!canSelect && ' ❌'}
+                                      {p.name} ({showSensitiveInfo && `${p.age}歲 `}{p.gender}) - 已安排{getPlayerMatchCount(p.id)}場{!canSelect && ' ❌'}
                                     </option>
                                   );
                                 })}
@@ -756,7 +937,7 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
                                   const canSelect = canSelectPlayerForPoint5(p, match.pair1[0], match.pointNumber);
                                   return (
                                     <option key={p.id} value={p.id} disabled={!canSelect}>
-                                      {p.name} ({showSensitiveInfo && `${p.age}歲 `}{p.gender}){!canSelect && ' ❌'}
+                                      {p.name} ({showSensitiveInfo && `${p.age}歲 `}{p.gender}) - 已安排{getPlayerMatchCount(p.id)}場{!canSelect && ' ❌'}
                                     </option>
                                   );
                                 })}
@@ -791,7 +972,7 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
                                   const canSelect = canSelectPlayerForPoint5(p, match.pair2[1], match.pointNumber);
                                   return (
                                     <option key={p.id} value={p.id} disabled={!canSelect}>
-                                      {p.name} ({showSensitiveInfo && `${p.age}歲 `}{p.gender}){!canSelect && ' ❌'}
+                                      {p.name} ({showSensitiveInfo && `${p.age}歲 `}{p.gender}) - 已安排{getPlayerMatchCount(p.id)}場{!canSelect && ' ❌'}
                                     </option>
                                   );
                                 })}
@@ -805,7 +986,7 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
                                   const canSelect = canSelectPlayerForPoint5(p, match.pair2[0], match.pointNumber);
                                   return (
                                     <option key={p.id} value={p.id} disabled={!canSelect}>
-                                      {p.name} ({showSensitiveInfo && `${p.age}歲 `}{p.gender}){!canSelect && ' ❌'}
+                                      {p.name} ({showSensitiveInfo && `${p.age}歲 `}{p.gender}) - 已安排{getPlayerMatchCount(p.id)}場{!canSelect && ' ❌'}
                                     </option>
                                   );
                                 })}
@@ -832,7 +1013,11 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
         <button className="btn-secondary" onClick={onCancel}>
           {existingMatches ? '返回比賽列表' : '返回'}
         </button>
-        {currentRound < settings.totalRounds ? (
+        {settings.tournamentMode === 'inter-club' ? (
+          <button className="btn-primary btn-large" onClick={handleFinishSetup}>
+            {existingMatches ? '儲存調整' : '完成配對並開始賽事'}
+          </button>
+        ) : currentRound < settings.totalRounds ? (
           <button className="btn-primary" onClick={handleNextRound}>
             下一輪 →
           </button>

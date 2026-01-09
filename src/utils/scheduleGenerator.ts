@@ -176,19 +176,33 @@ export function generateRound(
   const matches: Match[] = [];
   const teamNames: TeamName[] = ['甲隊', '乙隊', '丙隊', '丁隊'];
   
-  // 每輪只進行2場對戰（每隊打1場），循環賽制
-  // Round 1: 甲vs乙, 丙vs丁
-  // Round 2: 甲vs丙, 乙vs丁  
-  // Round 3: 甲vs丁, 乙vs丙
-  const roundMatchups: { [key: number]: [TeamName, TeamName][] } = {
-    1: [['甲隊', '乙隊'], ['丙隊', '丁隊']],
-    2: [['甲隊', '丙隊'], ['乙隊', '丁隊']],
-    3: [['甲隊', '丁隊'], ['乙隊', '丙隊']],
-  };
+  let matchups: [TeamName, TeamName][];
   
-  // 獲取本輪的對戰組合（循環使用）
-  const matchupIndex = ((roundNumber - 1) % 3) + 1;
-  const matchups = roundMatchups[matchupIndex];
+  if (settings.tournamentMode === 'inter-club') {
+    // Inter-club mode: Only matches between home club (甲+乙) vs away club (丙+丁)
+    // Each round, create all possible inter-club matchups
+    matchups = [
+      ['甲隊', '丙隊'],
+      ['甲隊', '丁隊'],
+      ['乙隊', '丙隊'],
+      ['乙隊', '丁隊'],
+    ];
+  } else {
+    // Internal mode: Round-robin among 4 teams
+    // Each round, each team plays once against different opponent
+    // Round 1: 甲vs乙, 丙vs丁
+    // Round 2: 甲vs丙, 乙vs丁  
+    // Round 3: 甲vs丁, 乙vs丙
+    const roundMatchups: { [key: number]: [TeamName, TeamName][] } = {
+      1: [['甲隊', '乙隊'], ['丙隊', '丁隊']],
+      2: [['甲隊', '丙隊'], ['乙隊', '丁隊']],
+      3: [['甲隊', '丁隊'], ['乙隊', '丙隊']],
+    };
+    
+    // 獲取本輪的對戰組合（循環使用）
+    const matchupIndex = ((roundNumber - 1) % 3) + 1;
+    matchups = roundMatchups[matchupIndex];
+  }
   
   // 追蹤已使用的配對
   const usedPairsInRound = new Map<TeamName, Set<string>>();

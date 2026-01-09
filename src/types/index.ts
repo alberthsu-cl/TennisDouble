@@ -7,6 +7,12 @@ export type SkillLevel = 'A' | 'B' | 'C';
 // 隊伍名稱
 export type TeamName = '甲隊' | '乙隊' | '丙隊' | '丁隊';
 
+// 俱樂部名稱 (友誼賽模式)
+export type ClubName = '主隊' | '客隊';
+
+// 賽事模式
+export type TournamentMode = 'internal' | 'inter-club';
+
 // 選手資料
 export interface Player {
   id: string;
@@ -71,6 +77,9 @@ export interface TournamentSettings {
   totalRounds: number;         // 總輪數 (default: 3)
   minMatchesPerPlayer: number; // 每人最少出賽場次（動態計算）
   enforceRules: boolean;       // 是否強制執行規則約束 (default: true)
+  tournamentMode: TournamentMode; // 賽事模式 (default: 'internal')
+  homeClubName: string;        // 主隊名稱 (友誼賽模式，default: '主隊')
+  awayClubName: string;        // 客隊名稱 (友誼賽模式，default: '客隊')
 }
 
 // 賽程設定

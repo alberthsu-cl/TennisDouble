@@ -179,31 +179,85 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
       <div className="players-summary">
         <h3>選手總覽 (選手：{players.length}/{settings.playersPerTeam * 4}+ 人)</h3>
         
-        {teams.map(teamName => {
-          const teamPlayers = players.filter(p => p.team === teamName);
-          return (
-            <div key={teamName} className="team-section">
-              <h4>{teamName} ({teamPlayers.length} 人)</h4>
-              <table className="players-table">
-                <thead>
-                  <tr>
-                    <th>姓名</th>
-                    {showSensitiveInfo && <th>年齡</th>}
-                    <th>性別</th>
-                    {showSensitiveInfo && <th>技術等級</th>}
-                    <th>分組標籤</th>
-                    <th>已出賽</th>
-                    <th>操作</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {teamPlayers.sort((a, b) => a.age - b.age).map(player => (
+        {settings.tournamentMode === 'inter-club' ? (
+          // Inter-club mode: Show 2 clubs
+          <>
+            {[
+              { clubName: settings.homeClubName, teams: ['甲隊', '乙隊'] as TeamName[] },
+              { clubName: settings.awayClubName, teams: ['丙隊', '丁隊'] as TeamName[] }
+            ].map(({ clubName, teams: clubTeams }) => {
+              const clubPlayers = players.filter(p => clubTeams.includes(p.team as TeamName));
+              return (
+                <div key={clubName} className="team-section club-section">
+                  <h4>{clubName} ({clubPlayers.length} 人)</h4>
+                  <table className="players-table">
+                    <thead>
+                      <tr>
+                        <th>姓名</th>
+                        {showSensitiveInfo && <th>年齡</th>}
+                        <th>性別</th>
+                        {showSensitiveInfo && <th>技術等級</th>}
+                        {settings.tournamentMode === 'internal' && <th>分組標籤</th>}
+                        <th>已出賽</th>
+                        <th>操作</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {clubPlayers.sort((a, b) => a.age - b.age).map(player => (
+                        <tr key={player.id}>
+                          <td>{player.name}</td>
+                          {showSensitiveInfo && <td>{player.age || '-'}</td>}
+                          <td>{player.gender}</td>
+                          {showSensitiveInfo && <td><span className={`skill-badge skill-${player.skillLevel || 'B'}`}>{player.skillLevel || 'B'}</span></td>}
+                          {settings.tournamentMode === 'internal' && <td>{player.groupTag || '-'}</td>}
+                          <td>{player.matchesPlayed}</td>
+                          <td>
+                            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
+                              <button className="btn-edit" onClick={() => handleEdit(player)}>編輯</button>
+                              <button className="btn-delete" onClick={() => onDeletePlayer(player.id)}>刪除</button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                      {clubPlayers.length === 0 && (
+                        <tr>
+                          <td colSpan={showSensitiveInfo ? 7 : 5} style={{ textAlign: 'center', color: '#999' }}>尚無選手</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              );
+            })}
+          </>
+        ) : (
+          // Internal mode: Show 4 teams
+          <>
+            {teams.map(teamName => {
+              const teamPlayers = players.filter(p => p.team === teamName);
+              return (
+                <div key={teamName} className="team-section">
+                  <h4>{teamName} ({teamPlayers.length} 人)</h4>
+                  <table className="players-table">
+                    <thead>
+                      <tr>
+                        <th>姓名</th>
+                        {showSensitiveInfo && <th>年齡</th>}
+                        <th>性別</th>
+                        {showSensitiveInfo && <th>技術等級</th>}
+                        {settings.tournamentMode === 'internal' && <th>分組標籤</th>}
+                        <th>已出賽</th>
+                        <th>操作</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {teamPlayers.sort((a, b) => a.age - b.age).map(player => (
                     <tr key={player.id}>
                       <td>{player.name || '未知'}</td>
                       {showSensitiveInfo && <td>{player.age || '-'}</td>}
                       <td>{player.gender || '-'}</td>
                       {showSensitiveInfo && <td><span className={`skill-badge skill-${player.skillLevel || 'B'}`}>{player.skillLevel || 'B'}</span></td>}
-                      <td>{player.groupTag ? <span className="group-tag-badge">{player.groupTag}</span> : '-'}</td>
+                      {settings.tournamentMode === 'internal' && <td>{player.groupTag ? <span className="group-tag-badge">{player.groupTag}</span> : '-'}</td>}
                       <td>{player.matchesPlayed || 0}</td>
                       <td>
                         <button
@@ -230,6 +284,8 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
             </div>
           );
         })}
+          </>
+        )}
       </div>
 
       <form onSubmit={handleSubmit} className="player-form">
@@ -286,19 +342,21 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
             ))}
           </select>
         </div>
-        <div className="form-group">
-          <label>分組標籤：</label>
-          <input
-            type="text"
-            value={groupTag}
-            onChange={(e) => setGroupTag(e.target.value)}
-            placeholder="如 A1(甲隊領隊), B2(乙隊副領隊)"
-            maxLength={10}
-          />
-          <small style={{ display: 'block', marginTop: '0.25rem', color: '#666' }}>
-            用於標記領隊、副領隊等，相同標籤的選手應分在同一組
-          </small>
-        </div>
+        {settings.tournamentMode === 'internal' && (
+          <div className="form-group">
+            <label>分組標籤：</label>
+            <input
+              type="text"
+              value={groupTag}
+              onChange={(e) => setGroupTag(e.target.value)}
+              placeholder="如 A1(甲隊領隊), B2(乙隊副領隊)"
+              maxLength={10}
+            />
+            <small style={{ display: 'block', marginTop: '0.25rem', color: '#666' }}>
+              用於標記領隊、副領隊等，相同標籤的選手應分在同一組
+            </small>
+          </div>
+        )}
         <div className="form-actions">
           <button type="submit" className="btn-primary">
             {editingId ? '更新選手' : '新增選手'}

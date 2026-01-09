@@ -24,7 +24,34 @@ const shuffleArray = <T,>(array: T[]): T[] => {
 };
 
 // Auto-distribute players to teams evenly
-const autoDistributeTeams = (players: Player[]): Player[] => {
+const autoDistributeTeams = (players: Player[], mode: 'internal' | 'inter-club' = 'internal'): Player[] => {
+  if (mode === 'inter-club') {
+    // Inter-club mode: distribute evenly between 主隊 (甲隊+乙隊) and 客隊 (丙隊+丁隊)
+    const teams: TeamName[] = ['甲隊', '乙隊', '丙隊', '丁隊'];
+    
+    // Separate players by gender for balanced distribution
+    const femalePlayers = shuffleArray(players.filter(p => p.gender === '女'));
+    const malePlayers = shuffleArray(players.filter(p => p.gender === '男'));
+    
+    // Distribute evenly: 主隊 gets 甲隊+乙隊, 客隊 gets 丙隊+丁隊
+    let teamIndex = 0;
+    
+    // Distribute female players first
+    femalePlayers.forEach((player) => {
+      player.team = teams[teamIndex % 4];
+      teamIndex++;
+    });
+    
+    // Continue with male players
+    malePlayers.forEach((player) => {
+      player.team = teams[teamIndex % 4];
+      teamIndex++;
+    });
+    
+    return [...femalePlayers, ...malePlayers];
+  }
+  
+  // Internal mode: original 4-team distribution
   const teams: TeamName[] = ['甲隊', '乙隊', '丙隊', '丁隊'];
   const teamMap: { [key: string]: TeamName } = {
     'A1': '甲隊', 'A2': '甲隊',
@@ -88,6 +115,9 @@ function App() {
     totalRounds: 3,
     minMatchesPerPlayer: 2,
     enforceRules: true,
+    tournamentMode: 'internal',
+    homeClubName: '主隊',
+    awayClubName: '客隊',
   });
 
   // 從 localStorage 載入資料
@@ -184,6 +214,17 @@ function App() {
   };
 
   const handleStartManualSetup = async () => {
+    // In inter-club mode, skip all validations - just need at least some players
+    if (settings.tournamentMode === 'inter-club') {
+      if (players.length < 4) {
+        await modal.showAlert('請確保至少有4名選手（每隊至少2人）');
+        return;
+      }
+      setCurrentView('manual-setup');
+      return;
+    }
+
+    // Internal mode: Check required player counts
     const requiredPlayers = settings.playersPerTeam * 4;
     
     if (players.length < requiredPlayers) {
@@ -289,7 +330,7 @@ function App() {
       if (!confirmed) return;
     }
     const demoPlayers = generateDemoPlayers();
-    const distributedPlayers = autoDistributeTeams(demoPlayers);
+    const distributedPlayers = autoDistributeTeams(demoPlayers, settings.tournamentMode);
     setPlayers(distributedPlayers);
     await modal.showAlert(`已載入${distributedPlayers.length}名示範選手！請到「選手管理」查看或前往「賽事設定」開始賽事。`);
   };
@@ -366,7 +407,7 @@ function App() {
           const hasTeamAssigned = imported.some(p => jsonData[imported.indexOf(p)]['隊伍']);
           
           // If no teams assigned, auto-distribute; otherwise shuffle with existing teams
-          const finalPlayers = hasTeamAssigned ? shuffleArray(imported) : autoDistributeTeams(imported);
+          const finalPlayers = hasTeamAssigned ? shuffleArray(imported) : autoDistributeTeams(imported, settings.tournamentMode);
           setPlayers(finalPlayers);
           await modal.showAlert(`成功從Excel載入 ${imported.length} 名示範選手！`);
         } else {
@@ -436,7 +477,7 @@ function App() {
             if (!confirmed) return;
           }
           // Auto-distribute teams to ensure balanced distribution
-          const distributedPlayers = autoDistributeTeams(imported);
+          const distributedPlayers = autoDistributeTeams(imported, settings.tournamentMode);
           setPlayers(distributedPlayers);
           await modal.showAlert(`成功匯入 ${imported.length} 名選手！`);
         } else {
@@ -533,7 +574,7 @@ function App() {
             if (!confirmed) return;
           }
           // Auto-distribute teams to ensure balanced distribution
-          const distributedPlayers = autoDistributeTeams(imported);
+          const distributedPlayers = autoDistributeTeams(imported, settings.tournamentMode);
           setPlayers(distributedPlayers);
           await modal.showAlert(`成功匯入 ${imported.length} 名選手！`);
         } else {
@@ -717,171 +758,276 @@ function App() {
           <div className="setup-view">
             <div className="settings-panel">
               <h2>⚙️ 賽事設定</h2>
+              
+              {/* Tournament Mode Selector */}
+              <div className="mode-selector">
+                <h3>賽事模式</h3>
+                <div className="mode-options">
+                  <button
+                    className={`mode-btn ${settings.tournamentMode === 'internal' ? 'active' : ''}`}
+                    onClick={() => setSettings({ ...settings, tournamentMode: 'internal' })}
+                  >
+                    <span className="mode-icon">🏆</span>
+                    <span className="mode-label">內部賽制</span>
+                    <span className="mode-desc">4隊循環賽（甲乙丙丁）</span>
+                  </button>
+                  <button
+                    className={`mode-btn ${settings.tournamentMode === 'inter-club' ? 'active' : ''}`}
+                    onClick={() => setSettings({ ...settings, tournamentMode: 'inter-club' })}
+                  >
+                    <span className="mode-icon">🤝</span>
+                    <span className="mode-label">友誼賽制</span>
+                    <span className="mode-desc">2俱樂部對抗賽</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Club Names (Inter-Club Mode Only) */}
+              {settings.tournamentMode === 'inter-club' && (
+                <div className="club-names-setting">
+                  <h3>俱樂部名稱設定</h3>
+                  <div className="club-inputs">
+                    <div className="club-input-group">
+                      <label>主隊名稱：</label>
+                      <input
+                        type="text"
+                        value={settings.homeClubName}
+                        onChange={(e) => setSettings({ ...settings, homeClubName: e.target.value || '主隊' })}
+                        placeholder="主隊"
+                        maxLength={20}
+                      />
+                    </div>
+                    <div className="club-input-group">
+                      <label>客隊名稱：</label>
+                      <input
+                        type="text"
+                        value={settings.awayClubName}
+                        onChange={(e) => setSettings({ ...settings, awayClubName: e.target.value || '客隊' })}
+                        placeholder="客隊"
+                        maxLength={20}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="settings-grid">
-                  <div className="setting-item">
-                    <label>每隊人數(至少)：</label>
-                    <div className="setting-control">
-                      <button 
-                        className="btn-adjust"
-                        onClick={() => setSettings({ ...settings, playersPerTeam: Math.max(4, settings.playersPerTeam - 1) })}
-                        disabled={settings.playersPerTeam <= 4}
-                      >
-                        −
-                      </button>
-                      <input
-                        type="number"
-                        min="4"
-                        max="20"
-                        value={settings.playersPerTeam}
-                        onChange={(e) => setSettings({ ...settings, playersPerTeam: parseInt(e.target.value) || 10 })}
-                      />
-                      <button 
-                        className="btn-adjust"
-                        onClick={() => setSettings({ ...settings, playersPerTeam: Math.min(20, settings.playersPerTeam + 1) })}
-                        disabled={settings.playersPerTeam >= 20}
-                      >
-                        +
-                      </button>
-                    </div>
-                    <span className="setting-note">總人數: {settings.playersPerTeam * 4}</span>
-                  </div>
-                  
-                  <div className="setting-item">
-                    <label>每輪點數：</label>
-                    <div className="setting-control">
-                      <button 
-                        className="btn-adjust"
-                        onClick={() => setSettings({ ...settings, pointsPerRound: Math.max(3, settings.pointsPerRound - 1) })}
-                        disabled={settings.pointsPerRound <= 3}
-                      >
-                        −
-                      </button>
-                      <input
-                        type="number"
-                        min="3"
-                        max="10"
-                        value={settings.pointsPerRound}
-                        onChange={(e) => setSettings({ ...settings, pointsPerRound: parseInt(e.target.value) || 5 })}
-                      />
-                      <button 
-                        className="btn-adjust"
-                        onClick={() => setSettings({ ...settings, pointsPerRound: Math.min(10, settings.pointsPerRound + 1) })}
-                        disabled={settings.pointsPerRound >= 10}
-                      >
-                        +
-                      </button>
-                    </div>
-                    <span className="setting-note">每場對戰打幾點</span>
-                  </div>
-                  
-                  <div className="setting-item">
-                    <label>總輪數：</label>
-                    <div className="setting-control">
-                      <button 
-                        className="btn-adjust"
-                        onClick={() => setSettings({ ...settings, totalRounds: Math.max(1, settings.totalRounds - 1) })}
-                        disabled={settings.totalRounds <= 1}
-                      >
-                        −
-                      </button>
-                      <input
-                        type="number"
-                        min="1"
-                        max="5"
-                        value={settings.totalRounds}
-                        onChange={(e) => setSettings({ ...settings, totalRounds: parseInt(e.target.value) || 3 })}
-                      />
-                      <button 
-                        className="btn-adjust"
-                        onClick={() => setSettings({ ...settings, totalRounds: Math.min(5, settings.totalRounds + 1) })}
-                        disabled={settings.totalRounds >= 5}
-                      >
-                        +
-                      </button>
-                    </div>
-                    <span className="setting-note">全部打幾輪</span>
-                  </div>
-                  
-                  <div className="setting-item highlight">
-                    <label>每人最少出賽：</label>
-                    <div className="calculated-value">{settings.minMatchesPerPlayer} 場</div>
-                    <span className="setting-note">根據設定自動計算</span>
-                  </div>
+                  {settings.tournamentMode === 'internal' && (
+                    <>
+                      <div className="setting-item">
+                        <label>每隊人數(至少)：</label>
+                        <div className="setting-control">
+                          <button 
+                            className="btn-adjust"
+                            onClick={() => setSettings({ ...settings, playersPerTeam: Math.max(4, settings.playersPerTeam - 1) })}
+                            disabled={settings.playersPerTeam <= 4}
+                          >
+                            −
+                          </button>
+                          <input
+                            type="number"
+                            min="4"
+                            max="20"
+                            value={settings.playersPerTeam}
+                            onChange={(e) => setSettings({ ...settings, playersPerTeam: parseInt(e.target.value) || 10 })}
+                          />
+                          <button 
+                            className="btn-adjust"
+                            onClick={() => setSettings({ ...settings, playersPerTeam: Math.min(20, settings.playersPerTeam + 1) })}
+                            disabled={settings.playersPerTeam >= 20}
+                          >
+                            +
+                          </button>
+                        </div>
+                        <span className="setting-note">總人數: {settings.playersPerTeam * 4}</span>
+                      </div>
+                      
+                      <div className="setting-item">
+                        <label>每輪點數：</label>
+                        <div className="setting-control">
+                          <button 
+                            className="btn-adjust"
+                            onClick={() => setSettings({ ...settings, pointsPerRound: Math.max(3, settings.pointsPerRound - 1) })}
+                            disabled={settings.pointsPerRound <= 3}
+                          >
+                            −
+                          </button>
+                          <input
+                            type="number"
+                            min="3"
+                            max="10"
+                            value={settings.pointsPerRound}
+                            onChange={(e) => setSettings({ ...settings, pointsPerRound: parseInt(e.target.value) || 5 })}
+                          />
+                          <button 
+                            className="btn-adjust"
+                            onClick={() => setSettings({ ...settings, pointsPerRound: Math.min(10, settings.pointsPerRound + 1) })}
+                            disabled={settings.pointsPerRound >= 10}
+                          >
+                            +
+                          </button>
+                        </div>
+                        <span className="setting-note">每場對戰打幾點</span>
+                      </div>
+                      
+                      <div className="setting-item">
+                        <label>總輪數：</label>
+                        <div className="setting-control">
+                          <button 
+                            className="btn-adjust"
+                            onClick={() => setSettings({ ...settings, totalRounds: Math.max(1, settings.totalRounds - 1) })}
+                            disabled={settings.totalRounds <= 1}
+                          >
+                            −
+                          </button>
+                          <input
+                            type="number"
+                            min="1"
+                            max="5"
+                            value={settings.totalRounds}
+                            onChange={(e) => setSettings({ ...settings, totalRounds: parseInt(e.target.value) || 3 })}
+                          />
+                          <button 
+                            className="btn-adjust"
+                            onClick={() => setSettings({ ...settings, totalRounds: Math.min(5, settings.totalRounds + 1) })}
+                            disabled={settings.totalRounds >= 5}
+                          >
+                            +
+                          </button>
+                        </div>
+                        <span className="setting-note">全部打幾輪</span>
+                      </div>
+                      
+                      <div className="setting-item highlight">
+                        <label>每人最少出賽：</label>
+                        <div className="calculated-value">{settings.minMatchesPerPlayer} 場</div>
+                        <span className="setting-note">根據設定自動計算</span>
+                      </div>
+                    </>
+                  )}
                 </div>
                 
                 <div className="settings-summary">
                   <h4>賽事總覽</h4>
-                  <p>• 總比賽數：{settings.totalRounds * 2 * settings.pointsPerRound} 場</p>
-                  <p>• 每輪對戰組合：2 組（循環賽制，每隊每輪打1場）</p>
-                  <p>• 每組對戰點數：{settings.pointsPerRound} 點</p>
-                  <p>• 每位選手每輪出賽：1 場（共{settings.totalRounds}場）</p>
+                  {settings.tournamentMode === 'inter-club' ? (
+                    <>
+                      <p>• 俱樂部對抗賽：{settings.homeClubName} vs {settings.awayClubName}</p>
+                      <p>• 比賽安排：由管理者手動配對，無限制</p>
+                      <p>• 請使用「手動配對」功能建立比賽</p>
+                    </>
+                  ) : (
+                    <>
+                      <p>• 總比賽數：{settings.totalRounds * 2 * settings.pointsPerRound} 場</p>
+                      <p>• 每輪對戰組合：2 組（循環賽制，每隊每輪打1場）</p>
+                      <p>• 每組對戰點數：{settings.pointsPerRound} 點</p>
+                      <p>• 每位選手每輪出賽：1 場（共{settings.totalRounds}場）</p>
+                    </>
+                  )}
                 </div>
               </div>
             
             <h2>賽事規則說明</h2>
             <div className="rules-box">
               <div className="rules-header">
-                <h3>本次會內賽比賽規則：</h3>
-                <div className="rules-toggle">
-                  <label>規則約束：</label>
-                  <button
-                    className={`btn-toggle ${settings.enforceRules ? 'active' : ''}`}
-                    onClick={() => setSettings({ ...settings, enforceRules: !settings.enforceRules })}
-                  >
-                    <span className="toggle-slider">
-                      {settings.enforceRules ? '✓' : '✕'}
-                    </span>
-                    <span className="toggle-label">{settings.enforceRules ? 'ON' : 'OFF'}</span>
-                  </button>
-                </div>
+                <h3>{settings.tournamentMode === 'inter-club' ? '友誼賽比賽規則：' : '本次會內賽比賽規則：'}</h3>
+                {settings.tournamentMode === 'internal' && (
+                  <div className="rules-toggle">
+                    <label>規則約束：</label>
+                    <button
+                      className={`btn-toggle ${settings.enforceRules ? 'active' : ''}`}
+                      onClick={() => setSettings({ ...settings, enforceRules: !settings.enforceRules })}
+                    >
+                      <span className="toggle-slider">
+                        {settings.enforceRules ? '✓' : '✕'}
+                      </span>
+                      <span className="toggle-label">{settings.enforceRules ? 'ON' : 'OFF'}</span>
+                    </button>
+                  </div>
+                )}
               </div>
               <ul>
-                <li>參賽共{settings.playersPerTeam * 4}名，分成四隊：每隊{settings.playersPerTeam}人</li>
-                <li>打{settings.pointsPerRound}點雙打：
-                  <ul>
-                    <li>第1點至第{settings.pointsPerRound - 1}點：兩人歲數遞增</li>
-                    <li>第{settings.pointsPerRound}點：必須安排混雙或女雙出賽，歲數沒有限制</li>
-                  </ul>
-                </li>
-                <li>每位正式選手至少須出賽{settings.minMatchesPerPlayer}場</li>
-                <li>可設定候補選手，不計入隊伍{settings.playersPerTeam}人名額</li>
-                <li>比賽採5局NO-AD制，先達5局獲勝</li>
-                <li>4:4時則Tie-break搶7決勝</li>
+                {settings.tournamentMode === 'inter-club' ? (
+                  <>
+                    <li>{settings.homeClubName} vs {settings.awayClubName} 對抗賽</li>
+                    <li>由管理者自由安排對戰配對，無人數、輪次限制</li>
+                    <li>比賽採5局NO-AD制，先達5局獲勝</li>
+                    <li>4:4時則Tie-break搶7決勝</li>
+                    <li>請至「手動配對」功能建立比賽</li>
+                  </>
+                ) : (
+                  <>
+                    <li>參賽共{settings.playersPerTeam * 4}名，分成四隊：每隊{settings.playersPerTeam}人</li>
+                    <li>打{settings.pointsPerRound}點雙打：
+                      <ul>
+                        <li>第1點至第{settings.pointsPerRound - 1}點：兩人歲數遞增</li>
+                        <li>第{settings.pointsPerRound}點：必須安排混雙或女雙出賽，歲數沒有限制</li>
+                      </ul>
+                    </li>
+                    <li>每位正式選手至少須出賽{settings.minMatchesPerPlayer}場</li>
+                    <li>可設定候補選手，不計入隊伍{settings.playersPerTeam}人名額</li>
+                    <li>比賽採5局NO-AD制，先達5局獲勝</li>
+                    <li>4:4時則Tie-break搶7決勝</li>
+                  </>
+                )}
               </ul>
             </div>
 
-            <div className="team-status">
-              <h3>隊伍人數狀態</h3>
-              <div className="teams-grid">
-                {(['甲隊', '乙隊', '丙隊', '丁隊'] as TeamName[]).map(team => (
-                  <div key={team} className={`team-card ${getTeamCount(team) === settings.playersPerTeam ? 'complete' : ''}`}>
-                    <h4>{team}</h4>
-                    <div className="team-count">
-                      {getTeamCount(team)} / {settings.playersPerTeam} 人
+            {settings.tournamentMode === 'internal' && (
+              <div className="team-status">
+                <h3>隊伍人數狀態</h3>
+                <div className="teams-grid">
+                  {(['甲隊', '乙隊', '丙隊', '丁隊'] as TeamName[]).map(team => (
+                    <div key={team} className={`team-card ${getTeamCount(team) === settings.playersPerTeam ? 'complete' : ''}`}>
+                      <h4>{team}</h4>
+                      <div className="team-count">
+                        {getTeamCount(team)} / {settings.playersPerTeam} 人
+                      </div>
+                      {getTeamCount(team) === settings.playersPerTeam && <div className="check-mark">✓</div>}
                     </div>
-                    {getTeamCount(team) === settings.playersPerTeam && <div className="check-mark">✓</div>}
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
+
+            {settings.tournamentMode === 'inter-club' && (
+              <div className="team-status">
+                <h3>俱樂部人數狀態</h3>
+                <div className="teams-grid">
+                  <div className="team-card club-card">
+                    <h4>{settings.homeClubName}</h4>
+                    <div className="team-count">
+                      {getTeamCount('甲隊') + getTeamCount('乙隊')} 人
+                    </div>
+                  </div>
+                  <div className="team-card club-card">
+                    <h4>{settings.awayClubName}</h4>
+                    <div className="team-count">
+                      {getTeamCount('丙隊') + getTeamCount('丁隊')} 人
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="setup-actions">
               {!tournamentStarted ? (
                 <>
                   <div className="start-options">
-                    <button 
-                      className="btn-primary btn-large"
-                      onClick={handleStartTournament}
-                      disabled={totalPlayersCount < settings.playersPerTeam * 4}
-                    >
-                      自動生成賽程
-                    </button>
+                    {settings.tournamentMode === 'internal' && (
+                      <button 
+                        className="btn-primary btn-large"
+                        onClick={handleStartTournament}
+                        disabled={totalPlayersCount < settings.playersPerTeam * 4}
+                      >
+                        自動生成賽程
+                      </button>
+                    )}
                     <button 
                       className="btn-primary btn-large btn-manual"
                       onClick={handleStartManualSetup}
-                      disabled={totalPlayersCount < settings.playersPerTeam * 4}
+                      disabled={settings.tournamentMode === 'internal' && totalPlayersCount < settings.playersPerTeam * 4}
                     >
-                      手動配對設定
+                      {settings.tournamentMode === 'inter-club' ? '開始配對（手動）' : '手動配對設定'}
                     </button>
                   </div>
                   <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'flex-start' }}>
