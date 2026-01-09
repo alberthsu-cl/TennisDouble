@@ -235,7 +235,7 @@ export const Standings: React.FC<StandingsProps> = ({ matches, players, settings
         ...playerStats.map(ps => [
           ps.player.name || '未知',
           ps.player.gender || '-',
-          `${ps.matchesPlayed}/${settings.totalRounds}`,
+          ps.matchesPlayed,
           ps.wins,
           ps.losses,
           ps.gamesWon,
@@ -480,7 +480,7 @@ export const Standings: React.FC<StandingsProps> = ({ matches, players, settings
                           <td>{ps.player.name || '未知'}</td>
                           {showSensitiveInfo && <td>{ps.player.age || '-'}</td>}
                           <td>{ps.player.gender || '-'}</td>
-                          <td>{ps.matchesPlayed}/{settings.totalRounds}</td>
+                          <td>{ps.matchesPlayed}</td>
                           <td className={ps.wins > 0 ? 'positive' : ''}>{ps.wins}</td>
                           <td className={ps.losses > 0 ? 'negative' : ''}>{ps.losses}</td>
                           <td>{ps.gamesWon}</td>
@@ -525,7 +525,7 @@ export const Standings: React.FC<StandingsProps> = ({ matches, players, settings
                       <td>{ps.player.name || '未知'}</td>
                       {showSensitiveInfo && <td>{ps.player.age || '-'}</td>}
                       <td>{ps.player.gender || '-'}</td>
-                      <td>{ps.matchesPlayed}/{settings.totalRounds}</td>
+                      <td>{ps.matchesPlayed}</td>
                       <td className={ps.wins > 0 ? 'positive' : ''}>{ps.wins}</td>
                       <td className={ps.losses > 0 ? 'negative' : ''}>{ps.losses}</td>
                       <td>{ps.gamesWon}</td>
