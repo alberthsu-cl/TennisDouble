@@ -161,19 +161,33 @@ function App() {
 
   // 計算每人最少出賽場次
   useEffect(() => {
-    // 總輪數就代表對戰的對手數（3輪 = 對戰3個對手）
-    // 一隊的總選手位置數 = 總輪數 × 每輪點數 × 每場2名選手
-    const totalPlayerSlotsPerTeam = settings.totalRounds * settings.pointsPerRound * 2;
+    // 計算實際總選手數
+    const actualTotalPlayers = players.length;
+    
+    if (actualTotalPlayers === 0) {
+      setSettings(prev => ({ ...prev, minMatchesPerPlayer: 1 }));
+      return;
+    }
+    
+    // 總比賽數 = 總輪數 × 每輪對戰組數 × 每輪點數
+    // Internal mode: 4隊循環賽每輪有2場同時進行 (每隊打1場)
+    // Round 1: 甲vs乙, 丙vs丁 (2場)
+    // Round 2: 甲vs丙, 乙vs丁 (2場)
+    // Round 3: 甲vs丁, 乙vs丙 (2場)
+    const matchupsPerRound = settings.tournamentMode === 'inter-club' ? 4 : 2;
+    const totalMatches = settings.totalRounds * matchupsPerRound * settings.pointsPerRound;
+    
+    // 總位置數 = 總比賽數 × 4（每場4個位置）
+    const totalSlots = totalMatches * 4;
     
     // 計算平均每人出賽次數，向下取整作為最低要求
-    // 這是為了確保公平競賽，防止只讓強者出賽
-    const minMatches = Math.floor(totalPlayerSlotsPerTeam / settings.playersPerTeam);
+    const minMatches = Math.floor(totalSlots / actualTotalPlayers);
     
     setSettings(prev => ({
       ...prev,
       minMatchesPerPlayer: Math.max(1, minMatches),
     }));
-  }, [settings.playersPerTeam, settings.pointsPerRound, settings.totalRounds]);
+  }, [players, settings.playersPerTeam, settings.pointsPerRound, settings.totalRounds, settings.tournamentMode]);
 
   const handleAddPlayer = (player: Player) => {
     setPlayers([...players, player]);
@@ -1040,9 +1054,10 @@ function App() {
                   ) : (
                     <>
                       <p>• 總比賽數：{settings.totalRounds * 2 * settings.pointsPerRound} 場</p>
-                      <p>• 每輪對戰組合：2 組（循環賽制，每隊每輪打1場）</p>
+                      <p>• 每輪對戰組合：2 組同時進行（4隊循環賽制，每隊每輪打1場）</p>
                       <p>• 每組對戰點數：{settings.pointsPerRound} 點</p>
-                      <p>• 每位選手每輪出賽：1 場（共{settings.totalRounds}場）</p>
+                      <p>• 總位置數：{settings.totalRounds * 2 * settings.pointsPerRound * 4} 個（{settings.totalRounds}輪 × 2組 × {settings.pointsPerRound}點 × 4人）</p>
+                      <p>• 每人最少出賽：{settings.minMatchesPerPlayer} 場（總位置數 ÷ 總人數）</p>
                     </>
                   )}
                 </div>

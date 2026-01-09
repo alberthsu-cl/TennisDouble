@@ -71,7 +71,13 @@ function isValidLastPointPair(pair: Pair): boolean {
  */
 function canPlayMore(player: Player, minMatches: number, scheduledMatches: Map<string, number>): boolean {
   const scheduled = scheduledMatches.get(player.id) || 0;
-  return scheduled < (minMatches + 1);
+  // Priority 1: Players below minimum MUST play more
+  if (scheduled < minMatches) {
+    return true;
+  }
+  // Priority 2: Allow some players to play more to fill remaining slots
+  // Use a generous upper limit to accommodate uneven team sizes
+  return scheduled < Math.max(minMatches + 3, minMatches * 2.5);
 }
 
 /**
@@ -86,13 +92,43 @@ function findPairForPoint(
   scheduledMatches: Map<string, number>,
   playersUsedInRound: Set<string>
 ): Pair | null {
-  // Shuffle players to randomize pairing priority
-  const shuffledPlayers = shuffleArray(teamPlayers);
-  const availablePlayers = shuffledPlayers.filter(p => {
-    const hasEnoughMatches = canPlayMore(p, settings.minMatchesPerPlayer, scheduledMatches);
-    const notUsedInRound = settings.enforceRules ? !playersUsedInRound.has(p.id) : true; // 只在規則啟用時檢查本輪出賽
-    return hasEnoughMatches && notUsedInRound;
+  // Sort players by number of scheduled matches (STRONGLY prioritize those with fewer matches)
+  const sortedPlayers = [...teamPlayers].sort((a, b) => {
+    const aMatches = scheduledMatches.get(a.id) || 0;
+    const bMatches = scheduledMatches.get(b.id) || 0;
+    // Very strong priority for players below minimum (weight by 1000)
+    if (aMatches < settings.minMatchesPerPlayer && bMatches >= settings.minMatchesPerPlayer) return -1000;
+    if (bMatches < settings.minMatchesPerPlayer && aMatches >= settings.minMatchesPerPlayer) return 1000;
+    // Then sort by match count
+    return aMatches - bMatches;
   });
+  
+  // Strategy: Prioritize fair distribution over rule enforcement
+  // Only enforce "one match per round" if we have enough players who haven't reached minimum
+  const playersUnderMinimum = sortedPlayers.filter(p => (scheduledMatches.get(p.id) || 0) < settings.minMatchesPerPlayer);
+  const shouldEnforceRoundLimit = settings.enforceRules && playersUnderMinimum.length < 2;
+  
+  let availablePlayers = sortedPlayers.filter(p => {
+    const currentMatches = scheduledMatches.get(p.id) || 0;
+    // Always include players below minimum, regardless of any constraints
+    if (currentMatches < settings.minMatchesPerPlayer) {
+      return true;
+    }
+    // For players at or above minimum, check if they can still play
+    const canPlay = canPlayMore(p, settings.minMatchesPerPlayer, scheduledMatches);
+    if (!canPlay) return false;
+    
+    // Only check round usage if we're enforcing AND we have enough players under minimum
+    const notUsedInRound = shouldEnforceRoundLimit ? !playersUsedInRound.has(p.id) : true;
+    return notUsedInRound;
+  });
+  
+  // If still not enough, take ALL players
+  if (availablePlayers.length < 2) {
+    console.warn(`Not enough available players (${availablePlayers.length}), using all ${sortedPlayers.length} team players...`);
+    availablePlayers = sortedPlayers;
+  }
+  
   const allPairs = generatePairs(availablePlayers);
   
   // 根據點數過濾配對
@@ -101,7 +137,10 @@ function findPairForPoint(
     return !usedPairs.has(pairKey);
   });
   
-  if (validPairs.length === 0) return null;
+  if (validPairs.length === 0) {
+    console.warn(`No valid pairs available from ${allPairs.length} total pairs`);
+    return null;
+  }
   
   // 對於最後一點，優先選擇混雙或女雙，但允許男雙作為備選
   if (pointNumber === settings.pointsPerRound) {
@@ -120,7 +159,14 @@ function findPairForPoint(
     // 如果已經有其他點的配對，要確保年齡遞增
     if (existingPairs && existingPairs.length > 0) {
       const maxExistingAge = Math.max(...existingPairs.map(p => p.totalAge));
-      validPairs = validPairs.filter(p => p.totalAge > maxExistingAge);
+      const filteredByAge = validPairs.filter(p => p.totalAge > maxExistingAge);
+      
+      // Only apply age filter if we have enough pairs, otherwise skip age constraint
+      if (filteredByAge.length > 0) {
+        validPairs = filteredByAge;
+      } else {
+        console.warn(`No pairs satisfy age increasing constraint (max age: ${maxExistingAge}), using all valid pairs`);
+      }
     }
     
     // 從符合年齡條件的配對中，優先選擇技術等級平衡的配對
@@ -256,6 +302,34 @@ export function generateRound(
         );
       }
       
+      // Final fallback: ignore round usage constraint
+      if (!pair1) {
+        console.warn(`無法為 ${team1} 找到第${point}點的配對（所有約束），最後嘗試：忽略本輪出賽限制...`);
+        pair1 = findPairForPoint(
+          pointNumber,
+          teams[team1],
+          usedPairsInRound.get(team1)!,
+          null,
+          settings,
+          scheduledMatches,
+          new Set() // 不檢查本輪是否已出賽
+        );
+      }
+      
+      // Ultimate fallback: allow reusing pairs from this round
+      if (!pair1) {
+        console.warn(`無法為 ${team1} 找到第${point}點的配對，終極嘗試：允許重複配對...`);
+        pair1 = findPairForPoint(
+          pointNumber,
+          teams[team1],
+          new Set(), // 允許重複配對
+          null,
+          settings,
+          scheduledMatches,
+          new Set()
+        );
+      }
+      
       if (!pair1) {
         console.error(`無法為 ${team1} 找到第${point}點的配對，跳過此點`);
         continue;
@@ -283,6 +357,34 @@ export function generateRound(
           settings,
           scheduledMatches,
           playersUsedInRound
+        );
+      }
+      
+      // Final fallback: ignore round usage constraint
+      if (!pair2) {
+        console.warn(`無法為 ${team2} 找到第${point}點的配對（所有約束），最後嘗試：忽略本輪出賽限制...`);
+        pair2 = findPairForPoint(
+          pointNumber,
+          teams[team2],
+          usedPairsInRound.get(team2)!,
+          null,
+          settings,
+          scheduledMatches,
+          new Set() // 不檢查本輪是否已出賽
+        );
+      }
+      
+      // Ultimate fallback: allow reusing pairs from this round
+      if (!pair2) {
+        console.warn(`無法為 ${team2} 找到第${point}點的配對，終極嘗試：允許重複配對...`);
+        pair2 = findPairForPoint(
+          pointNumber,
+          teams[team2],
+          new Set(), // 允許重複配對
+          null,
+          settings,
+          scheduledMatches,
+          new Set()
         );
       }
       
@@ -345,8 +447,17 @@ export function generateFullSchedule(
     scheduledMatches.set(player.id, 0);
   });
   
+  // Log team sizes for debugging
+  console.log('=== Starting schedule generation ===');
+  Object.entries(teams).forEach(([teamName, players]) => {
+    console.log(`${teamName}: ${players.length} players`);
+  });
+  console.log(`Settings: ${settings.totalRounds} rounds, ${settings.pointsPerRound} points, min ${settings.minMatchesPerPlayer} matches per player`);
+  
   for (let round = 1; round <= settings.totalRounds; round++) {
+    console.log(`\n=== Generating Round ${round} ===`);
     const roundMatches = generateRound(round, teams, settings, scheduledMatches);
+    console.log(`Round ${round}: Generated ${roundMatches.length} matches`);
     allMatches.push(...roundMatches);
     
     // Update scheduled match counts
@@ -357,6 +468,105 @@ export function generateFullSchedule(
         }
       });
     });
+  }
+  
+  // Log final player match counts
+  console.log('\n=== Final Schedule Summary ===');
+  console.log(`Total matches generated: ${allMatches.length}`);
+  const playerMatchCounts = new Map<string, { name: string, count: number }>();
+  allMatches.forEach(match => {
+    [match.pair1.player1, match.pair1.player2, match.pair2.player1, match.pair2.player2].forEach(player => {
+      if (player) {
+        const current = playerMatchCounts.get(player.id) || { name: player.name, count: 0 };
+        current.count++;
+        playerMatchCounts.set(player.id, current);
+      }
+    });
+  });
+  
+  const playersWithZeroMatches: string[] = [];
+  const playersWithOneMatch: string[] = [];
+  
+  Object.values(teams).flat().forEach(player => {
+    const matchCount = playerMatchCounts.get(player.id)?.count || 0;
+    if (matchCount === 0) {
+      playersWithZeroMatches.push(player.name);
+    } else if (matchCount < settings.minMatchesPerPlayer) {
+      playersWithOneMatch.push(player.name);
+    }
+  });
+  
+  if (playersWithZeroMatches.length > 0) {
+    console.error(`❌ Players with 0 matches (${playersWithZeroMatches.length}):`, playersWithZeroMatches);
+  }
+  if (playersWithOneMatch.length > 0) {
+    console.warn(`⚠️ Players with < min matches (${playersWithOneMatch.length}):`, playersWithOneMatch);
+  }
+  console.log(`✓ Players with ${settings.minMatchesPerPlayer}+ matches: ${Object.values(teams).flat().length - playersWithZeroMatches.length - playersWithOneMatch.length}`);
+  
+  // Emergency pass: Force reschedule matches to include players below minimum
+  if (playersWithZeroMatches.length > 0 || playersWithOneMatch.length > 0) {
+    console.log(`\n=== Emergency Pass: Forcing reschedule for ${playersWithZeroMatches.length + playersWithOneMatch.length} players ===`);
+    
+    // Get all players who need more matches
+    const allPlayers = Object.values(teams).flat();
+    const playersNeedingMatches = allPlayers.filter(p => {
+      const count = playerMatchCounts.get(p.id)?.count || 0;
+      return count < settings.minMatchesPerPlayer;
+    });
+    
+    // For each player needing matches, try to substitute them into existing matches
+    for (const player of playersNeedingMatches) {
+      const needed = settings.minMatchesPerPlayer - (playerMatchCounts.get(player.id)?.count || 0);
+      let added = 0;
+      
+      // Find matches from player's team where we can substitute
+      const teamMatches = allMatches.filter(m => 
+        (m.team1 === player.team || m.team2 === player.team)
+      );
+      
+      for (const match of teamMatches) {
+        if (added >= needed) break;
+        
+        // Try to substitute this player into the match
+        const isTeam1 = match.team1 === player.team;
+        const pair = isTeam1 ? match.pair1 : match.pair2;
+        
+        // Skip if pair or players are null
+        if (!pair.player1 || !pair.player2) continue;
+        
+        // Check if player is already in this match
+        if (pair.player1.id === player.id || pair.player2.id === player.id) continue;
+        
+        // Find a player in this pair who has more than minimum matches
+        const player1Count = playerMatchCounts.get(pair.player1.id)?.count || 0;
+        const player2Count = playerMatchCounts.get(pair.player2.id)?.count || 0;
+        
+        if (player1Count > settings.minMatchesPerPlayer) {
+          // Substitute player1
+          if (isTeam1) {
+            match.pair1 = { ...pair, player1: player };
+          } else {
+            match.pair2 = { ...pair, player1: player };
+          }
+          playerMatchCounts.set(player.id, { name: player.name, count: (playerMatchCounts.get(player.id)?.count || 0) + 1 });
+          playerMatchCounts.set(pair.player1.id, { name: pair.player1.name, count: player1Count - 1 });
+          added++;
+          console.log(`  Substituted ${player.name} for ${pair.player1.name} in ${match.id}`);
+        } else if (player2Count > settings.minMatchesPerPlayer) {
+          // Substitute player2
+          if (isTeam1) {
+            match.pair1 = { ...pair, player2: player };
+          } else {
+            match.pair2 = { ...pair, player2: player };
+          }
+          playerMatchCounts.set(player.id, { name: player.name, count: (playerMatchCounts.get(player.id)?.count || 0) + 1 });
+          playerMatchCounts.set(pair.player2.id, { name: pair.player2.name, count: player2Count - 1 });
+          added++;
+          console.log(`  Substituted ${player.name} for ${pair.player2.name} in ${match.id}`);
+        }
+      }
+    }
   }
   
   return allMatches;
