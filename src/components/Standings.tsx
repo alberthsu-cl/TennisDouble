@@ -172,6 +172,10 @@ export const Standings: React.FC<StandingsProps> = ({ matches, players, settings
         };
       })
       .sort((a, b) => {
+        // Players with no matches go to the end
+        if (a.matchesPlayed === 0 && b.matchesPlayed > 0) return 1;
+        if (b.matchesPlayed === 0 && a.matchesPlayed > 0) return -1;
+        // Normal sorting for players who have played
         if (a.wins !== b.wins) return b.wins - a.wins;
         const aNetGames = a.gamesWon - a.gamesLost;
         const bNetGames = b.gamesWon - b.gamesLost;
@@ -443,6 +447,10 @@ export const Standings: React.FC<StandingsProps> = ({ matches, players, settings
                   matchesPlayed: player.matchesPlayed,
                 };
               }).sort((a, b) => {
+                // Players with no matches go to the end
+                if (a.matchesPlayed === 0 && b.matchesPlayed > 0) return 1;
+                if (b.matchesPlayed === 0 && a.matchesPlayed > 0) return -1;
+                // Normal sorting for players who have played
                 if (a.wins !== b.wins) return b.wins - a.wins;
                 const aNetGames = a.gamesWon - a.gamesLost;
                 const bNetGames = b.gamesWon - b.gamesLost;

@@ -739,7 +739,7 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
                       <option value="">選擇選手1</option>
                       {getTeamPlayers(match.team1).map(p => (
                         <option key={p.id} value={p.id}>
-                          {p.name} ({p.age}歲 {p.gender}) - 已安排{getPlayerMatchCount(p.id)}場
+                          {p.name} ({p.gender}) - 已安排{getPlayerMatchCount(p.id)}場
                         </option>
                       ))}
                     </select>
@@ -750,7 +750,7 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
                       <option value="">選擇選手2</option>
                       {getTeamPlayers(match.team1).map(p => (
                         <option key={p.id} value={p.id}>
-                          {p.name} ({p.age}歲 {p.gender}) - 已安排{getPlayerMatchCount(p.id)}場
+                          {p.name} ({p.gender}) - 已安排{getPlayerMatchCount(p.id)}場
                         </option>
                       ))}
                     </select>
@@ -764,7 +764,7 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
                       <option value="">選擇選手1</option>
                       {getTeamPlayers(match.team2).map(p => (
                         <option key={p.id} value={p.id}>
-                          {p.name} ({p.age}歲 {p.gender}) - 已安排{getPlayerMatchCount(p.id)}場
+                          {p.name} ({p.gender}) - 已安排{getPlayerMatchCount(p.id)}場
                         </option>
                       ))}
                     </select>
@@ -775,7 +775,7 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
                       <option value="">選擇選手2</option>
                       {getTeamPlayers(match.team2).map(p => (
                         <option key={p.id} value={p.id}>
-                          {p.name} ({p.age}歲 {p.gender}) - 已安排{getPlayerMatchCount(p.id)}場
+                          {p.name} ({p.gender}) - 已安排{getPlayerMatchCount(p.id)}場
                         </option>
                       ))}
                     </select>
