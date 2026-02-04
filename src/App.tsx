@@ -1139,6 +1139,36 @@ function App() {
               </ul>
             </div>
 
+            <h2>🎯 自動分組規則</h2>
+            <div className="rules-box">
+              <p style={{ marginBottom: '0.5rem', fontWeight: '600' }}>匯入選手時，系統會自動分配到4隊（甲乙丙丁），遵循以下優先順序：</p>
+              <ul style={{ marginTop: '0.5rem' }}>
+                <li><strong>1️⃣ 預分配優先：</strong>已指定隊伍的選手保持原隊伍不變</li>
+                {settings.tournamentMode === 'internal' && (
+                  <li><strong>2️⃣ 領隊優先：</strong>具有分組標籤的選手分配到指定隊伍
+                    <ul style={{ marginTop: '0.25rem' }}>
+                      <li>A1, A2 → 甲隊</li>
+                      <li>B1, B2 → 乙隊</li>
+                      <li>C1, C2 → 丙隊</li>
+                      <li>D1, D2 → 丁隊</li>
+                    </ul>
+                  </li>
+                )}
+                <li><strong>3️⃣ 技術等級平衡：</strong>使用蛇形分配確保各隊技術實力均衡
+                  <ul style={{ marginTop: '0.25rem' }}>
+                    <li>將選手按技術等級分組（A/B/C）</li>
+                    <li>每個等級內隨機排序（增加變化性）</li>
+                    <li>按順序分配：甲→乙→丙→丁→丁→丙→乙→甲（循環反轉）</li>
+                    <li>範例：A級選手會平均分配到4隊，B級、C級亦同</li>
+                  </ul>
+                </li>
+                <li><strong>4️⃣ 性別平衡：</strong>女選手和男選手分別進行分組，確保各隊男女比例相近</li>
+              </ul>
+              <p style={{ marginTop: '0.75rem', fontSize: '0.9rem', color: '#666' }}>
+                💡 提示：技術等級在Excel檔案中標記為A/B/C，預設為B
+              </p>
+            </div>
+
             {settings.tournamentMode === 'internal' && (
               <div className="team-status">
                 <h3>隊伍人數狀態</h3>
