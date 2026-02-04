@@ -25,6 +25,54 @@ const shuffleArray = <T,>(array: T[]): T[] => {
 
 // Auto-distribute players to teams evenly
 const autoDistributeTeams = (players: Player[], mode: 'internal' | 'inter-club' = 'internal'): Player[] => {
+  // Helper: Sort players by skill with some randomness for variety
+  const sortBySkillWithVariety = (playerList: Player[]): Player[] => {
+    // Group by skill level
+    const skillGroups = {
+      A: playerList.filter(p => p.skillLevel === 'A'),
+      B: playerList.filter(p => p.skillLevel === 'B'),
+      C: playerList.filter(p => p.skillLevel === 'C'),
+    };
+    
+    // Shuffle within each skill group for variety
+    return [
+      ...shuffleArray(skillGroups.A),
+      ...shuffleArray(skillGroups.B),
+      ...shuffleArray(skillGroups.C),
+    ];
+  };
+  
+  // Helper: Serpentine distribution (snake draft pattern)
+  const distributeWithSerpentine = (playerList: Player[], teams: TeamName[]) => {
+    let teamIndex = 0;
+    let direction = 1; // 1 for forward, -1 for backward
+    
+    playerList.forEach((player, idx) => {
+      player.team = teams[teamIndex];
+      
+      // Move to next team
+      teamIndex += direction;
+      
+      // Reverse direction at boundaries
+      if (teamIndex >= teams.length) {
+        teamIndex = teams.length - 1;
+        direction = -1;
+      } else if (teamIndex < 0) {
+        teamIndex = 0;
+        direction = 1;
+      }
+      
+      // Check if we completed a full cycle (reached end in either direction)
+      if ((direction === 1 && teamIndex === teams.length - 1) || 
+          (direction === -1 && teamIndex === 0)) {
+        // Next player starts a new cycle in opposite direction
+        if (idx < playerList.length - 1) {
+          direction *= -1;
+        }
+      }
+    });
+  };
+  
   // Separate players with assigned teams from those without
   const playersWithTeams = players.filter(p => p.team && p.team.trim() !== '');
   const playersWithoutTeams = players.filter(p => !p.team || p.team.trim() === '');
@@ -38,24 +86,15 @@ const autoDistributeTeams = (players: Player[], mode: 'internal' | 'inter-club' 
     // Inter-club mode: distribute evenly between 主隊 (甲隊+乙隊) and 客隊 (丙隊+丁隊)
     const teams: TeamName[] = ['甲隊', '乙隊', '丙隊', '丁隊'];
     
-    // Separate players by gender for balanced distribution
-    const femalePlayers = shuffleArray(playersWithoutTeams.filter(p => p.gender === '女'));
-    const malePlayers = shuffleArray(playersWithoutTeams.filter(p => p.gender === '男'));
+    // Separate players by gender, sort by skill
+    const femalePlayers = sortBySkillWithVariety(playersWithoutTeams.filter(p => p.gender === '女'));
+    const malePlayers = sortBySkillWithVariety(playersWithoutTeams.filter(p => p.gender === '男'));
     
-    // Distribute evenly: 主隊 gets 甲隊+乙隊, 客隊 gets 丙隊+丁隊
-    let teamIndex = 0;
+    // Distribute females with serpentine
+    distributeWithSerpentine(femalePlayers, teams);
     
-    // Distribute female players first
-    femalePlayers.forEach((player) => {
-      player.team = teams[teamIndex % 4];
-      teamIndex++;
-    });
-    
-    // Continue with male players
-    malePlayers.forEach((player) => {
-      player.team = teams[teamIndex % 4];
-      teamIndex++;
-    });
+    // Distribute males with serpentine
+    distributeWithSerpentine(malePlayers, teams);
     
     return [...playersWithTeams, ...femalePlayers, ...malePlayers];
   }
@@ -80,24 +119,15 @@ const autoDistributeTeams = (players: Player[], mode: 'internal' | 'inter-club' 
     }
   });
   
-  // Separate regular players by gender for balanced distribution
-  const femalePlayers = shuffleArray(regularPlayers.filter(p => p.gender === '女'));
-  const malePlayers = shuffleArray(regularPlayers.filter(p => p.gender === '男'));
+  // Separate regular players by gender, sort by skill
+  const femalePlayers = sortBySkillWithVariety(regularPlayers.filter(p => p.gender === '女'));
+  const malePlayers = sortBySkillWithVariety(regularPlayers.filter(p => p.gender === '男'));
   
-  // Distribute all regular players with continuous round-robin to ensure even team distribution
-  let teamIndex = 0;
+  // Distribute females with serpentine pattern
+  distributeWithSerpentine(femalePlayers, teams);
   
-  // Distribute female players first to ensure balance (important for point 5 mixed doubles rule)
-  femalePlayers.forEach((player) => {
-    player.team = teams[teamIndex % 4];
-    teamIndex++;
-  });
-  
-  // Continue with male players using the same counter
-  malePlayers.forEach((player) => {
-    player.team = teams[teamIndex % 4];
-    teamIndex++;
-  });
+  // Distribute males with serpentine pattern
+  distributeWithSerpentine(malePlayers, teams);
   
   return [...playersWithTeams, ...captains, ...femalePlayers, ...malePlayers];
 };
