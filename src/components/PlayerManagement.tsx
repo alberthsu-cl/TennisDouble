@@ -254,7 +254,27 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
                       </tr>
                     </thead>
                     <tbody>
-                      {teamPlayers.sort((a, b) => a.age - b.age).map(player => (
+                      {teamPlayers.sort((a, b) => {
+                        // 1. Leaders first (with groupTag), ordered by priority
+                        const tagOrder: {[key: string]: number} = {
+                          'A1': 10, 'A2': 9,
+                          'B1': 8, 'B2': 7,
+                          'C1': 6, 'C2': 5,
+                          'D1': 4, 'D2': 3,
+                        };
+                        const aTagPriority = a.groupTag ? (tagOrder[a.groupTag] || 0) : 0;
+                        const bTagPriority = b.groupTag ? (tagOrder[b.groupTag] || 0) : 0;
+                        if (bTagPriority !== aTagPriority) return bTagPriority - aTagPriority;
+                        
+                        // 2. Sort by skill level (A > B > C)
+                        const skillOrder = { 'A': 3, 'B': 2, 'C': 1 };
+                        const aSkill = skillOrder[a.skillLevel || 'B'];
+                        const bSkill = skillOrder[b.skillLevel || 'B'];
+                        if (bSkill !== aSkill) return bSkill - aSkill;
+                        
+                        // 3. Then by age
+                        return a.age - b.age;
+                      }).map(player => (
                     <tr key={player.id}>
                       <td>{player.name || '未知'}</td>
                       {showSensitiveInfo && <td>{player.age || '-'}</td>}

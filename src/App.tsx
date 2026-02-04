@@ -44,37 +44,18 @@ const autoDistributeTeams = (players: Player[], mode: 'internal' | 'inter-club' 
   
   // Helper: Serpentine distribution (snake draft pattern)
   const distributeWithSerpentine = (playerList: Player[], teams: TeamName[]) => {
-    let teamIndex = 0;
-    let direction = 1; // 1 for forward, -1 for backward
-    
+    const n = teams.length;
     playerList.forEach((player, idx) => {
+      const cycle = Math.floor(idx / n);
+      const posInCycle = idx % n;
+      // Even cycles go forward (0,1,2,3), odd cycles go backward (3,2,1,0)
+      const teamIndex = (cycle % 2 === 0) ? posInCycle : (n - 1 - posInCycle);
       player.team = teams[teamIndex];
-      
-      // Move to next team
-      teamIndex += direction;
-      
-      // Reverse direction at boundaries
-      if (teamIndex >= teams.length) {
-        teamIndex = teams.length - 1;
-        direction = -1;
-      } else if (teamIndex < 0) {
-        teamIndex = 0;
-        direction = 1;
-      }
-      
-      // Check if we completed a full cycle (reached end in either direction)
-      if ((direction === 1 && teamIndex === teams.length - 1) || 
-          (direction === -1 && teamIndex === 0)) {
-        // Next player starts a new cycle in opposite direction
-        if (idx < playerList.length - 1) {
-          direction *= -1;
-        }
-      }
     });
   };
   
   // Separate players with assigned teams from those without
-  const playersWithTeams = players.filter(p => p.team && p.team.trim() !== '');
+  const playersWithTeams = players.filter(p => p.team !== undefined && p.team.trim() !== '');
   const playersWithoutTeams = players.filter(p => !p.team || p.team.trim() === '');
   
   // If no players need distribution, return as-is
@@ -441,7 +422,7 @@ function App() {
           
           // Handle team: map club names to internal teams in inter-club mode
           let teamValue = row['隊伍'] || '';
-          let team: TeamName = '甲隊'; // default
+          let team: TeamName | undefined = undefined; // default to undefined for auto-distribution
           
           if (settings.tournamentMode === 'inter-club') {
             // In inter-club mode, recognize club names and map to internal teams
@@ -460,11 +441,11 @@ function App() {
               console.log(`[Import Demo Debug] Already internal team -> kept ${team}`);
             } else if (teamValue.trim() === '') {
               // Empty team, will be auto-distributed
-              team = '' as any;
+              team = undefined;
               console.log(`[Import Demo Debug] Empty team -> will auto-distribute`);
             } else {
               // Unknown team name, default to empty for auto-distribution
-              team = '' as any;
+              team = undefined;
               console.log(`[Import Demo Debug] Unknown team "${teamValue}" -> will auto-distribute`);
             }
           } else {
@@ -473,7 +454,7 @@ function App() {
               team = teamValue as TeamName;
             } else if (teamValue.trim() !== '') {
               // Try to map custom names, otherwise empty for auto-distribution
-              team = '' as any;
+              team = undefined;
             }
           }
           
@@ -685,7 +666,7 @@ function App() {
           
           // Handle team: map club names to internal teams in inter-club mode
           let teamValue = row['隊伍'] || '';
-          let team: TeamName = '甲隊'; // default
+          let team: TeamName | undefined = undefined; // default to undefined for auto-distribution
           
           if (settings.tournamentMode === 'inter-club') {
             // In inter-club mode, recognize club names and map to internal teams
@@ -704,11 +685,11 @@ function App() {
               console.log(`[Import Debug] Already internal team -> kept ${team}`);
             } else if (teamValue.trim() === '') {
               // Empty team, will be auto-distributed
-              team = '' as any;
+              team = undefined;
               console.log(`[Import Debug] Empty team -> will auto-distribute`);
             } else {
               // Unknown team name, default to empty for auto-distribution
-              team = '' as any;
+              team = undefined;
             }
           } else {
             // Internal mode: use team value directly or default
@@ -716,7 +697,7 @@ function App() {
               team = teamValue as TeamName;
             } else if (teamValue.trim() !== '') {
               // Try to map custom names, otherwise empty for auto-distribution
-              team = '' as any;
+              team = undefined;
             }
           }
           
