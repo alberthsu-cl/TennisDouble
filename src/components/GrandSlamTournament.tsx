@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import type { Player, Gender, SkillLevel } from '../types';
 
@@ -25,6 +25,40 @@ export const GrandSlamTournament: React.FC<GrandSlamTournamentProps> = ({
   const [tournamentStarted, setTournamentStarted] = useState(false);
   const [currentRound, setCurrentRound] = useState(1);
   const [totalRounds, setTotalRounds] = useState(0);
+  const [playersWithBye, setPlayersWithBye] = useState<Set<string>>(new Set());
+  const [showBracketTree, setShowBracketTree] = useState(false);
+  const [visibleRoundStart, setVisibleRoundStart] = useState(1);
+  const [roundsPerView, setRoundsPerView] = useState(3);
+  const mainTreeRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Calculate how many rounds can fit in viewport
+  useEffect(() => {
+    const calculateRoundsPerView = () => {
+      if (containerRef.current) {
+        const containerWidth = containerRef.current.offsetWidth;
+        // Each round column: 250px width + 30px gap
+        const roundWidth = 280;
+        const padding = 40; // Account for container padding
+        const availableWidth = containerWidth - padding;
+        const rounds = Math.max(1, Math.floor(availableWidth / roundWidth));
+        setRoundsPerView(rounds);
+      }
+    };
+
+    if (showBracketTree) {
+      calculateRoundsPerView();
+      window.addEventListener('resize', calculateRoundsPerView);
+      return () => window.removeEventListener('resize', calculateRoundsPerView);
+    }
+  }, [showBracketTree]);
+
+  // Reset to first round when tree view is toggled
+  useEffect(() => {
+    if (showBracketTree) {
+      setVisibleRoundStart(1);
+    }
+  }, [showBracketTree]);
 
   // Fisher-Yates shuffle
   const shuffleArray = <T,>(array: T[]): T[] => {
@@ -34,11 +68,6 @@ export const GrandSlamTournament: React.FC<GrandSlamTournamentProps> = ({
       [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
     }
     return shuffled;
-  };
-
-  // Calculate the next power of 2
-  const nextPowerOf2 = (n: number): number => {
-    return Math.pow(2, Math.ceil(Math.log2(n)));
   };
 
   // Generate the initial bracket with given players
@@ -51,121 +80,63 @@ export const GrandSlamTournament: React.FC<GrandSlamTournamentProps> = ({
     // Shuffle players randomly
     const shuffledPlayers = shuffleArray([...playerList]);
     
-    // Calculate bracket size (next power of 2)
-    const bracketSize = nextPowerOf2(shuffledPlayers.length);
-    const rounds = Math.log2(bracketSize);
-    setTotalRounds(rounds);
-
-    // Create first round matches
+    // Only create the first round - subsequent rounds created dynamically as matches complete
     const matches: GrandSlamMatch[] = [];
-    const firstRoundMatches = bracketSize / 2;
-
-    for (let i = 0; i < firstRoundMatches; i++) {
-      const player1 = i < shuffledPlayers.length ? shuffledPlayers[i * 2] : null;
-      const player2 = (i * 2 + 1) < shuffledPlayers.length ? shuffledPlayers[i * 2 + 1] : null;
-
-      // Set status - let processAllByes() handle bye matches
-      let status: 'pending' | 'ready' | 'completed' = 'pending';
-      
-      // If both players exist, mark as ready
-      if (player1 && player2) {
-        status = 'ready';
-      }
-
+    const byePlayerIds = new Set<string>();
+    const numPlayers = shuffledPlayers.length;
+    const hasOddPlayers = numPlayers % 2 === 1;
+    
+    // If odd number, select one player for bye (prefer players who haven't had a bye yet)
+    let byePlayer: Player | null = null;
+    let playersForMatches = shuffledPlayers;
+    
+    if (hasOddPlayers) {
+      const byeIndex = Math.floor(Math.random() * numPlayers);
+      byePlayer = shuffledPlayers[byeIndex];
+      byePlayerIds.add(byePlayer.id);
+      playersForMatches = shuffledPlayers.filter(p => p.id !== byePlayer!.id);
+    }
+    
+    // Create matches for round 1
+    const matchesInRound = Math.floor(playersForMatches.length / 2);
+    for (let i = 0; i < matchesInRound; i++) {
       matches.push({
         id: `r1-m${i}`,
         round: 1,
         position: i,
-        player1,
-        player2,
+        player1: playersForMatches[i * 2],
+        player2: playersForMatches[i * 2 + 1],
         winner: null,
-        status,
+        status: 'ready',
       });
     }
-
-    // Create placeholder matches for subsequent rounds
-    for (let round = 2; round <= rounds; round++) {
-      const matchesInRound = Math.pow(2, rounds - round);
-      for (let i = 0; i < matchesInRound; i++) {
-        matches.push({
-          id: `r${round}-m${i}`,
-          round,
-          position: i,
-          player1: null,
-          player2: null,
-          winner: null,
-          status: 'pending',
-        });
-      }
-    }
-
-    // Process all byes automatically
-    const processedMatches = processAllByes(matches);
     
-    setBracket(processedMatches);
+    // If there's a bye player, create a bye match
+    if (byePlayer) {
+      matches.push({
+        id: `r1-m${matchesInRound}`,
+        round: 1,
+        position: matchesInRound,
+        player1: byePlayer,
+        player2: null,
+        winner: byePlayer,
+        status: 'completed',
+      });
+    }
+    
+    // Calculate estimated total rounds
+    let estimatedRounds = 1;
+    let remainingPlayers = matchesInRound + (byePlayer ? 1 : 0);
+    while (remainingPlayers > 1) {
+      remainingPlayers = Math.ceil(remainingPlayers / 2);
+      estimatedRounds++;
+    }
+    
+    setTotalRounds(estimatedRounds);
+    setPlayersWithBye(byePlayerIds);
+    setBracket(matches);
     setTournamentStarted(true);
     setCurrentRound(1);
-  };
-
-  // Process all bye situations in the bracket
-  const processAllByes = (matches: GrandSlamMatch[]): GrandSlamMatch[] => {
-    // Create deep copies of all match objects to ensure React detects changes
-    let updatedMatches = matches.map(m => ({ ...m }));
-    let changed = true;
-    let iterations = 0;
-    
-    // Keep processing until no more byes to auto-complete
-    while (changed && iterations < 20) { // Safety limit
-      changed = false;
-      iterations++;
-      
-      for (let i = 0; i < updatedMatches.length; i++) {
-        const match = updatedMatches[i];
-        
-        // If match has one player and no opponent, auto-complete
-        if (match.status !== 'completed' && ((match.player1 && !match.player2) || (!match.player1 && match.player2))) {
-          const winner = match.player1 || match.player2;
-          
-          updatedMatches[i] = {
-            ...match,
-            winner: winner!,
-            status: 'completed'
-          };
-          changed = true;
-          
-          // Advance winner to next round
-          const nextRound = match.round + 1;
-          const nextPosition = Math.floor(match.position / 2);
-          const nextMatchIndex = updatedMatches.findIndex(m => m.round === nextRound && m.position === nextPosition);
-          
-          if (nextMatchIndex !== -1) {
-            const nextMatch = updatedMatches[nextMatchIndex];
-            const isPlayer1Slot = match.position % 2 === 0;
-            
-            updatedMatches[nextMatchIndex] = {
-              ...nextMatch,
-              player1: isPlayer1Slot ? winner! : nextMatch.player1,
-              player2: !isPlayer1Slot ? winner! : nextMatch.player2
-            };
-          }
-        }
-      }
-    }
-    
-    // Final pass: set all matches with both players to 'ready' (clear bye-based completions)
-    for (let i = 0; i < updatedMatches.length; i++) {
-      const match = updatedMatches[i];
-      if (match.player1 && match.player2) {
-        // Both players present = match must be played, clear any bye winner
-        updatedMatches[i] = {
-          ...match,
-          status: 'ready',
-          winner: null
-        };
-      }
-    }
-    
-    return updatedMatches;
   };
 
   // Handle match result
@@ -182,34 +153,83 @@ export const GrandSlamTournament: React.FC<GrandSlamTournamentProps> = ({
       status: 'completed'
     };
 
-    // Find next round match
     const currentRound = match.round;
-    const currentPosition = match.position;
-    const nextRound = currentRound + 1;
-    const nextPosition = Math.floor(currentPosition / 2);
-
-    // Update next round match with winner
-    const nextMatchIndex = updatedBracket.findIndex(
-      m => m.round === nextRound && m.position === nextPosition
-    );
-
-    if (nextMatchIndex !== -1) {
-      const nextMatch = updatedBracket[nextMatchIndex];
+    
+    // Check if current round is complete
+    const currentRoundMatches = updatedBracket.filter(m => m.round === currentRound);
+    const roundComplete = currentRoundMatches.every(m => m.status === 'completed');
+    
+    if (roundComplete && currentRound < totalRounds) {
+      // Get all winners from this round in order
+      const winners = currentRoundMatches.map(m => m.winner!).filter(w => w !== null);
       
-      // Determine if winner goes to player1 or player2 slot
-      const newPlayer1 = currentPosition % 2 === 0 ? winner : nextMatch.player1;
-      const newPlayer2 = currentPosition % 2 === 1 ? winner : nextMatch.player2;
+      // Create or update next round matches
+      const nextRound = currentRound + 1;
       
-      updatedBracket[nextMatchIndex] = {
-        ...nextMatch,
-        player1: newPlayer1,
-        player2: newPlayer2,
-        status: (newPlayer1 && newPlayer2) ? 'ready' : 'pending',
-        winner: null // Clear any bye-based winner
-      };
+      // Remove old next round matches if they exist
+      updatedBracket = updatedBracket.filter(m => m.round !== nextRound);
+      
+      // Determine if next round has a bye (prefer players who haven't had one yet)
+      const hasOddWinners = winners.length % 2 === 1;
+      let byePlayer: Player | null = null;
+      let playersForMatches = winners;
+      
+      if (hasOddWinners) {
+        // Filter winners who haven't had a bye yet
+        const winnersWithoutBye = winners.filter(p => !playersWithBye.has(p.id));
+        
+        if (winnersWithoutBye.length > 0) {
+          // Prefer players who haven't had a bye
+          const byeIndex = Math.floor(Math.random() * winnersWithoutBye.length);
+          byePlayer = winnersWithoutBye[byeIndex];
+        } else {
+          // All winners have had a bye, pick any player
+          const byeIndex = Math.floor(Math.random() * winners.length);
+          byePlayer = winners[byeIndex];
+        }
+        
+        playersForMatches = winners.filter(p => p.id !== byePlayer!.id);
+        
+        // Track this player as having had a bye
+        setPlayersWithBye(prev => new Set([...prev, byePlayer!.id]));
+      }
+      
+      // Create new matches for next round
+      const matchesInNextRound = Math.floor(playersForMatches.length / 2);
+      let nextMatchIdCounter = updatedBracket.filter(m => m.round <= currentRound).length;
+      
+      for (let i = 0; i < matchesInNextRound; i++) {
+        updatedBracket.push({
+          id: `r${nextRound}-m${nextMatchIdCounter++}`,
+          round: nextRound,
+          position: i,
+          player1: playersForMatches[i * 2],
+          player2: playersForMatches[i * 2 + 1],
+          winner: null,
+          status: 'ready',
+        });
+      }
+      
+      // If there's a bye player, create a bye match
+      if (byePlayer) {
+        updatedBracket.push({
+          id: `r${nextRound}-m${nextMatchIdCounter++}`,
+          round: nextRound,
+          position: matchesInNextRound,
+          player1: byePlayer,
+          player2: null,
+          winner: byePlayer,
+          status: 'completed',
+        });
+      }
+      
+      // Update total rounds if we've extended beyond the estimate
+      const maxRound = Math.max(...updatedBracket.map(m => m.round));
+      if (maxRound > totalRounds) {
+        setTotalRounds(maxRound);
+      }
     }
 
-    // Don't call processAllByes here - just update the state
     setBracket(updatedBracket);
   };
 
@@ -226,15 +246,23 @@ export const GrandSlamTournament: React.FC<GrandSlamTournamentProps> = ({
 
   // Get round name
   const getRoundName = (round: number): string => {
-    const matchesInRound = Math.pow(2, totalRounds - round);
-    
-    if (matchesInRound === 1) return '冠軍賽';
-    if (matchesInRound === 2) return '準決賽';
-    if (matchesInRound === 4) return '八強賽';
-    if (matchesInRound === 8) return '十六強賽';
-    if (matchesInRound === 16) return '三十二強賽';
+    if (round === totalRounds) return '冠軍賽';
+    if (round === totalRounds - 1) return '準決賽';
+    if (round === totalRounds - 2) return '準準決賽';
     return `第 ${round} 輪`;
   };
+
+  // Navigation for bracket tree rounds
+  const navigateToPrevRounds = () => {
+    setVisibleRoundStart(prev => Math.max(1, prev - roundsPerView));
+  };
+
+  const navigateToNextRounds = () => {
+    setVisibleRoundStart(prev => Math.min(totalRounds - roundsPerView + 1, prev + roundsPerView));
+  };
+
+  const canNavigatePrev = visibleRoundStart > 1;
+  const canNavigateNext = visibleRoundStart + roundsPerView <= totalRounds;
 
   // Clear all and restart
   const handleClearAll = () => {
@@ -244,6 +272,7 @@ export const GrandSlamTournament: React.FC<GrandSlamTournamentProps> = ({
       setTournamentStarted(false);
       setCurrentRound(1);
       setTotalRounds(0);
+      setPlayersWithBye(new Set());
     }
   };
 
@@ -452,8 +481,95 @@ export const GrandSlamTournament: React.FC<GrandSlamTournamentProps> = ({
             </div>
           )}
 
-          {/* Round Navigation */}
-          <div className="round-navigation">
+          {/* Bracket Tree Toggle */}
+          <div style={{ textAlign: 'center', margin: '20px 0' }}>
+            <button 
+              className="btn-secondary" 
+              onClick={() => setShowBracketTree(!showBracketTree)}
+            >
+              {showBracketTree ? '📋 賽程列表' : '🌳 對戰樹狀圖'}
+            </button>
+          </div>
+
+          {/* Bracket Tree View */}
+          {showBracketTree ? (
+            <div ref={containerRef}>
+              <h3 style={{ textAlign: 'center', marginBottom: '10px' }}>完整對戰樹狀圖</h3>
+              
+              {/* Navigation controls */}
+              <div style={{ 
+                display: 'flex', 
+                justifyContent: 'center', 
+                alignItems: 'center', 
+                gap: '20px',
+                marginBottom: '20px',
+                padding: '15px',
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                borderRadius: '10px',
+                color: 'white'
+              }}>
+                <button 
+                  className="btn-nav-tree"
+                  onClick={navigateToPrevRounds}
+                  disabled={!canNavigatePrev}
+                >
+                  ⬅ 前幾輪
+                </button>
+                <span style={{ fontWeight: '600', fontSize: '1.1em' }}>
+                  顯示第 {visibleRoundStart}-{Math.min(visibleRoundStart + roundsPerView - 1, totalRounds)} 輪 (共 {totalRounds} 輪)
+                </span>
+                <button 
+                  className="btn-nav-tree"
+                  onClick={navigateToNextRounds}
+                  disabled={!canNavigateNext}
+                >
+                  後幾輪 ➡
+                </button>
+              </div>
+              
+              {/* Main bracket tree */}
+              <div 
+                ref={mainTreeRef}
+                className="bracket-tree"
+              >
+                <div className="bracket-rounds">
+                {Array.from({ length: roundsPerView }, (_, i) => visibleRoundStart + i)
+                  .filter(round => round <= totalRounds)
+                  .map(round => {
+                  const roundMatches = getMatchesForRound(round);
+                  if (roundMatches.length === 0) return null;
+                  
+                  return (
+                    <div key={round} className="bracket-round-column">
+                      <h4 className="bracket-round-title">{getRoundName(round)}</h4>
+                      <div className="bracket-matches">
+                        {roundMatches.filter(m => m.player1 || m.player2).map(match => (
+                          <div key={match.id} className={`bracket-match ${match.status}`}>
+                            <div className={`bracket-player ${match.winner?.id === match.player1?.id ? 'winner' : ''}`}>
+                              {match.player1?.name || '待定'}
+                            </div>
+                            <div className="bracket-vs">vs</div>
+                            <div className={`bracket-player ${match.winner?.id === match.player2?.id ? 'winner' : ''}`}>
+                              {match.player2?.name || '輪空'}
+                            </div>
+                            {match.winner && (
+                              <div className="bracket-winner-indicator">
+                                ➜ {match.winner.name}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Round Navigation */}
+              <div className="round-navigation">
             <button 
               className="btn-nav" 
               onClick={goToPrevRound}
@@ -548,6 +664,8 @@ export const GrandSlamTournament: React.FC<GrandSlamTournamentProps> = ({
             <div className="round-complete-notice">
               ✅ {getRoundName(currentRound)}已完成，可查看下一輪對陣
             </div>
+          )}
+            </>
           )}
         </div>
       )}
@@ -1020,6 +1138,132 @@ export const GrandSlamTournament: React.FC<GrandSlamTournamentProps> = ({
             flex-direction: column;
             width: 100%;
           }
+        }
+
+        /* Navigation Button Styles */
+        .btn-nav-tree {
+          background: white;
+          color: #667eea;
+          border: 2px solid white;
+          padding: 12px 24px;
+          border-radius: 8px;
+          cursor: pointer;
+          font-size: 1.1em;
+          font-weight: 600;
+          transition: all 0.3s ease;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+          display: flex;
+          align-items: center;
+          gap: 5px;
+        }
+        .btn-nav-tree:hover:not(:disabled) {
+          background: rgba(255, 255, 255, 0.95);
+          transform: scale(1.05);
+          box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        .btn-nav-tree:active:not(:disabled) {
+          transform: scale(0.98);
+        }
+        .btn-nav-tree:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+
+        /* Bracket Tree Styles */
+        .bracket-tree {
+          background: white;
+          padding: 20px;
+          border-radius: 12px;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+          overflow: visible;
+          max-width: 100%;
+        }
+
+        .bracket-rounds {
+          display: flex;
+          gap: 30px;
+          justify-content: center;
+          padding: 20px;
+        }
+
+        .bracket-round-column {
+          flex: 0 0 auto;
+          min-width: 250px;
+          max-width: 250px;
+        }
+
+        .bracket-round-title {
+          text-align: center;
+          margin-bottom: 15px;
+          color: #2c3e50;
+          font-size: 1.1em;
+          font-weight: 600;
+          padding: 10px;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+          border-radius: 8px;
+        }
+
+        .bracket-matches {
+          display: flex;
+          flex-direction: column;
+          gap: 15px;
+        }
+
+        .bracket-match {
+          background: #f8f9fa;
+          border: 2px solid #dee2e6;
+          border-radius: 8px;
+          padding: 12px;
+          transition: all 0.3s;
+        }
+
+        .bracket-match.completed {
+          border-color: #28a745;
+          background: #f8fff9;
+        }
+
+        .bracket-match.ready {
+          border-color: #007bff;
+          background: #f0f8ff;
+        }
+
+        .bracket-player {
+          padding: 8px 12px;
+          background: white;
+          border-radius: 6px;
+          margin: 5px 0;
+          font-weight: 500;
+          color: #2c3e50;
+          font-size: 0.95em;
+          transition: all 0.3s;
+          word-wrap: break-word;
+          overflow-wrap: break-word;
+        }
+
+        .bracket-player.winner {
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+          font-weight: 600;
+          transform: scale(1.05);
+        }
+
+        .bracket-vs {
+          text-align: center;
+          font-size: 0.9em;
+          color: #6c757d;
+          margin: 3px 0;
+        }
+
+        .bracket-winner-indicator {
+          margin-top: 8px;
+          padding: 6px;
+          background: #28a745;
+          color: white;
+          border-radius: 6px;
+          text-align: center;
+          font-size: 0.9em;
+          font-weight: 600;
         }
       `}</style>
     </div>
