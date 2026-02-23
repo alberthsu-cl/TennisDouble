@@ -7,6 +7,7 @@ import { Standings } from './components/Standings';
 import { RulesModal } from './components/RulesModal';
 import { ManualMatchSetup } from './components/ManualMatchSetup';
 import { CustomModal } from './components/CustomModal';
+import { GrandSlamTournament } from './components/GrandSlamTournament';
 import { useModal } from './hooks/useModal';
 import { generateFullSchedule } from './utils/scheduleGenerator';
 import { generateDemoPlayers } from './utils/demoData';
@@ -113,7 +114,7 @@ const autoDistributeTeams = (players: Player[], mode: 'internal' | 'inter-club' 
   return [...playersWithTeams, ...captains, ...femalePlayers, ...malePlayers];
 };
 
-type View = 'setup' | 'players' | 'matches' | 'standings' | 'manual-setup';
+type View = 'setup' | 'players' | 'matches' | 'standings' | 'manual-setup' | 'grand-slam';
 
 function App() {
   const [currentView, setCurrentView] = useState<View>('setup');
@@ -880,6 +881,12 @@ function App() {
         >
           即時排名
         </button>
+        <button 
+          className={currentView === 'grand-slam' ? 'active' : ''} 
+          onClick={() => setCurrentView('grand-slam')}
+        >
+          🏆 一球大滿貫
+        </button>
         <button
           className="btn-rules"
           onClick={() => setShowRulesModal(true)}
@@ -1378,6 +1385,13 @@ function App() {
             existingMatches={tournamentStarted ? matches : undefined}
             onGenerateMatches={handleManualMatchesGenerated}
             onCancel={() => setCurrentView(tournamentStarted ? 'matches' : 'setup')}
+            showSensitiveInfo={showSensitiveInfo}
+          />
+        )}
+
+        {currentView === 'grand-slam' && (
+          <GrandSlamTournament
+            onBack={() => setCurrentView('setup')}
             showSensitiveInfo={showSensitiveInfo}
           />
         )}

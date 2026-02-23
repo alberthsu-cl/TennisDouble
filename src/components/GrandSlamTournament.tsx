@@ -1,0 +1,1027 @@
+import React, { useState } from 'react';
+import * as XLSX from 'xlsx';
+import type { Player, Gender, SkillLevel } from '../types';
+
+interface GrandSlamMatch {
+  id: string;
+  round: number;
+  position: number;
+  player1: Player | null;
+  player2: Player | null;
+  winner: Player | null;
+  status: 'pending' | 'ready' | 'completed';
+}
+
+interface GrandSlamTournamentProps {
+  onBack: () => void;
+  showSensitiveInfo?: boolean;
+}
+
+export const GrandSlamTournament: React.FC<GrandSlamTournamentProps> = ({
+  onBack,
+}) => {
+  const [players, setPlayers] = useState<Player[]>([]);
+  const [bracket, setBracket] = useState<GrandSlamMatch[]>([]);
+  const [tournamentStarted, setTournamentStarted] = useState(false);
+  const [currentRound, setCurrentRound] = useState(1);
+  const [totalRounds, setTotalRounds] = useState(0);
+
+  // Fisher-Yates shuffle
+  const shuffleArray = <T,>(array: T[]): T[] => {
+    const shuffled = [...array];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+  };
+
+  // Calculate the next power of 2
+  const nextPowerOf2 = (n: number): number => {
+    return Math.pow(2, Math.ceil(Math.log2(n)));
+  };
+
+  // Generate the initial bracket with given players
+  const generateBracketWithPlayers = (playerList: Player[]) => {
+    if (playerList.length < 2) {
+      alert('至少需要2名選手才能開始比賽');
+      return;
+    }
+
+    // Shuffle players randomly
+    const shuffledPlayers = shuffleArray([...playerList]);
+    
+    // Calculate bracket size (next power of 2)
+    const bracketSize = nextPowerOf2(shuffledPlayers.length);
+    const rounds = Math.log2(bracketSize);
+    setTotalRounds(rounds);
+
+    // Create first round matches
+    const matches: GrandSlamMatch[] = [];
+    const firstRoundMatches = bracketSize / 2;
+
+    for (let i = 0; i < firstRoundMatches; i++) {
+      const player1 = i < shuffledPlayers.length ? shuffledPlayers[i * 2] : null;
+      const player2 = (i * 2 + 1) < shuffledPlayers.length ? shuffledPlayers[i * 2 + 1] : null;
+
+      // Set status - let processAllByes() handle bye matches
+      let status: 'pending' | 'ready' | 'completed' = 'pending';
+      
+      // If both players exist, mark as ready
+      if (player1 && player2) {
+        status = 'ready';
+      }
+
+      matches.push({
+        id: `r1-m${i}`,
+        round: 1,
+        position: i,
+        player1,
+        player2,
+        winner: null,
+        status,
+      });
+    }
+
+    // Create placeholder matches for subsequent rounds
+    for (let round = 2; round <= rounds; round++) {
+      const matchesInRound = Math.pow(2, rounds - round);
+      for (let i = 0; i < matchesInRound; i++) {
+        matches.push({
+          id: `r${round}-m${i}`,
+          round,
+          position: i,
+          player1: null,
+          player2: null,
+          winner: null,
+          status: 'pending',
+        });
+      }
+    }
+
+    // Process all byes automatically
+    const processedMatches = processAllByes(matches);
+    
+    setBracket(processedMatches);
+    setTournamentStarted(true);
+    setCurrentRound(1);
+  };
+
+  // Process all bye situations in the bracket
+  const processAllByes = (matches: GrandSlamMatch[]): GrandSlamMatch[] => {
+    // Create deep copies of all match objects to ensure React detects changes
+    let updatedMatches = matches.map(m => ({ ...m }));
+    let changed = true;
+    let iterations = 0;
+    
+    // Keep processing until no more byes to auto-complete
+    while (changed && iterations < 20) { // Safety limit
+      changed = false;
+      iterations++;
+      
+      for (let i = 0; i < updatedMatches.length; i++) {
+        const match = updatedMatches[i];
+        
+        // If match has one player and no opponent, auto-complete
+        if (match.status !== 'completed' && ((match.player1 && !match.player2) || (!match.player1 && match.player2))) {
+          const winner = match.player1 || match.player2;
+          
+          updatedMatches[i] = {
+            ...match,
+            winner: winner!,
+            status: 'completed'
+          };
+          changed = true;
+          
+          // Advance winner to next round
+          const nextRound = match.round + 1;
+          const nextPosition = Math.floor(match.position / 2);
+          const nextMatchIndex = updatedMatches.findIndex(m => m.round === nextRound && m.position === nextPosition);
+          
+          if (nextMatchIndex !== -1) {
+            const nextMatch = updatedMatches[nextMatchIndex];
+            const isPlayer1Slot = match.position % 2 === 0;
+            
+            updatedMatches[nextMatchIndex] = {
+              ...nextMatch,
+              player1: isPlayer1Slot ? winner! : nextMatch.player1,
+              player2: !isPlayer1Slot ? winner! : nextMatch.player2
+            };
+          }
+        }
+      }
+    }
+    
+    // Final pass: set all matches with both players to 'ready' (clear bye-based completions)
+    for (let i = 0; i < updatedMatches.length; i++) {
+      const match = updatedMatches[i];
+      if (match.player1 && match.player2) {
+        // Both players present = match must be played, clear any bye winner
+        updatedMatches[i] = {
+          ...match,
+          status: 'ready',
+          winner: null
+        };
+      }
+    }
+    
+    return updatedMatches;
+  };
+
+  // Handle match result
+  const recordWinner = (matchId: string, winner: Player) => {
+    let updatedBracket = bracket.map(m => ({ ...m }));
+    const matchIndex = updatedBracket.findIndex(m => m.id === matchId);
+    
+    if (matchIndex === -1) return;
+
+    const match = updatedBracket[matchIndex];
+    updatedBracket[matchIndex] = {
+      ...match,
+      winner: winner,
+      status: 'completed'
+    };
+
+    // Find next round match
+    const currentRound = match.round;
+    const currentPosition = match.position;
+    const nextRound = currentRound + 1;
+    const nextPosition = Math.floor(currentPosition / 2);
+
+    // Update next round match with winner
+    const nextMatchIndex = updatedBracket.findIndex(
+      m => m.round === nextRound && m.position === nextPosition
+    );
+
+    if (nextMatchIndex !== -1) {
+      const nextMatch = updatedBracket[nextMatchIndex];
+      
+      // Determine if winner goes to player1 or player2 slot
+      const newPlayer1 = currentPosition % 2 === 0 ? winner : nextMatch.player1;
+      const newPlayer2 = currentPosition % 2 === 1 ? winner : nextMatch.player2;
+      
+      updatedBracket[nextMatchIndex] = {
+        ...nextMatch,
+        player1: newPlayer1,
+        player2: newPlayer2,
+        status: (newPlayer1 && newPlayer2) ? 'ready' : 'pending',
+        winner: null // Clear any bye-based winner
+      };
+    }
+
+    // Don't call processAllByes here - just update the state
+    setBracket(updatedBracket);
+  };
+
+  // Get matches for a specific round
+  const getMatchesForRound = (round: number): GrandSlamMatch[] => {
+    return bracket.filter(m => m.round === round);
+  };
+
+  // Check if round is complete
+  const isRoundComplete = (round: number): boolean => {
+    const roundMatches = getMatchesForRound(round);
+    return roundMatches.every(m => m.status === 'completed');
+  };
+
+  // Get round name
+  const getRoundName = (round: number): string => {
+    const matchesInRound = Math.pow(2, totalRounds - round);
+    
+    if (matchesInRound === 1) return '冠軍賽';
+    if (matchesInRound === 2) return '準決賽';
+    if (matchesInRound === 4) return '八強賽';
+    if (matchesInRound === 8) return '十六強賽';
+    if (matchesInRound === 16) return '三十二強賽';
+    return `第 ${round} 輪`;
+  };
+
+  // Clear all and restart
+  const handleClearAll = () => {
+    if (confirm('確定要清除所有資料（包含選手名單）嗎？')) {
+      setPlayers([]);
+      setBracket([]);
+      setTournamentStarted(false);
+      setCurrentRound(1);
+      setTotalRounds(0);
+    }
+  };
+
+  // Navigate rounds
+  const goToNextRound = () => {
+    if (currentRound < totalRounds) {
+      setCurrentRound(currentRound + 1);
+    }
+  };
+
+  const goToPrevRound = () => {
+    if (currentRound > 1) {
+      setCurrentRound(currentRound - 1);
+    }
+  };
+
+  // Get tournament champion
+  const getChampion = (): Player | null => {
+    if (totalRounds === 0) return null;
+    
+    const finalMatch = bracket.find(m => m.round === totalRounds);
+    
+    // Only return champion if:
+    // 1. Final match exists and is completed
+    // 2. Final match had both players present (was an actual match, not a bye)
+    // 3. A winner was determined
+    if (finalMatch && 
+        finalMatch.status === 'completed' && 
+        finalMatch.player1 && 
+        finalMatch.player2 && 
+        finalMatch.winner) {
+      return finalMatch.winner;
+    }
+    
+    return null;
+  };
+
+  // Import players from Excel
+  const handleImportExcel = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = e.target?.result;
+        const workbook = XLSX.read(data, { type: 'binary' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet) as any[];
+
+        // Filter out empty rows (rows without name)
+        const validRows = jsonData.filter(row => {
+          const name = row['姓名'] || row['name'];
+          return name && name.toString().trim() !== '';
+        });
+
+        const importedPlayers: Player[] = validRows.map((row, index) => ({
+          id: `${index + 1}`,
+          name: row['姓名'] || row['name'] || `選手${index + 1}`,
+          age: parseInt(row['年齡'] || row['age']) || 30,
+          gender: (row['性別'] || row['gender'] || '男') as Gender,
+          skillLevel: (row['技術等級'] || row['skillLevel'] || row['等級'] || 'B') as SkillLevel,
+          matchesPlayed: 0,
+        }));
+
+        setPlayers(importedPlayers);
+        alert(`成功匯入 ${importedPlayers.length} 名選手`);
+        
+        // Auto-generate bracket after import
+        setTimeout(() => {
+          if (importedPlayers.length >= 2) {
+            generateBracketWithPlayers(importedPlayers);
+          }
+        }, 100);
+      } catch (error) {
+        console.error('匯入失敗:', error);
+        alert('匯入失敗，請檢查Excel格式是否正確');
+      }
+    };
+    reader.readAsBinaryString(file);
+  };
+
+  // Import players from CSV
+  const handleImportCSV = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const text = e.target?.result as string;
+        const lines = text.split('\n').filter(line => line.trim());
+        
+        // Skip header line
+        const dataLines = lines.slice(1);
+        
+        // Filter and map valid rows
+        const importedPlayers: Player[] = dataLines
+          .map((line, index) => {
+            const values = line.split(',').map(v => v.trim().replace(/^["']|["']$/g, ''));
+            return {
+              id: `${index + 1}`,
+              name: values[0] || '',
+              age: parseInt(values[1]) || 30,
+              gender: (values[2] || '男') as Gender,
+              skillLevel: (values[3] || 'B') as SkillLevel,
+              matchesPlayed: 0,
+            };
+          })
+          .filter(player => player.name.trim() !== '')
+          .map((player, index) => ({
+            ...player,
+            id: `${index + 1}`,
+            name: player.name || `選手${index + 1}`,
+          }));
+
+        setPlayers(importedPlayers);
+        alert(`成功匯入 ${importedPlayers.length} 名選手`);
+        
+        // Auto-generate bracket after import
+        setTimeout(() => {
+          if (importedPlayers.length >= 2) {
+            generateBracketWithPlayers(importedPlayers);
+          }
+        }, 100);
+      } catch (error) {
+        console.error('匯入失敗:', error);
+        alert('匯入失敗，請檢查CSV格式是否正確');
+      }
+    };
+    reader.readAsText(file, 'UTF-8');
+  };
+
+  const currentRoundMatches = getMatchesForRound(currentRound);
+  const champion = getChampion();
+  const tournamentComplete = totalRounds > 0 && isRoundComplete(totalRounds);
+
+  return (
+    <div className="grand-slam-tournament">
+      <div className="section-header">
+        <h2>🏆 一球大滿貫</h2>
+        <div className="header-actions">
+          <button className="btn-secondary" onClick={onBack}>
+            返回
+          </button>
+        </div>
+      </div>
+
+      {!tournamentStarted ? (
+        <div className="tournament-setup">
+          {players.length === 0 ? (
+            <div className="import-section">
+              <h3>匯入選手名單</h3>
+              <p>請匯入選手資料以開始比賽</p>
+              <div className="import-buttons">
+                <label className="btn-import">
+                  📊 從 Excel 匯入
+                  <input
+                    type="file"
+                    accept=".xlsx,.xls"
+                    style={{ display: 'none' }}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        handleImportExcel(file);
+                        e.target.value = '';
+                      }
+                    }}
+                  />
+                </label>
+                <label className="btn-import">
+                  📄 從 CSV 匯入
+                  <input
+                    type="file"
+                    accept=".csv"
+                    style={{ display: 'none' }}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        handleImportCSV(file);
+                        e.target.value = '';
+                      }
+                    }}
+                  />
+                </label>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : (
+        <div className="tournament-bracket">
+          {/* Tournament Status */}
+          <div className="tournament-status">
+            <div className="status-info">
+              <span>參賽選手：{players.length} 人</span>
+              <span>總輪數：{totalRounds} 輪</span>
+              <span>當前輪次：{getRoundName(currentRound)}</span>
+            </div>
+            <div className="status-actions">
+              <button className="btn-danger" onClick={handleClearAll}>
+                清除所有資料
+              </button>
+            </div>
+          </div>
+
+          {/* Champion Announcement */}
+          {tournamentComplete && champion && (
+            <div className="champion-announcement">
+              <h2>🎉 恭喜冠軍！🎉</h2>
+              <div className="champion-name">{champion.name}</div>
+            </div>
+          )}
+
+          {/* Round Navigation */}
+          <div className="round-navigation">
+            <button 
+              className="btn-nav" 
+              onClick={goToPrevRound}
+              disabled={currentRound === 1}
+            >
+              ← 上一輪
+            </button>
+            <h3>{getRoundName(currentRound)}</h3>
+            <button 
+              className="btn-nav" 
+              onClick={goToNextRound}
+              disabled={currentRound === totalRounds}
+            >
+              下一輪 →
+            </button>
+          </div>
+
+          {/* Matches Grid */}
+          <div className="matches-grid">
+            {currentRoundMatches.filter(m => m.player1 || m.player2).length === 0 ? (
+              <div className="no-matches">此輪次沒有比賽</div>
+            ) : (
+              currentRoundMatches.filter(m => m.player1 || m.player2).map((match) => (
+                <div 
+                  key={match.id} 
+                  className={`match-card ${match.status}`}
+                >
+                  <div className="match-header">
+                    <span className="match-number">第 {match.position + 1} 場</span>
+                    <span className={`match-status-badge ${match.status}`}>
+                      {match.status === 'pending' ? '等待中' : 
+                       match.status === 'ready' ? '可比賽' : '已完成'}
+                    </span>
+                  </div>
+
+                  <div className="match-players">
+                    <div className={`player-slot ${match.winner?.id === match.player1?.id ? 'winner' : ''}`}>
+                      {match.player1 ? (
+                        <>
+                          <span className="player-name">
+                            {match.player1.name}
+                          </span>
+                          {match.status === 'ready' && !match.winner && (
+                            <button 
+                              className="btn-win"
+                              onClick={() => recordWinner(match.id, match.player1!)}
+                            >
+                              獲勝
+                            </button>
+                          )}
+                        </>
+                      ) : (
+                        <span className="player-empty">輪空</span>
+                      )}
+                    </div>
+
+                    <div className="vs-divider">VS</div>
+
+                    <div className={`player-slot ${match.winner?.id === match.player2?.id ? 'winner' : ''}`}>
+                      {match.player2 ? (
+                        <>
+                          <span className="player-name">
+                            {match.player2.name}
+                          </span>
+                          {match.status === 'ready' && !match.winner && (
+                            <button 
+                              className="btn-win"
+                              onClick={() => recordWinner(match.id, match.player2!)}
+                            >
+                              獲勝
+                            </button>
+                          )}
+                        </>
+                      ) : (
+                        <span className="player-empty">輪空</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {match.winner && (
+                    <div className="match-result">
+                      晉級：{match.winner.name}
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Round Status */}
+          {isRoundComplete(currentRound) && currentRound < totalRounds && (
+            <div className="round-complete-notice">
+              ✅ {getRoundName(currentRound)}已完成，可查看下一輪對陣
+            </div>
+          )}
+        </div>
+      )}
+
+      <style>{`
+        .grand-slam-tournament {
+          padding: 20px;
+        }
+
+        .section-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 30px;
+        }
+
+        .tournament-setup {
+          max-width: 600px;
+          margin: 0 auto;
+          text-align: center;
+        }
+
+        .info-box {
+          background: #f8f9fa;
+          border: 1px solid #dee2e6;
+          border-radius: 8px;
+          padding: 30px;
+          margin-bottom: 30px;
+          text-align: left;
+        }
+
+        .info-box h3 {
+          margin-top: 0;
+          color: #2c3e50;
+          margin-bottom: 20px;
+        }
+
+        .info-box ul {
+          list-style: none;
+          padding: 0;
+        }
+
+        .info-box li {
+          padding: 10px 0;
+          border-bottom: 1px solid #dee2e6;
+        }
+
+        .info-box li:last-child {
+          border-bottom: none;
+        }
+
+        .warning-box {
+          background: #fff3cd;
+          border: 1px solid #ffc107;
+          border-radius: 8px;
+          padding: 20px;
+          margin-bottom: 20px;
+          color: #856404;
+        }
+
+        .tournament-status {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          background: #f8f9fa;
+          padding: 15px 20px;
+          border-radius: 8px;
+          margin-bottom: 20px;
+        }
+
+        .status-info {
+          display: flex;
+          gap: 30px;
+          font-weight: 500;
+        }
+
+        .status-actions {
+          display: flex;
+          gap: 10px;
+        }
+
+        .import-section {
+          text-align: center;
+          padding: 40px 20px;
+        }
+
+        .import-section h3 {
+          margin-bottom: 10px;
+          color: #2c3e50;
+        }
+
+        .import-section p {
+          color: #6c757d;
+          margin-bottom: 30px;
+        }
+
+        .import-buttons {
+          display: flex;
+          gap: 20px;
+          justify-content: center;
+          margin-bottom: 30px;
+        }
+
+        .btn-import {
+          padding: 15px 30px;
+          background: #007bff;
+          color: white;
+          border: none;
+          border-radius: 8px;
+          font-size: 1.1em;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.3s;
+          display: inline-block;
+        }
+
+        .btn-import:hover {
+          background: #0056b3;
+          transform: translateY(-2px);
+          box-shadow: 0 6px 12px rgba(0,0,0,0.2);
+        }
+
+        .format-info {
+          background: #f8f9fa;
+          border: 1px solid #dee2e6;
+          border-radius: 8px;
+          padding: 20px;
+          text-align: left;
+          max-width: 500px;
+          margin: 0 auto;
+        }
+
+        .format-info h4 {
+          margin-top: 0;
+          color: #2c3e50;
+        }
+
+        .format-info ul {
+          margin: 10px 0 0 0;
+          padding-left: 20px;
+        }
+
+        .format-info li {
+          margin: 5px 0;
+        }
+
+        .start-section {
+          display: flex;
+          flex-direction: column;
+          gap: 30px;
+          align-items: center;
+        }
+
+        .player-list-preview {
+          width: 100%;
+          max-width: 600px;
+        }
+
+        .player-list-preview h4 {
+          margin-bottom: 15px;
+          color: #2c3e50;
+        }
+
+        .player-preview-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+          gap: 10px;
+        }
+
+        .player-preview-item {
+          background: #f8f9fa;
+          padding: 10px;
+          border-radius: 6px;
+          text-align: center;
+          border: 1px solid #dee2e6;
+        }
+
+        .action-buttons {
+          display: flex;
+          gap: 15px;
+        }
+
+        .champion-announcement {
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+          padding: 40px;
+          border-radius: 12px;
+          text-align: center;
+          margin-bottom: 30px;
+          box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+        }
+
+        .champion-announcement h2 {
+          margin: 0 0 20px 0;
+          font-size: 2em;
+        }
+
+        .champion-name {
+          font-size: 2.5em;
+          font-weight: bold;
+          margin-bottom: 10px;
+        }
+
+        .champion-details {
+          font-size: 1.1em;
+          opacity: 0.9;
+        }
+
+        .round-navigation {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 30px;
+          padding: 20px;
+          background: white;
+          border-radius: 8px;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .round-navigation h3 {
+          margin: 0;
+          font-size: 1.5em;
+          color: #2c3e50;
+        }
+
+        .btn-nav {
+          padding: 10px 20px;
+          background: #3498db;
+          color: white;
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+          font-size: 1em;
+          transition: all 0.3s;
+        }
+
+        .btn-nav:hover:not(:disabled) {
+          background: #2980b9;
+          transform: translateY(-2px);
+        }
+
+        .btn-nav:disabled {
+          background: #bdc3c7;
+          cursor: not-allowed;
+          transform: none;
+        }
+
+        .matches-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+          gap: 20px;
+          margin-bottom: 30px;
+        }
+
+        .match-card {
+          background: white;
+          border: 2px solid #dee2e6;
+          border-radius: 10px;
+          padding: 20px;
+          transition: all 0.3s;
+        }
+
+        .match-card.ready {
+          border-color: #28a745;
+          box-shadow: 0 4px 8px rgba(40, 167, 69, 0.2);
+        }
+
+        .match-card.completed {
+          border-color: #6c757d;
+          background: #f8f9fa;
+        }
+
+        .match-card.pending {
+          border-color: #ffc107;
+          opacity: 0.7;
+        }
+
+        .match-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 15px;
+          padding-bottom: 10px;
+          border-bottom: 1px solid #dee2e6;
+        }
+
+        .match-number {
+          font-weight: bold;
+          color: #2c3e50;
+        }
+
+        .match-status-badge {
+          padding: 4px 12px;
+          border-radius: 20px;
+          font-size: 0.85em;
+          font-weight: 500;
+        }
+
+        .match-status-badge.ready {
+          background: #d4edda;
+          color: #155724;
+        }
+
+        .match-status-badge.completed {
+          background: #d1ecf1;
+          color: #0c5460;
+        }
+
+        .match-status-badge.pending {
+          background: #fff3cd;
+          color: #856404;
+        }
+
+        .match-players {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+
+        .player-slot {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          padding: 15px;
+          background: #f8f9fa;
+          border-radius: 8px;
+          border: 2px solid transparent;
+          transition: all 0.3s;
+        }
+
+        .player-slot.winner {
+          background: #d4edda;
+          border-color: #28a745;
+        }
+
+        .player-name {
+          font-weight: bold;
+          font-size: 1.1em;
+          color: #2c3e50;
+        }
+
+        .player-info {
+          font-size: 0.9em;
+          color: #6c757d;
+        }
+
+        .player-empty {
+          color: #adb5bd;
+          font-style: italic;
+        }
+
+        .vs-divider {
+          text-align: center;
+          font-weight: bold;
+          color: #6c757d;
+          margin: 5px 0;
+        }
+
+        .btn-win {
+          padding: 8px 16px;
+          background: #28a745;
+          color: white;
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+          font-weight: 500;
+          transition: all 0.3s;
+          align-self: flex-start;
+        }
+
+        .btn-win:hover {
+          background: #218838;
+          transform: translateY(-2px);
+          box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+
+        .match-result {
+          margin-top: 15px;
+          padding: 12px;
+          background: #e8f5e9;
+          border-radius: 6px;
+          text-align: center;
+          font-weight: bold;
+          color: #2e7d32;
+        }
+
+        .round-complete-notice {
+          background: #d4edda;
+          border: 1px solid #c3e6cb;
+          color: #155724;
+          padding: 15px;
+          border-radius: 8px;
+          text-align: center;
+          font-weight: 500;
+        }
+
+        .no-matches {
+          text-align: center;
+          color: #6c757d;
+          padding: 40px;
+          font-size: 1.1em;
+        }
+
+        .btn-primary {
+          padding: 15px 40px;
+          background: #007bff;
+          color: white;
+          border: none;
+          border-radius: 8px;
+          font-size: 1.1em;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.3s;
+        }
+
+        .btn-primary:hover {
+          background: #0056b3;
+          transform: translateY(-2px);
+          box-shadow: 0 6px 12px rgba(0,0,0,0.2);
+        }
+
+        .btn-secondary {
+          padding: 10px 20px;
+          background: #6c757d;
+          color: white;
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+          transition: all 0.3s;
+          display: inline-block;
+        }
+
+        .btn-secondary:hover {
+          background: #5a6268;
+        }
+
+        .btn-danger {
+          padding: 10px 20px;
+          background: #dc3545;
+          color: white;
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+          transition: all 0.3s;
+        }
+
+        .btn-danger:hover {
+          background: #c82333;
+        }
+
+        @media (max-width: 768px) {
+          .matches-grid {
+            grid-template-columns: 1fr;
+          }
+
+          .status-info {
+            flex-direction: column;
+            gap: 10px;
+          }
+
+          .champion-name {
+            font-size: 1.8em;
+          }
+
+          .import-buttons {
+            flex-direction: column;
+          }
+
+          .action-buttons {
+            flex-direction: column;
+            width: 100%;
+          }
+        }
+      `}</style>
+    </div>
+  );
+};
