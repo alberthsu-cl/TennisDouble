@@ -264,6 +264,59 @@ export const GrandSlamTournament: React.FC<GrandSlamTournamentProps> = ({
   const canNavigatePrev = visibleRoundStart > 1;
   const canNavigateNext = visibleRoundStart + roundsPerView <= totalRounds;
 
+  // Undo/Reset a match result
+  const undoMatchResult = (matchId: string) => {
+    const matchToUndo = bracket.find(m => m.id === matchId);
+    if (!matchToUndo || matchToUndo.status !== 'completed') return;
+
+    if (!confirm(`確定要重設這場比賽的結果嗎？\n\n這將會清除第 ${matchToUndo.round + 1} 輪之後的所有賽程。`)) {
+      return;
+    }
+
+    // Reset the match
+    let updatedBracket = bracket.map(m => ({ ...m }));
+    const matchIndex = updatedBracket.findIndex(m => m.id === matchId);
+    
+    if (matchIndex === -1) return;
+
+    updatedBracket[matchIndex] = {
+      ...updatedBracket[matchIndex],
+      winner: null,
+      status: 'ready'
+    };
+
+    // Remove all matches from subsequent rounds
+    const resetRound = matchToUndo.round;
+    updatedBracket = updatedBracket.filter(m => m.round <= resetRound);
+
+    // Rebuild bye tracking by scanning all completed matches
+    const newByePlayerIds = new Set<string>();
+    updatedBracket.forEach(match => {
+      if (match.status === 'completed' && match.player2 === null && match.player1) {
+        newByePlayerIds.add(match.player1.id);
+      }
+    });
+    setPlayersWithBye(newByePlayerIds);
+
+    // Recalculate total rounds
+    const currentRoundMatches = updatedBracket.filter(m => m.round === resetRound);
+    const potentialWinners = currentRoundMatches.filter(m => m.status === 'completed').length;
+    const incompleteMatches = currentRoundMatches.filter(m => m.status !== 'completed').length;
+    
+    let estimatedRounds = resetRound;
+    let remainingPlayers = potentialWinners + incompleteMatches;
+    while (remainingPlayers > 1) {
+      remainingPlayers = Math.ceil(remainingPlayers / 2);
+      estimatedRounds++;
+    }
+    setTotalRounds(estimatedRounds);
+
+    setBracket(updatedBracket);
+    
+    // Navigate to the round where the match was reset
+    setCurrentRound(resetRound);
+  };
+
   // Clear all and restart
   const handleClearAll = () => {
     if (confirm('確定要清除所有資料（包含選手名單）嗎？')) {
@@ -651,7 +704,14 @@ export const GrandSlamTournament: React.FC<GrandSlamTournamentProps> = ({
 
                   {match.winner && (
                     <div className="match-result">
-                      晉級：{match.winner.name}
+                      <span>晉級：{match.winner.name}</span>
+                      <button 
+                        className="btn-edit"
+                        onClick={() => undoMatchResult(match.id)}
+                        title="重設比賽結果"
+                      >
+                        ✏️
+                      </button>
                     </div>
                   )}
                 </div>
@@ -1050,6 +1110,32 @@ export const GrandSlamTournament: React.FC<GrandSlamTournamentProps> = ({
           text-align: center;
           font-weight: bold;
           color: #2e7d32;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          gap: 10px;
+        }
+
+        .btn-edit {
+          background: white;
+          color: #667eea;
+          border: 1px solid #667eea;
+          padding: 5px 10px;
+          border-radius: 5px;
+          cursor: pointer;
+          font-size: 1em;
+          transition: all 0.2s ease;
+          display: flex;
+          align-items: center;
+        }
+        .btn-edit:hover {
+          background: #667eea;
+          color: white;
+          transform: scale(1.05);
+          box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+        }
+        .btn-edit:active {
+          transform: scale(0.95);
         }
 
         .round-complete-notice {
