@@ -549,18 +549,14 @@ function App() {
       }
       
       const data: any = {};
-      
-      // Add age or 年次 column based on user choice (as first column)
+
+      // Keep column order aligned with the requested header sequence.
+      data['姓名'] = p.name;
       if (format === '1') {
-        // Export as 年次 (ROC birth year)
         data['年次'] = rocYear - p.age;
       } else {
-        // Export as 年齡 (age)
         data['年齡'] = p.age;
       }
-      
-      // Add remaining columns
-      data['姓名'] = p.name;
       data['性別'] = p.gender;
       data['技術等級'] = p.skillLevel;
       data['隊伍'] = teamName;
