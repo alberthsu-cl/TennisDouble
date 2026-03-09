@@ -148,10 +148,27 @@ function App() {
     const savedStarted = localStorage.getItem('tournamentStarted');
     const savedSettings = localStorage.getItem('tournamentSettings');
 
-    if (savedPlayers) setPlayers(JSON.parse(savedPlayers));
+    const loadedPlayers: Player[] = savedPlayers ? JSON.parse(savedPlayers) : [];
+    if (savedPlayers) setPlayers(loadedPlayers);
     if (savedMatches) setMatches(JSON.parse(savedMatches));
     if (savedStarted) setTournamentStarted(JSON.parse(savedStarted));
-    if (savedSettings) setSettings(JSON.parse(savedSettings));
+    if (savedSettings) {
+      const parsedSettings = JSON.parse(savedSettings) as TournamentSettings;
+      const participantCount = parsedSettings.tournamentMode === 'internal'
+        ? (loadedPlayers.length > 0 ? loadedPlayers.length : parsedSettings.playersPerTeam * 4)
+        : loadedPlayers.length;
+      const matchupsPerRound = parsedSettings.tournamentMode === 'inter-club' ? 4 : 2;
+      const totalMatches = parsedSettings.totalRounds * matchupsPerRound * parsedSettings.pointsPerRound;
+      const totalSlots = totalMatches * 4;
+      const recalculatedMinMatches = participantCount > 0
+        ? Math.max(1, Math.floor(totalSlots / participantCount))
+        : 1;
+
+      setSettings({
+        ...parsedSettings,
+        minMatchesPerPlayer: recalculatedMinMatches,
+      });
+    }
   }, []);
 
   // 儲存資料到 localStorage
@@ -173,11 +190,13 @@ function App() {
 
   // 計算每人最少出賽場次
   useEffect(() => {
-    // 計算實際總選手數
-    const actualTotalPlayers = players.length;
-    
-    if (actualTotalPlayers === 0) {
-      setSettings(prev => ({ ...prev, minMatchesPerPlayer: 1 }));
+    // 優先使用實際名單人數計算（含載入示範/匯入資料），無名單時才用設定人數預估
+    const participantCount = settings.tournamentMode === 'internal'
+      ? (players.length > 0 ? players.length : settings.playersPerTeam * 4)
+      : players.length;
+
+    if (participantCount === 0) {
+      setSettings(prev => (prev.minMatchesPerPlayer === 1 ? prev : { ...prev, minMatchesPerPlayer: 1 }));
       return;
     }
     
@@ -193,12 +212,13 @@ function App() {
     const totalSlots = totalMatches * 4;
     
     // 計算平均每人出賽次數，向下取整作為最低要求
-    const minMatches = Math.floor(totalSlots / actualTotalPlayers);
-    
-    setSettings(prev => ({
-      ...prev,
-      minMatchesPerPlayer: Math.max(1, minMatches),
-    }));
+    const minMatches = Math.max(1, Math.floor(totalSlots / participantCount));
+
+    setSettings(prev => (
+      prev.minMatchesPerPlayer === minMatches
+        ? prev
+        : { ...prev, minMatchesPerPlayer: minMatches }
+    ));
   }, [players, settings.playersPerTeam, settings.pointsPerRound, settings.totalRounds, settings.tournamentMode]);
 
   const handleAddPlayer = (player: Player) => {
@@ -1107,7 +1127,6 @@ function App() {
                   </>
                 ) : (
                   <>
-                    <li>參賽共{settings.playersPerTeam * 4}名，分成四隊：每隊{settings.playersPerTeam}人</li>
                     <li>打{settings.pointsPerRound}點雙打：
                       <ul>
                         <li>第1點至第{settings.pointsPerRound - 1}點：兩人歲數遞增</li>
@@ -1115,7 +1134,6 @@ function App() {
                       </ul>
                     </li>
                     <li>每位正式選手至少須出賽{settings.minMatchesPerPlayer}場</li>
-                    <li>可設定候補選手，不計入隊伍{settings.playersPerTeam}人名額</li>
                     <li>比賽採5局NO-AD制，先達5局獲勝</li>
                     <li>4:4時則Tie-break搶7決勝</li>
                   </>
