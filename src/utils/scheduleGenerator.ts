@@ -21,11 +21,24 @@ function getSkillScore(skillLevel: SkillLevel): number {
 }
 
 /**
- * Calculate total skill score for a pair
+ * Normalize runtime gender values to avoid import-format drift.
  */
-function getPairSkillScore(pair: Pair): number {
-  if (!pair.player1 || !pair.player2) return 0;
-  return getSkillScore(pair.player1.skillLevel) + getSkillScore(pair.player2.skillLevel);
+function normalizeGenderValue(raw: unknown): '男' | '女' {
+  const value = String(raw ?? '').trim().toLowerCase();
+  if (!value) return '男';
+
+  const femaleTokens = ['女', 'female', 'woman', 'girl', 'f', 'w', '女生'];
+  if (femaleTokens.some(token => value.includes(token))) return '女';
+
+  return '男';
+}
+
+function isFemalePlayer(player: Player | null | undefined): boolean {
+  return normalizeGenderValue(player?.gender) === '女';
+}
+
+function isMalePlayer(player: Player | null | undefined): boolean {
+  return normalizeGenderValue(player?.gender) === '男';
 }
 
 /**
@@ -57,13 +70,23 @@ function isValidLastPointPair(pair: Pair): boolean {
   if (!pair.player1 || !pair.player2) return false;
   
   // 女雙：兩位都是女性
-  const isWomensDouble = pair.player1.gender === '女' && pair.player2.gender === '女';
+  const isWomensDouble = isFemalePlayer(pair.player1) && isFemalePlayer(pair.player2);
   
   // 混雙：一男一女
-  const isMixedDouble = (pair.player1.gender === '男' && pair.player2.gender === '女') ||
-                        (pair.player1.gender === '女' && pair.player2.gender === '男');
+  const isMixedDouble = (isMalePlayer(pair.player1) && isFemalePlayer(pair.player2)) ||
+                        (isFemalePlayer(pair.player1) && isMalePlayer(pair.player2));
   
   return isWomensDouble || isMixedDouble;
+}
+
+/**
+ * 計算配對中的女性人數
+ */
+function getFemaleCount(pair: Pair): number {
+  let count = 0;
+  if (isFemalePlayer(pair.player1)) count++;
+  if (isFemalePlayer(pair.player2)) count++;
+  return count;
 }
 
 /**
@@ -103,16 +126,18 @@ function findPairForPoint(
     return aMatches - bMatches;
   });
   
-  // Strategy: Prioritize fair distribution over rule enforcement
-  // Only enforce "one match per round" if we have enough players who haven't reached minimum
-  const playersUnderMinimum = sortedPlayers.filter(p => (scheduledMatches.get(p.id) || 0) < settings.minMatchesPerPlayer);
-  const shouldEnforceRoundLimit = settings.enforceRules && playersUnderMinimum.length < 2;
+  // Strategy: simpler rule set
+  // In rules mode, enforce one match per player per round strictly.
+  const shouldEnforceRoundLimit = settings.enforceRules;
+  const isLastPoint = pointNumber === settings.pointsPerRound;
   
   let availablePlayers = sortedPlayers.filter(p => {
     const currentMatches = scheduledMatches.get(p.id) || 0;
+
     // Always include players below minimum, regardless of any constraints
     if (currentMatches < settings.minMatchesPerPlayer) {
-      return true;
+      if (!shouldEnforceRoundLimit) return true;
+      return !playersUsedInRound.has(p.id);
     }
     // For players at or above minimum, check if they can still play
     const canPlay = canPlayMore(p, settings.minMatchesPerPlayer, scheduledMatches);
@@ -142,56 +167,55 @@ function findPairForPoint(
     return null;
   }
   
-  // 對於最後一點，優先選擇混雙或女雙，但允許男雙作為備選
-  if (pointNumber === settings.pointsPerRound) {
+  // 對於最後一點，優先混雙/女雙；必要時可退回男雙
+  if (isLastPoint) {
     const preferredPairs = validPairs.filter(pair => isValidLastPointPair(pair));
     if (preferredPairs.length > 0) {
-      // 優先使用符合規則的配對
-      validPairs = preferredPairs;
+      // 優先女雙，其次混雙
+      const womensDoublePairs = preferredPairs.filter(pair => getFemaleCount(pair) === 2);
+      validPairs = womensDoublePairs.length > 0 ? womensDoublePairs : preferredPairs;
+    } else if (settings.enforceRules) {
+      // 若可用選手中其實能組出混雙/女雙，則允許重複配對來滿足性別優先。
+      const genderPairsIgnoringUsed = generatePairs(availablePlayers).filter(pair => isValidLastPointPair(pair));
+      if (genderPairsIgnoringUsed.length > 0) {
+        const womensDoublePairs = genderPairsIgnoringUsed.filter(pair => getFemaleCount(pair) === 2);
+        validPairs = womensDoublePairs.length > 0 ? womensDoublePairs : genderPairsIgnoringUsed;
+      }
+      // 否則視為女性不足，保留男雙備援。
     }
-    // 如果沒有符合規則的配對，仍使用所有可用配對（允許男雙作為最後手段）
   }
   
   // 如果不是最後一點，需要按年齡排序
   if (pointNumber < settings.pointsPerRound) {
     validPairs.sort((a, b) => a.totalAge - b.totalAge);
+
+    // 前面點數不做性別硬限制，讓年齡遞增主導。
     
     // 如果已經有其他點的配對，要確保年齡遞增
     if (existingPairs && existingPairs.length > 0) {
       const maxExistingAge = Math.max(...existingPairs.map(p => p.totalAge));
       const filteredByAge = validPairs.filter(p => p.totalAge > maxExistingAge);
       
-      // Only apply age filter if we have enough pairs, otherwise skip age constraint
       if (filteredByAge.length > 0) {
         validPairs = filteredByAge;
+      } else if (settings.enforceRules) {
+        // 規則模式：年齡遞增無法達成時，先嘗試含女性配對；若仍無則降級為年齡偏好，避免跳點
+        const femalePairs = validPairs.filter(p => isFemalePlayer(p.player1) || isFemalePlayer(p.player2));
+        if (femalePairs.length > 0) {
+          validPairs = femalePairs;
+        } else {
+          // 無含女性配對可用時，保留 validPairs（不再 hard fail）
+          console.warn(`No increasing-age pair and no female-inclusive pair, relaxing age constraint for point ${pointNumber}`);
+        }
       } else {
         console.warn(`No pairs satisfy age increasing constraint (max age: ${maxExistingAge}), using all valid pairs`);
       }
     }
     
-    // 從符合年齡條件的配對中，優先選擇技術等級平衡的配對
+    // 非最後點數：簡化為年齡優先，選最小總年齡以保留後續遞增空間
     if (validPairs.length > 0) {
-      // Calculate average skill score of existing pairs
-      let targetSkillScore = 4; // Default target (B+B = 2+2)
-      if (existingPairs && existingPairs.length > 0) {
-        const existingScores = existingPairs.map(p => getPairSkillScore(p));
-        targetSkillScore = existingScores.reduce((a, b) => a + b, 0) / existingScores.length;
-      }
-      
-      // Sort by skill balance (closer to target) then by age
-      validPairs.sort((a, b) => {
-        const aSkillDiff = Math.abs((a.skillScore || 0) - targetSkillScore);
-        const bSkillDiff = Math.abs((b.skillScore || 0) - targetSkillScore);
-        if (Math.abs(aSkillDiff - bSkillDiff) > 0.5) {
-          return aSkillDiff - bSkillDiff;
-        }
-        return a.totalAge - b.totalAge;
-      });
-      
-      // 從技術等級平衡的前幾個配對中隨機選擇，確保公平性
-      const topCandidates = validPairs.slice(0, Math.min(3, validPairs.length));
-      const randomIndex = Math.floor(Math.random() * topCandidates.length);
-      return topCandidates[randomIndex];
+      validPairs.sort((a, b) => a.totalAge - b.totalAge);
+      return validPairs[0];
     }
   } else {
     // 最後一點（混雙或女雙）：從所有符合規則的配對中隨機選擇
@@ -259,10 +283,11 @@ export function generateRound(
   
   // 為每個對戰生成比賽
   for (const [team1, team2] of matchups) {
-    // 如果啟用規則，先嘗試生成第5點（優先使用女性選手）
-    const pointOrder = settings.enforceRules && settings.pointsPerRound >= 5
-      ? [5, 1, 2, 3, 4].slice(0, settings.pointsPerRound)
-      : Array.from({ length: settings.pointsPerRound }, (_, i) => i + 1);
+    // 如果啟用規則，先生成最後一點以保留女性選手配置空間
+    const allPoints = Array.from({ length: settings.pointsPerRound }, (_, i) => i + 1);
+    const pointOrder = settings.enforceRules && settings.pointsPerRound >= 2
+      ? [settings.pointsPerRound, ...allPoints.filter(p => p !== settings.pointsPerRound)]
+      : allPoints;
     
     const generatedMatches = new Map<number, Match>();
     
@@ -288,8 +313,8 @@ export function generateRound(
         playersUsedInRound
       );
       
-      // 如果找不到配對，嘗試放寬約束（不考慮年齡遞增）
-      if (!pair1 && pointNumber >= 2) {
+      // 規則關閉時，若找不到配對可放寬年齡遞增約束
+      if (!pair1 && !settings.enforceRules && pointNumber >= 2) {
         console.warn(`無法為 ${team1} 找到第${point}點的配對（考慮年齡遞增），嘗試放寬約束...`);
         pair1 = findPairForPoint(
           pointNumber,
@@ -302,22 +327,22 @@ export function generateRound(
         );
       }
       
-      // Final fallback: ignore round usage constraint
-      if (!pair1) {
+      // 規則關閉時，仍找不到才忽略本輪出賽限制
+      if (!pair1 && !settings.enforceRules) {
         console.warn(`無法為 ${team1} 找到第${point}點的配對（所有約束），最後嘗試：忽略本輪出賽限制...`);
         pair1 = findPairForPoint(
           pointNumber,
           teams[team1],
           usedPairsInRound.get(team1)!,
-          null,
+          pointNumber >= 2 ? team1ExistingPairs : null,
           settings,
           scheduledMatches,
           new Set() // 不檢查本輪是否已出賽
         );
       }
       
-      // Ultimate fallback: allow reusing pairs from this round
-      if (!pair1) {
+      // 規則關閉時才允許本輪重複配對
+      if (!pair1 && !settings.enforceRules) {
         console.warn(`無法為 ${team1} 找到第${point}點的配對，終極嘗試：允許重複配對...`);
         pair1 = findPairForPoint(
           pointNumber,
@@ -329,7 +354,7 @@ export function generateRound(
           new Set()
         );
       }
-      
+
       if (!pair1) {
         console.error(`無法為 ${team1} 找到第${point}點的配對，跳過此點`);
         continue;
@@ -346,8 +371,8 @@ export function generateRound(
         playersUsedInRound
       );
       
-      // 如果找不到配對，嘗試放寬約束（不考慮年齡遞增）
-      if (!pair2 && pointNumber >= 2) {
+      // 規則關閉時，若找不到配對可放寬年齡遞增約束
+      if (!pair2 && !settings.enforceRules && pointNumber >= 2) {
         console.warn(`無法為 ${team2} 找到第${point}點的配對（考慮年齡遞增），嘗試放寬約束...`);
         pair2 = findPairForPoint(
           pointNumber,
@@ -360,22 +385,22 @@ export function generateRound(
         );
       }
       
-      // Final fallback: ignore round usage constraint
-      if (!pair2) {
+      // 規則關閉時，仍找不到才忽略本輪出賽限制
+      if (!pair2 && !settings.enforceRules) {
         console.warn(`無法為 ${team2} 找到第${point}點的配對（所有約束），最後嘗試：忽略本輪出賽限制...`);
         pair2 = findPairForPoint(
           pointNumber,
           teams[team2],
           usedPairsInRound.get(team2)!,
-          null,
+          pointNumber >= 2 ? team2ExistingPairs : null,
           settings,
           scheduledMatches,
           new Set() // 不檢查本輪是否已出賽
         );
       }
       
-      // Ultimate fallback: allow reusing pairs from this round
-      if (!pair2) {
+      // 規則關閉時才允許本輪重複配對
+      if (!pair2 && !settings.enforceRules) {
         console.warn(`無法為 ${team2} 找到第${point}點的配對，終極嘗試：允許重複配對...`);
         pair2 = findPairForPoint(
           pointNumber,
@@ -387,7 +412,7 @@ export function generateRound(
           new Set()
         );
       }
-      
+
       if (!pair2) {
         console.error(`無法為 ${team2} 找到第${pointNumber}點的配對，跳過此點`);
         continue;
@@ -504,8 +529,8 @@ export function generateFullSchedule(
   }
   console.log(`✓ Players with ${settings.minMatchesPerPlayer}+ matches: ${Object.values(teams).flat().length - playersWithZeroMatches.length - playersWithOneMatch.length}`);
   
-  // Emergency pass: Force reschedule matches to include players below minimum
-  if (playersWithZeroMatches.length > 0 || playersWithOneMatch.length > 0) {
+  // Emergency pass is only for relaxed mode; strict rules mode must not rewrite pairing constraints.
+  if (!settings.enforceRules && (playersWithZeroMatches.length > 0 || playersWithOneMatch.length > 0)) {
     console.log(`\n=== Emergency Pass: Forcing reschedule for ${playersWithZeroMatches.length + playersWithOneMatch.length} players ===`);
     
     // Get all players who need more matches
@@ -537,12 +562,57 @@ export function generateFullSchedule(
         
         // Check if player is already in this match
         if (pair.player1.id === player.id || pair.player2.id === player.id) continue;
+
+        // In rules mode, do not let emergency substitution break last-point gender preference.
+        if (settings.enforceRules && match.pointNumber === settings.pointsPerRound) {
+          const teamRoster = teams[player.team as TeamName] || [];
+          const teamHasFemale = teamRoster.some(p => isFemalePlayer(p));
+
+          if (teamHasFemale) {
+            const candidatePair1: Pair = {
+              ...pair,
+              player1: player,
+              totalAge: player.age + (pair.player2?.age || 0),
+              skillScore: getSkillScore(player.skillLevel) + getSkillScore(pair.player2?.skillLevel || 'B'),
+            };
+
+            const candidatePair2: Pair = {
+              ...pair,
+              player2: player,
+              totalAge: (pair.player1?.age || 0) + player.age,
+              skillScore: getSkillScore(pair.player1?.skillLevel || 'B') + getSkillScore(player.skillLevel),
+            };
+
+            const canReplaceP1 = isValidLastPointPair(candidatePair1);
+            const canReplaceP2 = isValidLastPointPair(candidatePair2);
+
+            if (!canReplaceP1 && !canReplaceP2) {
+              continue;
+            }
+          }
+        }
         
         // Find a player in this pair who has more than minimum matches
         const player1Count = playerMatchCounts.get(pair.player1.id)?.count || 0;
         const player2Count = playerMatchCounts.get(pair.player2.id)?.count || 0;
         
         if (player1Count > settings.minMatchesPerPlayer) {
+          if (settings.enforceRules && match.pointNumber === settings.pointsPerRound) {
+            const teamRoster = teams[player.team as TeamName] || [];
+            const teamHasFemale = teamRoster.some(p => isFemalePlayer(p));
+            if (teamHasFemale) {
+              const candidatePair: Pair = {
+                ...pair,
+                player1: player,
+                totalAge: player.age + (pair.player2?.age || 0),
+                skillScore: getSkillScore(player.skillLevel) + getSkillScore(pair.player2?.skillLevel || 'B'),
+              };
+              if (!isValidLastPointPair(candidatePair)) {
+                continue;
+              }
+            }
+          }
+
           // Substitute player1
           if (isTeam1) {
             match.pair1 = { ...pair, player1: player };
@@ -554,6 +624,22 @@ export function generateFullSchedule(
           added++;
           console.log(`  Substituted ${player.name} for ${pair.player1.name} in ${match.id}`);
         } else if (player2Count > settings.minMatchesPerPlayer) {
+          if (settings.enforceRules && match.pointNumber === settings.pointsPerRound) {
+            const teamRoster = teams[player.team as TeamName] || [];
+            const teamHasFemale = teamRoster.some(p => isFemalePlayer(p));
+            if (teamHasFemale) {
+              const candidatePair: Pair = {
+                ...pair,
+                player2: player,
+                totalAge: (pair.player1?.age || 0) + player.age,
+                skillScore: getSkillScore(pair.player1?.skillLevel || 'B') + getSkillScore(player.skillLevel),
+              };
+              if (!isValidLastPointPair(candidatePair)) {
+                continue;
+              }
+            }
+          }
+
           // Substitute player2
           if (isTeam1) {
             match.pair1 = { ...pair, player2: player };
@@ -607,33 +693,20 @@ export function validateSchedule(matches: Match[], players: Player[], settings: 
   
   // 檢查規則約束（如果啟用）
   if (settings.enforceRules) {
-    // 檢查年齡遞增規則
+    // 檢查年齡遞增規則（雙方隊伍都檢查）
     matchesByRound.forEach((roundMatches, key) => {
       const sorted = roundMatches.filter(m => m.pointNumber <= 4).sort((a, b) => a.pointNumber - b.pointNumber);
       for (let i = 1; i < sorted.length; i++) {
         if (sorted[i].pair1.totalAge <= sorted[i-1].pair1.totalAge) {
           errors.push(`${key}: 第${sorted[i].pointNumber}點年齡未遞增`);
         }
+        if (sorted[i].pair2.totalAge <= sorted[i-1].pair2.totalAge) {
+          errors.push(`${key}: 第${sorted[i].pointNumber}點對手隊伍年齡未遞增`);
+        }
       }
     });
     
-    // 檢查最後一點是否為混雙或女雙（優先但非強制）
-    // 如果女性選手不足，允許男雙
-    const lastPointMatches = matches.filter(m => m.pointNumber === settings.pointsPerRound);
-    const femalePlayerCount = players.filter(p => p.gender === '女').length;
-    const minFemalesNeeded = lastPointMatches.length; // Each match needs at least 1 female for mixed
-    
-    // Only enforce mixed/women's doubles if there are enough female players
-    if (femalePlayerCount >= minFemalesNeeded) {
-      lastPointMatches.forEach(match => {
-        if (!isValidLastPointPair(match.pair1)) {
-          errors.push(`${match.id}: 第${settings.pointsPerRound}點 ${match.team1} 建議為混雙或女雙（女性選手充足時）`);
-        }
-        if (!isValidLastPointPair(match.pair2)) {
-          errors.push(`${match.id}: 第${settings.pointsPerRound}點 ${match.team2} 建議為混雙或女雙（女性選手充足時）`);
-        }
-      });
-    }
+    // 最後一點採「優先混雙/女雙，可退回男雙」，因此不作為硬性錯誤
     
     // 檢查每輪中每位選手是否只出賽一次（只在規則啟用時檢查）
     if (settings.enforceRules) {

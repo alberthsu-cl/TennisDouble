@@ -177,7 +177,7 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
       </div>
       
       <div className="players-summary">
-        <h3>選手總覽 (選手：{players.length}/{settings.playersPerTeam * 4}+ 人)</h3>
+        <h3>選手總覽 (選手：{players.length}人)</h3>
         
         {settings.tournamentMode === 'inter-club' ? (
           // Inter-club mode: Show 2 clubs

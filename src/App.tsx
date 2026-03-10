@@ -24,6 +24,20 @@ const shuffleArray = <T,>(array: T[]): T[] => {
   return shuffled;
 };
 
+// Normalize gender values from imports (e.g., 女/F/Female/W/女生)
+const normalizeGender = (raw: unknown): Gender => {
+  const value = String(raw ?? '').trim().toLowerCase();
+  if (!value) return '男';
+
+  const femaleTokens = ['女', 'female', 'woman', 'girl', 'f', 'w', '女生'];
+  const maleTokens = ['男', 'male', 'man', 'boy', 'm'];
+
+  if (femaleTokens.some(token => value.includes(token))) return '女';
+  if (maleTokens.some(token => value.includes(token))) return '男';
+
+  return '男';
+};
+
 // Auto-distribute players to teams evenly
 const autoDistributeTeams = (players: Player[], mode: 'internal' | 'inter-club' = 'internal'): Player[] => {
   // Helper: Sort players by skill with some randomness for variety
@@ -69,8 +83,8 @@ const autoDistributeTeams = (players: Player[], mode: 'internal' | 'inter-club' 
     const teams: TeamName[] = ['甲隊', '乙隊', '丙隊', '丁隊'];
     
     // Separate players by gender, sort by skill
-    const femalePlayers = sortBySkillWithVariety(playersWithoutTeams.filter(p => p.gender === '女'));
-    const malePlayers = sortBySkillWithVariety(playersWithoutTeams.filter(p => p.gender === '男'));
+    const femalePlayers = sortBySkillWithVariety(playersWithoutTeams.filter(p => normalizeGender(p.gender) === '女'));
+    const malePlayers = sortBySkillWithVariety(playersWithoutTeams.filter(p => normalizeGender(p.gender) === '男'));
     
     // Distribute females with serpentine
     distributeWithSerpentine(femalePlayers, teams);
@@ -102,8 +116,8 @@ const autoDistributeTeams = (players: Player[], mode: 'internal' | 'inter-club' 
   });
   
   // Separate regular players by gender, sort by skill
-  const femalePlayers = sortBySkillWithVariety(regularPlayers.filter(p => p.gender === '女'));
-  const malePlayers = sortBySkillWithVariety(regularPlayers.filter(p => p.gender === '男'));
+  const femalePlayers = sortBySkillWithVariety(regularPlayers.filter(p => normalizeGender(p.gender) === '女'));
+  const malePlayers = sortBySkillWithVariety(regularPlayers.filter(p => normalizeGender(p.gender) === '男'));
   
   // Distribute females with serpentine pattern
   distributeWithSerpentine(femalePlayers, teams);
@@ -148,7 +162,12 @@ function App() {
     const savedStarted = localStorage.getItem('tournamentStarted');
     const savedSettings = localStorage.getItem('tournamentSettings');
 
-    const loadedPlayers: Player[] = savedPlayers ? JSON.parse(savedPlayers) : [];
+    const loadedPlayers: Player[] = savedPlayers
+      ? (JSON.parse(savedPlayers) as Player[]).map((p) => ({
+          ...p,
+          gender: normalizeGender(p.gender),
+        }))
+      : [];
     if (savedPlayers) setPlayers(loadedPlayers);
     if (savedMatches) setMatches(JSON.parse(savedMatches));
     if (savedStarted) setTournamentStarted(JSON.parse(savedStarted));
@@ -396,17 +415,29 @@ function App() {
       try {
         const imported = JSON.parse(e.target?.result as string);
         if (Array.isArray(imported) && imported.length > 0) {
+          const normalizedImported: Player[] = imported.map((row: any, index: number) => ({
+            id: row.id || `demo-player-${Date.now()}-${index}`,
+            name: row.name || row['姓名'] || '',
+            age: Number(row.age || row['年齡'] || 25),
+            gender: normalizeGender(row.gender || row['性別'] || row['Gender'] || row['性别']),
+            skillLevel: (['A', 'B', 'C'].includes(String(row.skillLevel || row['技術等級'] || 'B').toUpperCase())
+              ? String(row.skillLevel || row['技術等級'] || 'B').toUpperCase()
+              : 'B') as SkillLevel,
+            team: row.team,
+            matchesPlayed: Number(row.matchesPlayed || 0),
+            groupTag: row.groupTag,
+          }));
           if (players.length > 0) {
             const confirmed = await modal.showConfirm('這將覆蓋現有選手資料，確定要從檔案載入示範資料嗎？');
             if (!confirmed) return;
           }
           // Check if any player has team assigned
-          const hasTeamAssigned = imported.some(p => p.team && p.team !== '甲隊');
+          const hasTeamAssigned = normalizedImported.some(p => p.team && p.team !== '甲隊');
           
           // If no teams assigned, auto-distribute; otherwise shuffle with existing teams
-          const finalPlayers = hasTeamAssigned ? shuffleArray(imported) : autoDistributeTeams(imported);
+          const finalPlayers = hasTeamAssigned ? shuffleArray(normalizedImported) : autoDistributeTeams(normalizedImported);
           setPlayers(finalPlayers);
-          await modal.showAlert(`成功從檔案載入 ${imported.length} 名示範選手！`);
+          await modal.showAlert(`成功從檔案載入 ${normalizedImported.length} 名示範選手！`);
         } else {
           await modal.showAlert('無效的示範資料格式');
         }
@@ -483,7 +514,7 @@ function App() {
             id: `demo-player-${Date.now()}-${index}`,
             name: row['姓名'] || '',
             age: age,
-            gender: (row['性別'] === '女' ? '女' : '男') as Gender,
+            gender: normalizeGender(row['性別'] || row['gender'] || row['Gender'] || row['性别']),
             skillLevel: (row['技術等級'] || 'B') as SkillLevel,
             team: team,
             matchesPlayed: 0,
@@ -597,14 +628,26 @@ function App() {
       try {
         const imported = JSON.parse(e.target?.result as string);
         if (Array.isArray(imported) && imported.length > 0) {
+          const normalizedImported: Player[] = imported.map((row: any, index: number) => ({
+            id: row.id || `imported-player-${Date.now()}-${index}`,
+            name: row.name || row['姓名'] || '',
+            age: Number(row.age || row['年齡'] || 25),
+            gender: normalizeGender(row.gender || row['性別'] || row['Gender'] || row['性别']),
+            skillLevel: (['A', 'B', 'C'].includes(String(row.skillLevel || row['技術等級'] || 'B').toUpperCase())
+              ? String(row.skillLevel || row['技術等級'] || 'B').toUpperCase()
+              : 'B') as SkillLevel,
+            team: row.team,
+            matchesPlayed: Number(row.matchesPlayed || 0),
+            groupTag: row.groupTag,
+          }));
           if (players.length > 0) {
             const confirmed = await modal.showConfirm('這將覆蓋現有選手資料，確定要匯入嗎？');
             if (!confirmed) return;
           }
           // Auto-distribute teams to ensure balanced distribution
-          const distributedPlayers = autoDistributeTeams(imported, settings.tournamentMode);
+          const distributedPlayers = autoDistributeTeams(normalizedImported, settings.tournamentMode);
           setPlayers(distributedPlayers);
-          await modal.showAlert(`成功匯入 ${imported.length} 名選手！`);
+          await modal.showAlert(`成功匯入 ${normalizedImported.length} 名選手！`);
         } else {
           await modal.showAlert('無效的選手資料格式');
         }
@@ -652,14 +695,7 @@ function App() {
             console.log(`Row ${index}: name="${row['姓名']}", Gender raw="${genderRaw}", processed="${genderValue}"`);
           }
           
-          let gender: Gender = '男';
-          if (genderValue === '女' || genderValue === 'W' || genderValue === 'WOMAN' || 
-              genderValue === 'F' || genderValue === 'FEMALE') {
-            gender = '女';
-          } else if (genderValue === '男' || genderValue === 'M' || genderValue === 'MAN' || 
-                     genderValue === 'MALE') {
-            gender = '男';
-          }
+          const gender: Gender = normalizeGender(genderValue);
           
           // Handle skill level: A/B/C or default to B
           const skillValue = String(row['技術等級'] || 'B').toUpperCase().trim();
@@ -1088,7 +1124,6 @@ function App() {
                   ) : (
                     <>
                       <p>• 總比賽數：{settings.totalRounds * 2 * settings.pointsPerRound} 場</p>
-                      <p>• 每輪對戰組合：2 組同時進行（4隊循環賽制，每隊每輪打1場）</p>
                       <p>• 每組對戰點數：{settings.pointsPerRound} 點</p>
                       <p>• 總位置數：{settings.totalRounds * 2 * settings.pointsPerRound * 4} 個（{settings.totalRounds}輪 × 2組 × {settings.pointsPerRound}點 × 4人）</p>
                       <p>• 每人最少出賽：{settings.minMatchesPerPlayer} 場（總位置數 ÷ 總人數）</p>
