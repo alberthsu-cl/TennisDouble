@@ -48,7 +48,7 @@ const autoDistributeTeams = (players: Player[], mode: 'internal' | 'inter-club' 
       B: playerList.filter(p => p.skillLevel === 'B'),
       C: playerList.filter(p => p.skillLevel === 'C'),
     };
-    
+
     // Shuffle within each skill group for variety
     return [
       ...shuffleArray(skillGroups.A),
@@ -56,7 +56,7 @@ const autoDistributeTeams = (players: Player[], mode: 'internal' | 'inter-club' 
       ...shuffleArray(skillGroups.C),
     ];
   };
-  
+
   // Helper: Serpentine distribution (snake draft pattern)
   const distributeWithSerpentine = (playerList: Player[], teams: TeamName[]) => {
     const n = teams.length;
@@ -78,25 +78,26 @@ const autoDistributeTeams = (players: Player[], mode: 'internal' | 'inter-club' 
     return players;
   }
   
+  const maleSerpentineTeams: TeamName[] = ['甲隊', '乙隊', '丙隊', '丁隊'];
+  const femaleSerpentineTeams: TeamName[] = ['丁隊', '丙隊', '乙隊', '甲隊'];
+
   if (mode === 'inter-club') {
-    // Inter-club mode: distribute evenly between 主隊 (甲隊+乙隊) and 客隊 (丙隊+丁隊)
-    const teams: TeamName[] = ['甲隊', '乙隊', '丙隊', '丁隊'];
+    // Inter-club mode: keep gender-balanced serpentine assignment with opposite directions.
     
     // Separate players by gender, sort by skill
     const femalePlayers = sortBySkillWithVariety(playersWithoutTeams.filter(p => normalizeGender(p.gender) === '女'));
     const malePlayers = sortBySkillWithVariety(playersWithoutTeams.filter(p => normalizeGender(p.gender) === '男'));
-    
-    // Distribute females with serpentine
-    distributeWithSerpentine(femalePlayers, teams);
-    
-    // Distribute males with serpentine
-    distributeWithSerpentine(malePlayers, teams);
+
+    // Female order: 丁→丙→乙→甲→甲→乙→丙→丁...
+    distributeWithSerpentine(femalePlayers, femaleSerpentineTeams);
+
+    // Male order: 甲→乙→丙→丁→丁→丙→乙→甲...
+    distributeWithSerpentine(malePlayers, maleSerpentineTeams);
     
     return [...playersWithTeams, ...femalePlayers, ...malePlayers];
   }
   
   // Internal mode: original 4-team distribution
-  const teams: TeamName[] = ['甲隊', '乙隊', '丙隊', '丁隊'];
   const teamMap: { [key: string]: TeamName } = {
     'A1': '甲隊', 'A2': '甲隊',
     'B1': '乙隊', 'B2': '乙隊',
@@ -118,12 +119,12 @@ const autoDistributeTeams = (players: Player[], mode: 'internal' | 'inter-club' 
   // Separate regular players by gender, sort by skill
   const femalePlayers = sortBySkillWithVariety(regularPlayers.filter(p => normalizeGender(p.gender) === '女'));
   const malePlayers = sortBySkillWithVariety(regularPlayers.filter(p => normalizeGender(p.gender) === '男'));
-  
-  // Distribute females with serpentine pattern
-  distributeWithSerpentine(femalePlayers, teams);
-  
-  // Distribute males with serpentine pattern
-  distributeWithSerpentine(malePlayers, teams);
+
+  // Female order: 丁→丙→乙→甲→甲→乙→丙→丁...
+  distributeWithSerpentine(femalePlayers, femaleSerpentineTeams);
+
+  // Male order: 甲→乙→丙→丁→丁→丙→乙→甲...
+  distributeWithSerpentine(malePlayers, maleSerpentineTeams);
   
   return [...playersWithTeams, ...captains, ...femalePlayers, ...malePlayers];
 };
