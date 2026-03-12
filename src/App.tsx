@@ -38,6 +38,59 @@ const normalizeGender = (raw: unknown): Gender => {
   return '男';
 };
 
+const isInternalTeamName = (value: unknown): value is TeamName => {
+  return value === '甲隊' || value === '乙隊' || value === '丙隊' || value === '丁隊';
+};
+
+type ClubBucket = 'home' | 'away';
+
+const normalizeTeamToken = (raw: unknown): string => {
+  return String(raw ?? '')
+    .trim()
+    .replace(/\s+/g, '')
+    .replace(/隊$/u, '')
+    .toUpperCase();
+};
+
+const resolveInterClubTeam = (
+  rawTeam: unknown,
+  settings: TournamentSettings,
+  clubCounters: { home: number; away: number }
+): TeamName | undefined => {
+  const original = String(rawTeam ?? '').trim();
+  if (!original) return undefined;
+
+  if (isInternalTeamName(original)) {
+    return original;
+  }
+
+  const normalized = normalizeTeamToken(original);
+  const normalizedHome = normalizeTeamToken(settings.homeClubName || '主隊');
+  const normalizedAway = normalizeTeamToken(settings.awayClubName || '客隊');
+
+  let bucket: ClubBucket | null = null;
+
+  if (normalized === normalizedHome || normalized === '主隊' || normalized === '主' || normalized === 'HOME' || normalized === 'A') {
+    bucket = 'home';
+  } else if (normalized === normalizedAway || normalized === '客隊' || normalized === '客' || normalized === 'AWAY' || normalized === 'B') {
+    bucket = 'away';
+  }
+
+  if (!bucket) {
+    return undefined;
+  }
+
+  if (bucket === 'home') {
+    const team: TeamName = (clubCounters.home % 2 === 0) ? '甲隊' : '乙隊';
+    clubCounters.home += 1;
+    return team;
+  }
+
+  const team: TeamName = (clubCounters.away % 2 === 0) ? '丙隊' : '丁隊';
+  clubCounters.away += 1;
+  return team;
+};
+
 // Auto-distribute players to teams evenly
 const autoDistributeTeams = (players: Player[], mode: 'internal' | 'inter-club' = 'internal'): Player[] => {
   // Helper: Sort players by skill with some randomness for variety
@@ -70,8 +123,8 @@ const autoDistributeTeams = (players: Player[], mode: 'internal' | 'inter-club' 
   };
   
   // Separate players with assigned teams from those without
-  const playersWithTeams = players.filter(p => p.team !== undefined && p.team.trim() !== '');
-  const playersWithoutTeams = players.filter(p => !p.team || p.team.trim() === '');
+  const playersWithTeams = players.filter(p => isInternalTeamName(p.team));
+  const playersWithoutTeams = players.filter(p => !isInternalTeamName(p.team));
   
   // If no players need distribution, return as-is
   if (playersWithoutTeams.length === 0) {
@@ -459,6 +512,7 @@ function App() {
         const worksheet = workbook.Sheets[sheetName];
         const jsonData = XLSX.utils.sheet_to_json(worksheet) as any[];
         
+        const interClubCounters = { home: 0, away: 0 };
         const imported: Player[] = jsonData.map((row, index) => {
           // Handle age: support both 年齡 (age) and 年次 (ROC birth year)
           let age = 25; // default
@@ -474,36 +528,16 @@ function App() {
           }
           
           // Handle team: map club names to internal teams in inter-club mode
-          let teamValue = row['隊伍'] || '';
+          const teamValue = row['隊伍'] || '';
           let team: TeamName | undefined = undefined; // default to undefined for auto-distribution
           
           if (settings.tournamentMode === 'inter-club') {
-            // In inter-club mode, recognize club names and map to internal teams
-            console.log(`[Import Demo Debug] Row ${index}: teamValue="${teamValue}", homeClub="${settings.homeClubName}", awayClub="${settings.awayClubName}"`);
-            if (teamValue === settings.homeClubName || teamValue === '主隊') {
-              // Alternate between 甲隊 and 乙隊 for home club
-              team = (index % 2 === 0) ? '甲隊' : '乙隊';
-              console.log(`[Import Demo Debug] Matched home club -> assigned ${team}`);
-            } else if (teamValue === settings.awayClubName || teamValue === '客隊') {
-              // Alternate between 丙隊 and 丁隊 for away club
-              team = (index % 2 === 0) ? '丙隊' : '丁隊';
-              console.log(`[Import Demo Debug] Matched away club -> assigned ${team}`);
-            } else if (teamValue === '甲隊' || teamValue === '乙隊' || teamValue === '丙隊' || teamValue === '丁隊') {
-              // If already using internal team names, keep them
-              team = teamValue as TeamName;
-              console.log(`[Import Demo Debug] Already internal team -> kept ${team}`);
-            } else if (teamValue.trim() === '') {
-              // Empty team, will be auto-distributed
-              team = undefined;
-              console.log(`[Import Demo Debug] Empty team -> will auto-distribute`);
-            } else {
-              // Unknown team name, default to empty for auto-distribution
-              team = undefined;
-              console.log(`[Import Demo Debug] Unknown team "${teamValue}" -> will auto-distribute`);
-            }
+            // In inter-club mode, rely on the team field first (supports A/B, 主/客, club names)
+            team = resolveInterClubTeam(teamValue, settings, interClubCounters);
+            console.log(`[Import Demo Debug] Row ${index}: teamValue="${teamValue}" -> assigned "${team || 'auto'}"`);
           } else {
             // Internal mode: use team value directly or default
-            if (teamValue === '甲隊' || teamValue === '乙隊' || teamValue === '丙隊' || teamValue === '丁隊') {
+            if (isInternalTeamName(teamValue)) {
               team = teamValue as TeamName;
             } else if (teamValue.trim() !== '') {
               // Try to map custom names, otherwise empty for auto-distribution
@@ -623,6 +657,171 @@ function App() {
     XLSX.writeFile(wb, `選手名單_${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
+  const handleExportArrangementTemplateExcel = () => {
+    const rows: Array<{ round: number; point: number }> = [];
+    for (let round = 1; round <= settings.totalRounds; round++) {
+      for (let point = 1; point <= settings.pointsPerRound; point++) {
+        rows.push({ round, point });
+      }
+    }
+
+    const now = new Date();
+    const dateText = now.toISOString().slice(0, 10);
+
+    const tableRowsHtml = rows
+      .map(({ round, point }) => `
+        <tr>
+          <td class="center">${round}</td>
+          <td class="center">${point}</td>
+          <td class="blank"></td>
+          <td class="blank"></td>
+        </tr>
+      `)
+      .join('');
+
+    const html = `<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>空白排陣表</title>
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 12mm 16mm;
+    }
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      font-family: "Microsoft JhengHei", "Noto Sans TC", Arial, sans-serif;
+      color: #111;
+      font-size: 14px;
+      line-height: 1.4;
+    }
+    .sheet {
+      width: 94%;
+      margin: 0 auto;
+      min-height: calc(297mm - 24mm);
+    }
+    .header {
+      margin-bottom: 8px;
+    }
+    .title {
+      font-size: 24px;
+      font-weight: 700;
+      margin: 0 0 6px 0;
+    }
+    .meta {
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+      margin-bottom: 8px;
+    }
+    .meta-item {
+      border-bottom: 1px solid #999;
+      min-width: 170px;
+      padding-bottom: 2px;
+    }
+    .hint {
+      margin: 0 0 10px 0;
+      color: #333;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+    col.col-round { width: 12%; }
+    col.col-point { width: 12%; }
+    col.col-player { width: 38%; }
+    th, td {
+      border: 1px solid #333;
+      padding: 6px;
+      height: 42px;
+      vertical-align: middle;
+    }
+    th {
+      background: #f3f3f3;
+      font-weight: 700;
+      text-align: center;
+      font-size: 15px;
+    }
+    td {
+      font-size: 14px;
+    }
+    td.center {
+      text-align: center;
+      width: 52px;
+    }
+    td.blank {
+      background: #fff;
+    }
+    .footer {
+      margin-top: 10px;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 13px;
+      color: #444;
+    }
+    @media print {
+      .no-print {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="sheet">
+    <div class="header">
+      <h1 class="title">空白排陣表</h1>
+      <div class="meta">
+        <div class="meta-item">隊伍：________________</div>
+        <div class="meta-item">隊長：________________</div>
+        <div class="meta-item">日期：________________</div>
+      </div>
+      <p class="hint">填寫方式：每列代表一個「輪次＋點數」，由隊長填入該點出賽的 2 位選手。</p>
+    </div>
+
+    <table>
+      <colgroup>
+        <col class="col-round" />
+        <col class="col-point" />
+        <col class="col-player" />
+        <col class="col-player" />
+      </colgroup>
+      <thead>
+        <tr>
+          <th>輪次</th>
+          <th>點數</th>
+          <th>選手1</th>
+          <th>選手2</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${tableRowsHtml}
+      </tbody>
+    </table>
+
+    <div class="footer">
+      <span>總輪數：${settings.totalRounds}</span>
+      <span>每輪點數：${settings.pointsPerRound}</span>
+    </div>
+  </div>
+</body>
+</html>`;
+
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `空白排陣表_A4_${dateText}.html`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   const handleImportPlayers = (file: File) => {
     const reader = new FileReader();
     reader.onload = async (e) => {
@@ -675,6 +874,7 @@ function App() {
           console.log('First 3 rows:', jsonData.slice(0, 3));
         }
         
+        const interClubCounters = { home: 0, away: 0 };
         const imported: Player[] = jsonData.map((row, index) => {
           // Handle gender: support both Chinese (男/女) and English (M/W) formats
           // Check multiple possible column names for gender
@@ -719,35 +919,16 @@ function App() {
           }
           
           // Handle team: map club names to internal teams in inter-club mode
-          let teamValue = row['隊伍'] || '';
+          const teamValue = row['隊伍'] || '';
           let team: TeamName | undefined = undefined; // default to undefined for auto-distribution
           
           if (settings.tournamentMode === 'inter-club') {
-            // In inter-club mode, recognize club names and map to internal teams
-            console.log(`[Import Debug] Row ${index}: teamValue="${teamValue}", homeClub="${settings.homeClubName}", awayClub="${settings.awayClubName}"`);
-            if (teamValue === settings.homeClubName || teamValue === '主隊') {
-              // Alternate between 甲隊 and 乙隊 for home club
-              team = (index % 2 === 0) ? '甲隊' : '乙隊';
-              console.log(`[Import Debug] Matched home club -> assigned ${team}`);
-            } else if (teamValue === settings.awayClubName || teamValue === '客隊') {
-              // Alternate between 丙隊 and 丁隊 for away club
-              team = (index % 2 === 0) ? '丙隊' : '丁隊';
-              console.log(`[Import Debug] Matched away club -> assigned ${team}`);
-            } else if (teamValue === '甲隊' || teamValue === '乙隊' || teamValue === '丙隊' || teamValue === '丁隊') {
-              // If already using internal team names, keep them
-              team = teamValue as TeamName;
-              console.log(`[Import Debug] Already internal team -> kept ${team}`);
-            } else if (teamValue.trim() === '') {
-              // Empty team, will be auto-distributed
-              team = undefined;
-              console.log(`[Import Debug] Empty team -> will auto-distribute`);
-            } else {
-              // Unknown team name, default to empty for auto-distribution
-              team = undefined;
-            }
+            // In inter-club mode, rely on the team field first (supports A/B, 主/客, club names)
+            team = resolveInterClubTeam(teamValue, settings, interClubCounters);
+            console.log(`[Import Debug] Row ${index}: teamValue="${teamValue}" -> assigned "${team || 'auto'}"`);
           } else {
             // Internal mode: use team value directly or default
-            if (teamValue === '甲隊' || teamValue === '乙隊' || teamValue === '丙隊' || teamValue === '丁隊') {
+            if (isInternalTeamName(teamValue)) {
               team = teamValue as TeamName;
             } else if (teamValue.trim() !== '') {
               // Try to map custom names, otherwise empty for auto-distribution
@@ -1335,6 +1516,7 @@ function App() {
             onAddPlayer={handleAddPlayer}
             onUpdatePlayer={handleUpdatePlayer}
             onDeletePlayer={handleDeletePlayer}
+            onExportArrangementTemplateExcel={handleExportArrangementTemplateExcel}
             onExportPlayers={handleExportPlayers}
             onExportPlayersExcel={handleExportPlayersExcel}
             onImportPlayers={handleImportPlayers}

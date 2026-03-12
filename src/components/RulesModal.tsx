@@ -40,7 +40,6 @@ export const RulesModal: React.FC<RulesModalProps> = ({ isOpen, onClose, setting
               <span class="sub-rule">適用於俱樂部內部4隊的完整循環比賽</span>
               <span class="sub-rule">系統自動生成賽程，符合年齡遞增、混雙/女雙規則</span>
               <span class="sub-rule">每隊與其他三隊各打一次，共3輪比賽</span>
-              <span class="sub-rule">需要每隊人數相同（建議10-12人）</span>
           </li>
           <li><strong>友誼賽模式（雙俱樂部對抗）：</strong><br/>
               <span class="sub-rule">適用於兩個俱樂部之間的友誼賽</span>
@@ -208,7 +207,6 @@ export const RulesModal: React.FC<RulesModalProps> = ({ isOpen, onClose, setting
                     <span className="sub-rule">適用於俱樂部內部4隊的完整循環比賽</span>
                     <span className="sub-rule">系統自動生成賽程，符合年齡遞增、混雙/女雙規則</span>
                     <span className="sub-rule">每隊與其他三隊各打一次，共3輪比賽</span>
-                    <span className="sub-rule">需要每隊人數相同（建議10-12人）</span>
                 </li>
                 <li><strong>友誼賽模式（雙俱樂部對抗）：</strong><br/>
                     <span className="sub-rule">適用於兩個俱樂部之間的友誼賽</span>

@@ -7,6 +7,7 @@ interface PlayerManagementProps {
   onAddPlayer: (player: Player) => void;
   onUpdatePlayer: (player: Player) => void;
   onDeletePlayer: (playerId: string) => void;
+  onExportArrangementTemplateExcel?: () => void;
   onExportPlayers?: () => void;
   onExportPlayersExcel?: () => void;
   onImportPlayers?: (file: File) => void;
@@ -21,6 +22,7 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
   onAddPlayer,
   onUpdatePlayer,
   onDeletePlayer,
+  onExportArrangementTemplateExcel,
   onExportPlayers,
   onExportPlayersExcel,
   onImportPlayers,
@@ -136,6 +138,11 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
           {onExportInvoices && (
             <button className="btn-primary" onClick={onExportInvoices}>
               🧾 匯出收據
+            </button>
+          )}
+          {onExportArrangementTemplateExcel && (
+            <button className="btn-secondary" onClick={onExportArrangementTemplateExcel}>
+              📝 匯出空白排陣表
             </button>
           )}
           {(onExportPlayers || onExportPlayersExcel) && (
