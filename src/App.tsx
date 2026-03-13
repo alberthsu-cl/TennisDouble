@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import * as XLSX from 'xlsx';
-import type { Player, Match, TeamName, TournamentSettings, Gender, SkillLevel, InvoiceSettings } from './types';
+import type { Player, Match, TeamName, TournamentSettings, Gender, InvoiceSettings } from './types';
 import { PlayerManagement } from './components/PlayerManagement';
 import { MatchList } from './components/MatchList';
 import { Standings } from './components/Standings';
@@ -12,6 +12,7 @@ import { useModal } from './hooks/useModal';
 import { generateFullSchedule } from './utils/scheduleGenerator';
 import { generateDemoPlayers } from './utils/demoData';
 import { exportPlayerInvoicesExcel, exportCompactInvoicesPDF } from './utils/invoiceGenerator';
+import { SKILL_LEVELS, normalizeSkillLevel } from './utils/skillLevel';
 import './App.css';
 
 // Fisher-Yates shuffle for randomization
@@ -95,19 +96,10 @@ const resolveInterClubTeam = (
 const autoDistributeTeams = (players: Player[], mode: 'internal' | 'inter-club' = 'internal'): Player[] => {
   // Helper: Sort players by skill with some randomness for variety
   const sortBySkillWithVariety = (playerList: Player[]): Player[] => {
-    // Group by skill level
-    const skillGroups = {
-      A: playerList.filter(p => p.skillLevel === 'A'),
-      B: playerList.filter(p => p.skillLevel === 'B'),
-      C: playerList.filter(p => p.skillLevel === 'C'),
-    };
-
-    // Shuffle within each skill group for variety
-    return [
-      ...shuffleArray(skillGroups.A),
-      ...shuffleArray(skillGroups.B),
-      ...shuffleArray(skillGroups.C),
-    ];
+    // Group by detailed skill levels (A1 -> D4), shuffle within each group for variety
+    return SKILL_LEVELS.flatMap((level) =>
+      shuffleArray(playerList.filter((player) => player.skillLevel === level))
+    );
   };
 
   // Helper: Serpentine distribution (snake draft pattern)
@@ -474,9 +466,7 @@ function App() {
             name: row.name || row['姓名'] || '',
             age: Number(row.age || row['年齡'] || 25),
             gender: normalizeGender(row.gender || row['性別'] || row['Gender'] || row['性别']),
-            skillLevel: (['A', 'B', 'C'].includes(String(row.skillLevel || row['技術等級'] || 'B').toUpperCase())
-              ? String(row.skillLevel || row['技術等級'] || 'B').toUpperCase()
-              : 'B') as SkillLevel,
+            skillLevel: normalizeSkillLevel(row.skillLevel || row['技術等級'] || 'B2'),
             team: row.team,
             matchesPlayed: Number(row.matchesPlayed || 0),
             groupTag: row.groupTag,
@@ -550,7 +540,7 @@ function App() {
             name: row['姓名'] || '',
             age: age,
             gender: normalizeGender(row['性別'] || row['gender'] || row['Gender'] || row['性别']),
-            skillLevel: (row['技術等級'] || 'B') as SkillLevel,
+            skillLevel: normalizeSkillLevel(row['技術等級'] || row['skillLevel'] || row['等級'] || 'B2'),
             team: team,
             matchesPlayed: 0,
             groupTag: row['分組標籤'] ? String(row['分組標籤']).trim() : undefined,
@@ -833,9 +823,7 @@ function App() {
             name: row.name || row['姓名'] || '',
             age: Number(row.age || row['年齡'] || 25),
             gender: normalizeGender(row.gender || row['性別'] || row['Gender'] || row['性别']),
-            skillLevel: (['A', 'B', 'C'].includes(String(row.skillLevel || row['技術等級'] || 'B').toUpperCase())
-              ? String(row.skillLevel || row['技術等級'] || 'B').toUpperCase()
-              : 'B') as SkillLevel,
+            skillLevel: normalizeSkillLevel(row.skillLevel || row['技術等級'] || 'B2'),
             team: row.team,
             matchesPlayed: Number(row.matchesPlayed || 0),
             groupTag: row.groupTag,
@@ -898,12 +886,8 @@ function App() {
           
           const gender: Gender = normalizeGender(genderValue);
           
-          // Handle skill level: A/B/C or default to B
-          const skillValue = String(row['技術等級'] || 'B').toUpperCase().trim();
-          let skillLevel: SkillLevel = 'B';
-          if (skillValue === 'A' || skillValue === 'B' || skillValue === 'C') {
-            skillLevel = skillValue as SkillLevel;
-          }
+          // Handle skill level: supports A1-D4
+          const skillLevel = normalizeSkillLevel(row['技術等級'] || row['skillLevel'] || row['等級'] || 'B2');
           
           // Handle age: support both 年齡 (age) and 年次 (ROC birth year)
           let age = 25; // default
@@ -1375,17 +1359,17 @@ function App() {
                 )}
                 <li><strong>3️⃣ 技術等級平衡：</strong>使用蛇形分配確保各隊技術實力均衡
                   <ul style={{ marginTop: '0.25rem' }}>
-                    <li>將選手按技術等級分組（A/B/C）</li>
+                    <li>將選手按技術等級分組（A1～D4）</li>
                     <li>每個等級內隨機排序（增加變化性）</li>
                     <li>按順序分配：甲→乙→丙→丁→丁→丙→乙→甲（循環反轉）</li>
                     <li>性別分流蛇形順序：男（甲→乙→丙→丁→丁→丙→乙→甲）、女（丁→丙→乙→甲→甲→乙→丙→丁）</li>
-                    <li>範例：A級選手會平均分配到4隊，B級、C級亦同</li>
+                    <li>範例：A1會優先於A2、A3、A4；B/C/D級亦同</li>
                   </ul>
                 </li>
                 <li><strong>4️⃣ 性別平衡：</strong>女選手和男選手分別進行分組，確保各隊男女比例相近</li>
               </ul>
               <p style={{ marginTop: '0.75rem', fontSize: '0.9rem', color: '#666' }}>
-                💡 提示：技術等級在Excel檔案中標記為A/B/C，預設為B
+                💡 提示：技術等級請填 A1~D4（預設 B2）
               </p>
             </div>
 

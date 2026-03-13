@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import * as XLSX from 'xlsx';
-import type { Player, Gender, SkillLevel } from '../types';
+import type { Player, Gender } from '../types';
+import { normalizeSkillLevel } from '../utils/skillLevel';
 
 interface GrandSlamMatch {
   id: string;
@@ -385,7 +386,7 @@ export const GrandSlamTournament: React.FC<GrandSlamTournamentProps> = ({
           name: row['姓名'] || row['name'] || `選手${index + 1}`,
           age: parseInt(row['年齡'] || row['age']) || 30,
           gender: (row['性別'] || row['gender'] || '男') as Gender,
-          skillLevel: (row['技術等級'] || row['skillLevel'] || row['等級'] || 'B') as SkillLevel,
+          skillLevel: normalizeSkillLevel(row['技術等級'] || row['skillLevel'] || row['等級'] || 'B2'),
           matchesPlayed: 0,
         }));
 
@@ -426,7 +427,7 @@ export const GrandSlamTournament: React.FC<GrandSlamTournamentProps> = ({
               name: values[0] || '',
               age: parseInt(values[1]) || 30,
               gender: (values[2] || '男') as Gender,
-              skillLevel: (values[3] || 'B') as SkillLevel,
+              skillLevel: normalizeSkillLevel(values[3] || 'B2'),
               matchesPlayed: 0,
             };
           })

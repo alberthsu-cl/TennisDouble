@@ -2449,6 +2449,11 @@ button {
   color: #92400e;
 }
 
+.skill-D {
+  background-color: #d1d5db;
+  color: #374151;
+}
+
 /* 分組標籤徽章 */
 .group-tag-badge {
   display: inline-block;

@@ -1,4 +1,5 @@
 import type { Player, TeamName, Pair, Match, PointType, TournamentSettings, SkillLevel } from '../types';
+import { getSkillRank } from './skillLevel';
 
 /**
  * Fisher-Yates shuffle algorithm for randomization
@@ -13,11 +14,10 @@ function shuffleArray<T>(array: T[]): T[] {
 }
 
 /**
- * Calculate skill score for balancing (A=3, B=2, C=1)
+ * Calculate skill score for balancing (A1 highest -> D4 lowest)
  */
 function getSkillScore(skillLevel: SkillLevel): number {
-  const scores = { 'A': 3, 'B': 2, 'C': 1 };
-  return scores[skillLevel];
+  return getSkillRank(skillLevel);
 }
 
 /**
@@ -573,14 +573,14 @@ export function generateFullSchedule(
               ...pair,
               player1: player,
               totalAge: player.age + (pair.player2?.age || 0),
-              skillScore: getSkillScore(player.skillLevel) + getSkillScore(pair.player2?.skillLevel || 'B'),
+              skillScore: getSkillScore(player.skillLevel) + getSkillScore(pair.player2?.skillLevel || 'B2'),
             };
 
             const candidatePair2: Pair = {
               ...pair,
               player2: player,
               totalAge: (pair.player1?.age || 0) + player.age,
-              skillScore: getSkillScore(pair.player1?.skillLevel || 'B') + getSkillScore(player.skillLevel),
+              skillScore: getSkillScore(pair.player1?.skillLevel || 'B2') + getSkillScore(player.skillLevel),
             };
 
             const canReplaceP1 = isValidLastPointPair(candidatePair1);
@@ -605,7 +605,7 @@ export function generateFullSchedule(
                 ...pair,
                 player1: player,
                 totalAge: player.age + (pair.player2?.age || 0),
-                skillScore: getSkillScore(player.skillLevel) + getSkillScore(pair.player2?.skillLevel || 'B'),
+                skillScore: getSkillScore(player.skillLevel) + getSkillScore(pair.player2?.skillLevel || 'B2'),
               };
               if (!isValidLastPointPair(candidatePair)) {
                 continue;
@@ -632,7 +632,7 @@ export function generateFullSchedule(
                 ...pair,
                 player2: player,
                 totalAge: (pair.player1?.age || 0) + player.age,
-                skillScore: getSkillScore(pair.player1?.skillLevel || 'B') + getSkillScore(player.skillLevel),
+                skillScore: getSkillScore(pair.player1?.skillLevel || 'B2') + getSkillScore(player.skillLevel),
               };
               if (!isValidLastPointPair(candidatePair)) {
                 continue;

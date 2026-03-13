@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import type { Player, TeamName, Gender, SkillLevel, TournamentSettings } from '../types';
+import { SKILL_LEVELS, getSkillRank, getSkillTier, normalizeSkillLevel } from '../utils/skillLevel';
 
 interface PlayerManagementProps {
   players: Player[];
@@ -33,7 +34,7 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
   const [name, setName] = useState('');
   const [age, setAge] = useState('');
   const [gender, setGender] = useState<Gender>('男');
-  const [skillLevel, setSkillLevel] = useState<SkillLevel>('B');
+  const [skillLevel, setSkillLevel] = useState<SkillLevel>('B2');
   const [team, setTeam] = useState<TeamName>('甲隊');
   const [groupTag, setGroupTag] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -88,7 +89,7 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
     setName('');
     setAge('');
     setGender('男');
-    setSkillLevel('B');
+    setSkillLevel('B2');
     setGroupTag('');
   };
 
@@ -115,7 +116,7 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
     setName('');
     setAge('');
     setGender('男');
-    setSkillLevel('B');
+    setSkillLevel('B2');
     setGroupTag('');
   };
 
@@ -218,7 +219,7 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
                           <td>{player.name}</td>
                           {showSensitiveInfo && <td>{player.age || '-'}</td>}
                           <td>{player.gender}</td>
-                          {showSensitiveInfo && <td><span className={`skill-badge skill-${player.skillLevel || 'B'}`}>{player.skillLevel || 'B'}</span></td>}
+                          {showSensitiveInfo && <td><span className={`skill-badge skill-${getSkillTier(normalizeSkillLevel(player.skillLevel, 'B2'))}`}>{normalizeSkillLevel(player.skillLevel, 'B2')}</span></td>}
                           {settings.tournamentMode === 'internal' && <td>{player.groupTag || '-'}</td>}
                           <td>{player.matchesPlayed}</td>
                           <td>
@@ -273,10 +274,9 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
                         const bTagPriority = b.groupTag ? (tagOrder[b.groupTag] || 0) : 0;
                         if (bTagPriority !== aTagPriority) return bTagPriority - aTagPriority;
                         
-                        // 2. Sort by skill level (A > B > C)
-                        const skillOrder = { 'A': 3, 'B': 2, 'C': 1 };
-                        const aSkill = skillOrder[a.skillLevel || 'B'];
-                        const bSkill = skillOrder[b.skillLevel || 'B'];
+                        // 2. Sort by detailed skill level (A1 > A2 > ... > D4)
+                        const aSkill = getSkillRank(normalizeSkillLevel(a.skillLevel, 'B2'));
+                        const bSkill = getSkillRank(normalizeSkillLevel(b.skillLevel, 'B2'));
                         if (bSkill !== aSkill) return bSkill - aSkill;
                         
                         // 3. Then by age
@@ -286,7 +286,7 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
                       <td>{player.name || '未知'}</td>
                       {showSensitiveInfo && <td>{player.age || '-'}</td>}
                       <td>{player.gender || '-'}</td>
-                      {showSensitiveInfo && <td><span className={`skill-badge skill-${player.skillLevel || 'B'}`}>{player.skillLevel || 'B'}</span></td>}
+                      {showSensitiveInfo && <td><span className={`skill-badge skill-${getSkillTier(normalizeSkillLevel(player.skillLevel, 'B2'))}`}>{normalizeSkillLevel(player.skillLevel, 'B2')}</span></td>}
                       {settings.tournamentMode === 'internal' && <td>{player.groupTag ? <span className="group-tag-badge">{player.groupTag}</span> : '-'}</td>}
                       <td>{player.matchesPlayed || 0}</td>
                       <td>
@@ -356,9 +356,11 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
         <div className="form-group">
           <label>技術等級：</label>
           <select value={skillLevel} onChange={(e) => setSkillLevel(e.target.value as SkillLevel)}>
-            <option value="A">A - 最佳</option>
-            <option value="B">B - 良好</option>
-            <option value="C">C - 不错</option>
+            {SKILL_LEVELS.map((level) => (
+              <option key={level} value={level}>
+                {level}
+              </option>
+            ))}
           </select>
         </div>
 

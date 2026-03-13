@@ -73,7 +73,7 @@ export const RulesModal: React.FC<RulesModalProps> = ({ isOpen, onClose, setting
               <span class="sub-rule">性別：男/女（用於混雙/女雙規則）</span>
           </li>
           <li><strong>選填欄位（可留白）：</strong><br/>
-              <span class="sub-rule">技術等級：A（最佳）、B（良好）、C（不错）- 預設為B</span>
+              <span class="sub-rule">技術等級：A1～D4（A1最高、D4最低）- 預設為B2</span>
               <span class="sub-rule">隊伍：甲隊、乙隊、丙隊、丁隊</span>
               <span class="sub-rule">分組標籤：用於標識特殊角色（如：A1、B2等）</span>
           </li>
@@ -90,22 +90,23 @@ export const RulesModal: React.FC<RulesModalProps> = ({ isOpen, onClose, setting
               <span class="sub-rule">A2/B2/C2/D2：各隊副隊長或第二種子選手</span>
               <span class="sub-rule">A3/B3/C3/D3：各隊第三種子選手</span>
           </li>
-          <li><strong>自動配對考量：</strong>系統會優先使用<strong>技術等級（A/B/C）</strong>進行配對平衡<br/>
+            <li><strong>自動配對考量：</strong>系統會優先使用<strong>技術等級（A1～D4）</strong>進行配對平衡<br/>
               <span class="sub-rule">分組標籤主要用於識別與管理，方便手動調整</span>
           </li>
         </ul>
 
-        <h2>⭐ 技術等級定義（A/B/C）</h2>
+          <h2>⭐ 技術等級定義（A1～D4）</h2>
         <ul>
-          <li><strong>A級（最佳）：</strong>技術純熟、比賽經驗豐富<br/>
+            <li><strong>A級（最佳）：</strong>A1 &gt; A2 &gt; A3 &gt; A4<br/>
               <span class="sub-rule">能穩定發揮、戰術執行力強</span>
           </li>
-          <li><strong>B級（良好）：</strong>技術良好、具備基本戰術<br/>
-              <span class="sub-rule">一般選手水準，可穩定比賽（預設值）</span>
+            <li><strong>B級（良好）：</strong>B1 &gt; B2 &gt; B3 &gt; B4<br/>
+              <span class="sub-rule">一般選手水準，可穩定比賽（預設 B2）</span>
           </li>
-          <li><strong>C級（不错）：</strong>技術尚可、仍在進步中<br/>
+            <li><strong>C級（不错）：</strong>C1 &gt; C2 &gt; C3 &gt; C4<br/>
               <span class="sub-rule">新手或較少比賽經驗者</span>
           </li>
+            <li><strong>D級（入門）：</strong>D1 &gt; D2 &gt; D3 &gt; D4</li>
           <li><strong>系統用途：</strong>用於自動配對時的技術平衡<br/>
               <span class="sub-rule">確保各點配對實力相近，提升比賽公平性</span>
           </li>
@@ -244,7 +245,7 @@ export const RulesModal: React.FC<RulesModalProps> = ({ isOpen, onClose, setting
                     <span className="sub-rule">性別：男/女（用於混雙/女雙規則）</span>
                 </li>
                 <li><strong>選填欄位（可留白）：</strong><br/>
-                    <span className="sub-rule">技術等級：A（最佳）、B（良好）、C（不错）- 預設為B</span>
+                  <span className="sub-rule">技術等級：A1～D4（A1最高、D4最低）- 預設為B2</span>
                     <span className="sub-rule">隊伍：甲隊、乙隊、丙隊、丁隊</span>
                     <span className="sub-rule">分組標籤：用於標識特殊角色（如：A1、B2等）</span>
                 </li>
@@ -263,23 +264,24 @@ export const RulesModal: React.FC<RulesModalProps> = ({ isOpen, onClose, setting
                     <span className="sub-rule">A2/B2/C2/D2：各隊副隊長或第二種子選手</span>
                     <span className="sub-rule">A3/B3/C3/D3：各隊第三種子選手</span>
                 </li>
-                <li><strong>自動配對考量：</strong>系統會優先使用<strong>技術等級（A/B/C）</strong>進行配對平衡
+                <li><strong>自動配對考量：</strong>系統會優先使用<strong>技術等級（A1～D4）</strong>進行配對平衡
                 </li>
               </ul>
             </div>
 
             <div className="rule-section">
-              <h4>⭐ 技術等級定義（A/B/C）</h4>
+              <h4>⭐ 技術等級定義（A1～D4）</h4>
               <ul>
-                <li><strong>A級（最佳）：</strong>技術純熟、比賽經驗豐富<br/>
+                <li><strong>A級（最佳）：</strong>A1 &gt; A2 &gt; A3 &gt; A4<br/>
                     <span className="sub-rule">能穩定發揮、戰術執行力強</span>
                 </li>
-                <li><strong>B級（良好）：</strong>技術良好、具備基本戰術<br/>
-                    <span className="sub-rule">一般選手水準，可穩定比賽（預設值）</span>
+                <li><strong>B級（良好）：</strong>B1 &gt; B2 &gt; B3 &gt; B4<br/>
+                    <span className="sub-rule">一般選手水準，可穩定比賽（預設 B2）</span>
                 </li>
-                <li><strong>C級（不错）：</strong>技術尚可、仍在進步中<br/>
+                <li><strong>C級（不错）：</strong>C1 &gt; C2 &gt; C3 &gt; C4<br/>
                     <span className="sub-rule">新手或較少比賽經驗者</span>
                 </li>
+                <li><strong>D級（入門）：</strong>D1 &gt; D2 &gt; D3 &gt; D4</li>
                 <li><strong>系統用途：</strong>用於自動配對時的技術平衡<br/>
                     <span className="sub-rule">確保各點配對實力相近，提升比賽公平性</span>
                 </li>

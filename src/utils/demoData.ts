@@ -461,5 +461,8 @@ export function generateDemoPlayers(): Player[] {
       "skillLevel": "B",
       "matchesPlayed": 0
     }
-  ];
+  ].map(player => ({
+    ...player,
+    skillLevel: 'B2',
+  })) as Player[];
 }

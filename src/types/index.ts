@@ -2,7 +2,11 @@
 export type Gender = '男' | '女';
 
 // 技術等級
-export type SkillLevel = 'A' | 'B' | 'C';
+export type SkillLevel =
+  | 'A1' | 'A2' | 'A3' | 'A4'
+  | 'B1' | 'B2' | 'B3' | 'B4'
+  | 'C1' | 'C2' | 'C3' | 'C4'
+  | 'D1' | 'D2' | 'D3' | 'D4';
 
 // 隊伍名稱
 export type TeamName = '甲隊' | '乙隊' | '丙隊' | '丁隊';
@@ -19,7 +23,7 @@ export interface Player {
   name: string;
   age: number;
   gender: Gender;
-  skillLevel: SkillLevel; // 技術等級 (A:最佳, B:良好, C:不错)
+  skillLevel: SkillLevel; // 技術等級 (A1最高 -> D4最低)
   team?: TeamName; // Optional to allow importing players without team assignment
   matchesPlayed: number; // 已出賽場次
   groupTag?: string; // 分組標籤 (如 A1=甲隊領隊, A2=甲隊副領隊, B1=乙隊領隊...)
