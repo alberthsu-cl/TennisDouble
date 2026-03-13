@@ -10,6 +10,12 @@ interface RulesModalProps {
 export const RulesModal: React.FC<RulesModalProps> = ({ isOpen, onClose, settings }) => {
   if (!isOpen) return null;
 
+  const rulesFormatText = settings.gamesPerMatch === 4
+    ? (settings.fourGameDeuceMode === 'extend-to-5'
+      ? '比賽採4局NO-AD制，先達4局獲勝；若3:3則延長至先達5局'
+      : '比賽採4局NO-AD制，先達4局獲勝；若3:3則Tie-break搶7決勝')
+    : `比賽採${settings.gamesPerMatch}局NO-AD制，${settings.gamesPerMatch - 1}:${settings.gamesPerMatch - 1}時Tie-break搶7`;
+
   const handleExportPDF = () => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
@@ -151,7 +157,7 @@ export const RulesModal: React.FC<RulesModalProps> = ({ isOpen, onClose, setting
         <ul>
           <li>假設打${settings.pointsPerRound}點雙打，前${settings.pointsPerRound - 1}點年齡遞增，第${settings.pointsPerRound}點混雙/女雙</li>
           <li>每位正式選手至少須出賽${settings.minMatchesPerPlayer}場</li>
-          <li>比賽採${settings.gamesPerMatch}局NO-AD制，${settings.gamesPerMatch - 1}:${settings.gamesPerMatch - 1}時Tie-break搶7</li>
+          <li>${rulesFormatText}</li>
           <li>勝場得3分，排名依據：積分 > 勝場 > 淨勝局</li>
         </ul>
 
@@ -332,7 +338,7 @@ export const RulesModal: React.FC<RulesModalProps> = ({ isOpen, onClose, setting
               <ul>
                 <li>假設打{settings.pointsPerRound}點雙打，前{settings.pointsPerRound - 1}點年齡遞增，第{settings.pointsPerRound}點混雙/女雙</li>
                 <li>每位正式選手至少須出賽{settings.minMatchesPerPlayer}場</li>
-                <li>比賽採{settings.gamesPerMatch}局NO-AD制，{settings.gamesPerMatch - 1}:{settings.gamesPerMatch - 1}時Tie-break搶7</li>
+                <li>{rulesFormatText}</li>
                 <li>勝場得3分，排名依據：積分 &gt; 勝場 &gt; 淨勝局</li>
               </ul>
             </div>

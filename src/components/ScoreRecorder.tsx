@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import type { Match } from '../types';
+import React from 'react';
+import type { FourGameDeuceMode, Match } from '../types';
 
 interface ScoreRecorderProps {
   match: Match;
@@ -7,6 +7,7 @@ interface ScoreRecorderProps {
   onCompleteMatch: (match: Match) => void;
   onResetMatch: (match: Match) => void;
   gamesPerMatch: number;
+  fourGameDeuceMode: FourGameDeuceMode;
   showSensitiveInfo?: boolean;
 }
 
@@ -16,10 +17,21 @@ export const ScoreRecorder: React.FC<ScoreRecorderProps> = ({
   onCompleteMatch,
   onResetMatch,
   gamesPerMatch,
+  fourGameDeuceMode,
   showSensitiveInfo = true,
 }) => {
-  const [showTiebreak, setShowTiebreak] = useState(false);
   const tiebreakTriggerGames = Math.max(1, gamesPerMatch - 1);
+  const usesExtendedFourGameFinish = gamesPerMatch === 4 && fourGameDeuceMode === 'extend-to-5';
+  const showTiebreak = match.team1TiebreakScore !== undefined && match.team2TiebreakScore !== undefined;
+
+  const hasRegularWinner = (teamGames: number, opponentGames: number) => {
+    if (!usesExtendedFourGameFinish) {
+      return teamGames === gamesPerMatch;
+    }
+
+    return (teamGames === gamesPerMatch && opponentGames <= tiebreakTriggerGames - 1)
+      || teamGames === gamesPerMatch + 1;
+  };
 
   // 增加一方的局數
   const addGame = (team: 'team1' | 'team2') => {
@@ -32,18 +44,17 @@ export const ScoreRecorder: React.FC<ScoreRecorderProps> = ({
     }
 
     // 檢查是否到達平手門檻（需要Tie-break）
-    if (updatedMatch.team1Games === tiebreakTriggerGames && updatedMatch.team2Games === tiebreakTriggerGames) {
-      setShowTiebreak(true);
+    if (!usesExtendedFourGameFinish && updatedMatch.team1Games === tiebreakTriggerGames && updatedMatch.team2Games === tiebreakTriggerGames) {
       updatedMatch.team1TiebreakScore = 0;
       updatedMatch.team2TiebreakScore = 0;
     }
 
     // 檢查是否有隊伍獲勝
-    if (updatedMatch.team1Games === gamesPerMatch) {
+    if (hasRegularWinner(updatedMatch.team1Games, updatedMatch.team2Games)) {
       updatedMatch.status = 'completed';
       updatedMatch.winner = updatedMatch.team1;
       onCompleteMatch(updatedMatch);
-    } else if (updatedMatch.team2Games === gamesPerMatch) {
+    } else if (hasRegularWinner(updatedMatch.team2Games, updatedMatch.team1Games)) {
       updatedMatch.status = 'completed';
       updatedMatch.winner = updatedMatch.team2;
       onCompleteMatch(updatedMatch);
@@ -64,7 +75,6 @@ export const ScoreRecorder: React.FC<ScoreRecorderProps> = ({
 
     // 如果從平手門檻回退，取消Tie-break
     if (showTiebreak && !(updatedMatch.team1Games === tiebreakTriggerGames && updatedMatch.team2Games === tiebreakTriggerGames)) {
-      setShowTiebreak(false);
       updatedMatch.team1TiebreakScore = undefined;
       updatedMatch.team2TiebreakScore = undefined;
     }

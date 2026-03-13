@@ -40,6 +40,9 @@ export interface Pair {
 // 比賽點數類型 (動態，不再限制1-5)
 export type PointType = number;
 
+// 4局制平手決勝模式
+export type FourGameDeuceMode = 'tiebreak-7' | 'extend-to-5';
+
 // 單場比賽
 export interface Match {
   id: string;
@@ -51,7 +54,7 @@ export interface Match {
   pair2: Pair; // team2的配對
   team1Games: number; // team1贏得的局數
   team2Games: number; // team2贏得的局數
-  team1TiebreakScore?: number; // Tie-break分數（如果4:4）
+  team1TiebreakScore?: number; // Tie-break分數（進入Tie-break時）
   team2TiebreakScore?: number;
   status: 'scheduled' | 'in-progress' | 'completed';
   winner?: TeamName;
@@ -79,6 +82,7 @@ export interface TournamentSettings {
   playersPerTeam: number;      // 每隊人數 (default: 10)
   pointsPerRound: number;      // 每輪點數 (default: 5)
   gamesPerMatch: number;       // 每場比賽幾局制 (default: 5)
+  fourGameDeuceMode: FourGameDeuceMode; // 4局制3:3後的決勝方式
   totalRounds: number;         // 總輪數 (default: 3)
   minMatchesPerPlayer: number; // 每人最少出賽場次（動態計算）
   enforceRules: boolean;       // 是否強制執行規則約束 (default: true)

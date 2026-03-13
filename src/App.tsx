@@ -174,6 +174,36 @@ const autoDistributeTeams = (players: Player[], mode: 'internal' | 'inter-club' 
   return [...playersWithTeams, ...captains, ...femalePlayers, ...malePlayers];
 };
 
+const getDeuceDecisionText = (settings: TournamentSettings) => {
+  if (settings.gamesPerMatch === 4) {
+    return settings.fourGameDeuceMode === 'extend-to-5'
+      ? '3:3後延長，先達5局者獲勝'
+      : '3:3時 Tie-break 搶7決勝';
+  }
+
+  return `平手至${settings.gamesPerMatch - 1}:${settings.gamesPerMatch - 1}時 Tie-break 搶7`;
+};
+
+const getMatchFormatText = (settings: TournamentSettings) => {
+  if (settings.gamesPerMatch === 4) {
+    return settings.fourGameDeuceMode === 'extend-to-5'
+      ? '先達 4 局；若 3:3，延長至先達 5 局'
+      : '先達 4 局；若 3:3，Tie-break 搶7決勝';
+  }
+
+  return `先達 ${settings.gamesPerMatch} 局（${settings.gamesPerMatch - 1}:${settings.gamesPerMatch - 1} 時 Tie-break）`;
+};
+
+const getRulesFormatText = (settings: TournamentSettings) => {
+  if (settings.gamesPerMatch === 4) {
+    return settings.fourGameDeuceMode === 'extend-to-5'
+      ? '比賽採4局NO-AD制，先達4局獲勝；若3:3則延長至先達5局'
+      : '比賽採4局NO-AD制，先達4局獲勝；若3:3則Tie-break搶7決勝';
+  }
+
+  return `比賽採${settings.gamesPerMatch}局NO-AD制，先達${settings.gamesPerMatch}局獲勝；${settings.gamesPerMatch - 1}:${settings.gamesPerMatch - 1}時則Tie-break搶7決勝`;
+};
+
 type View = 'setup' | 'players' | 'matches' | 'standings' | 'manual-setup' | 'grand-slam';
 
 function App() {
@@ -194,6 +224,7 @@ function App() {
     playersPerTeam: 10,
     pointsPerRound: 5,
     gamesPerMatch: 5,
+    fourGameDeuceMode: 'tiebreak-7',
     totalRounds: 3,
     minMatchesPerPlayer: 2,
     enforceRules: true,
@@ -233,6 +264,7 @@ function App() {
       setSettings({
         ...parsedSettings,
         gamesPerMatch: Math.max(3, parsedSettings.gamesPerMatch || 5),
+        fourGameDeuceMode: parsedSettings.fourGameDeuceMode === 'extend-to-5' ? 'extend-to-5' : 'tiebreak-7',
         minMatchesPerPlayer: recalculatedMinMatches,
       });
     }
@@ -1269,8 +1301,27 @@ function App() {
                             +
                           </button>
                         </div>
-                        <span className="setting-note">平手至{settings.gamesPerMatch - 1}:{settings.gamesPerMatch - 1}時 Tie-break 搶7</span>
+                        <span className="setting-note">{getDeuceDecisionText(settings)}</span>
                       </div>
+
+                      {settings.gamesPerMatch === 4 && (
+                        <div className="setting-item">
+                          <label>4局制平手決勝：</label>
+                          <div className="setting-control">
+                            <select
+                              value={settings.fourGameDeuceMode}
+                              onChange={(e) => setSettings({
+                                ...settings,
+                                fourGameDeuceMode: e.target.value === 'extend-to-5' ? 'extend-to-5' : 'tiebreak-7',
+                              })}
+                            >
+                              <option value="tiebreak-7">3:3 後 Tie-break 搶7</option>
+                              <option value="extend-to-5">3:3 後延長到先達 5 局</option>
+                            </select>
+                          </div>
+                          <span className="setting-note">只在每場局數設定為 4 局時生效</span>
+                        </div>
+                      )}
 
                       <div className="setting-item">
                         <label>總輪數：</label>
@@ -1309,33 +1360,54 @@ function App() {
                   )}
 
                   {settings.tournamentMode === 'inter-club' && (
-                    <div className="setting-item">
-                      <label>每場局數（先達）：</label>
-                      <div className="setting-control">
-                        <button
-                          className="btn-adjust"
-                          onClick={() => setSettings({ ...settings, gamesPerMatch: Math.max(3, settings.gamesPerMatch - 1) })}
-                          disabled={settings.gamesPerMatch <= 3}
-                        >
-                          −
-                        </button>
-                        <input
-                          type="number"
-                          min="3"
-                          max="10"
-                          value={settings.gamesPerMatch}
-                          onChange={(e) => setSettings({ ...settings, gamesPerMatch: Math.max(3, Math.min(10, parseInt(e.target.value) || 5)) })}
-                        />
-                        <button
-                          className="btn-adjust"
-                          onClick={() => setSettings({ ...settings, gamesPerMatch: Math.min(10, settings.gamesPerMatch + 1) })}
-                          disabled={settings.gamesPerMatch >= 10}
-                        >
-                          +
-                        </button>
+                    <>
+                      <div className="setting-item">
+                        <label>每場局數（先達）：</label>
+                        <div className="setting-control">
+                          <button
+                            className="btn-adjust"
+                            onClick={() => setSettings({ ...settings, gamesPerMatch: Math.max(3, settings.gamesPerMatch - 1) })}
+                            disabled={settings.gamesPerMatch <= 3}
+                          >
+                            −
+                          </button>
+                          <input
+                            type="number"
+                            min="3"
+                            max="10"
+                            value={settings.gamesPerMatch}
+                            onChange={(e) => setSettings({ ...settings, gamesPerMatch: Math.max(3, Math.min(10, parseInt(e.target.value) || 5)) })}
+                          />
+                          <button
+                            className="btn-adjust"
+                            onClick={() => setSettings({ ...settings, gamesPerMatch: Math.min(10, settings.gamesPerMatch + 1) })}
+                            disabled={settings.gamesPerMatch >= 10}
+                          >
+                            +
+                          </button>
+                        </div>
+                        <span className="setting-note">{getDeuceDecisionText(settings)}</span>
                       </div>
-                      <span className="setting-note">平手至{settings.gamesPerMatch - 1}:{settings.gamesPerMatch - 1}時 Tie-break 搶7</span>
-                    </div>
+
+                      {settings.gamesPerMatch === 4 && (
+                        <div className="setting-item">
+                          <label>4局制平手決勝：</label>
+                          <div className="setting-control">
+                            <select
+                              value={settings.fourGameDeuceMode}
+                              onChange={(e) => setSettings({
+                                ...settings,
+                                fourGameDeuceMode: e.target.value === 'extend-to-5' ? 'extend-to-5' : 'tiebreak-7',
+                              })}
+                            >
+                              <option value="tiebreak-7">3:3 後 Tie-break 搶7</option>
+                              <option value="extend-to-5">3:3 後延長到先達 5 局</option>
+                            </select>
+                          </div>
+                          <span className="setting-note">只在每場局數設定為 4 局時生效</span>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
                 
@@ -1345,14 +1417,14 @@ function App() {
                     <>
                       <p>• 俱樂部對抗賽：{settings.homeClubName} vs {settings.awayClubName}</p>
                       <p>• 比賽安排：由管理者手動配對，無限制</p>
-                      <p>• 單場賽制：先達 {settings.gamesPerMatch} 局（{settings.gamesPerMatch - 1}:{settings.gamesPerMatch - 1} 時 Tie-break）</p>
+                      <p>• 單場賽制：{getMatchFormatText(settings)}</p>
                       <p>• 請使用「手動配對」功能建立比賽</p>
                     </>
                   ) : (
                     <>
                       <p>• 總比賽數：{settings.totalRounds * 2 * settings.pointsPerRound} 場</p>
                       <p>• 每組對戰點數：{settings.pointsPerRound} 點</p>
-                      <p>• 單場賽制：先達 {settings.gamesPerMatch} 局（{settings.gamesPerMatch - 1}:{settings.gamesPerMatch - 1} 時 Tie-break）</p>
+                      <p>• 單場賽制：{getMatchFormatText(settings)}</p>
                       <p>• 總位置數：{settings.totalRounds * 2 * settings.pointsPerRound * 4} 個（{settings.totalRounds}輪 × 2組 × {settings.pointsPerRound}點 × 4人）</p>
                       <p>• 每人最少出賽：{settings.minMatchesPerPlayer} 場（總位置數 ÷ 總人數）</p>
                     </>
@@ -1384,8 +1456,7 @@ function App() {
                   <>
                     <li>{settings.homeClubName} vs {settings.awayClubName} 對抗賽</li>
                     <li>由管理者自由安排對戰配對，無人數、輪次限制</li>
-                    <li>比賽採{settings.gamesPerMatch}局NO-AD制，先達{settings.gamesPerMatch}局獲勝</li>
-                    <li>{settings.gamesPerMatch - 1}:{settings.gamesPerMatch - 1}時則Tie-break搶7決勝</li>
+                    <li>{getRulesFormatText(settings)}</li>
                     <li>請至「手動配對」功能建立比賽</li>
                   </>
                 ) : (
@@ -1397,8 +1468,7 @@ function App() {
                       </ul>
                     </li>
                     <li>每位正式選手至少須出賽{settings.minMatchesPerPlayer}場</li>
-                    <li>比賽採{settings.gamesPerMatch}局NO-AD制，先達{settings.gamesPerMatch}局獲勝</li>
-                    <li>{settings.gamesPerMatch - 1}:{settings.gamesPerMatch - 1}時則Tie-break搶7決勝</li>
+                    <li>{getRulesFormatText(settings)}</li>
                   </>
                 )}
               </ul>
@@ -1649,6 +1719,7 @@ function App() {
               filterRound={filterRound}
               filterStatus={filterStatus}
               gamesPerMatch={settings.gamesPerMatch}
+              fourGameDeuceMode={settings.fourGameDeuceMode}
               showSensitiveInfo={showSensitiveInfo}
             />
           </div>

@@ -1,5 +1,5 @@
 import React from 'react';
-import type { Match, TeamName } from '../types';
+import type { FourGameDeuceMode, Match, TeamName } from '../types';
 import { ScoreRecorder } from './ScoreRecorder';
 
 interface MatchListProps {
@@ -8,6 +8,7 @@ interface MatchListProps {
   onCompleteMatch: (match: Match) => void;
   onResetMatch: (match: Match) => void;
   gamesPerMatch: number;
+  fourGameDeuceMode: FourGameDeuceMode;
   filterRound?: number;
   filterTeam?: TeamName;
   filterStatus?: 'all' | 'scheduled' | 'in-progress' | 'completed';
@@ -20,6 +21,7 @@ export const MatchList: React.FC<MatchListProps> = ({
   onCompleteMatch,
   onResetMatch,
   gamesPerMatch,
+  fourGameDeuceMode,
   filterRound,
   filterTeam,
   filterStatus = 'all',
@@ -94,6 +96,7 @@ export const MatchList: React.FC<MatchListProps> = ({
                             onCompleteMatch={onCompleteMatch}
                             onResetMatch={onResetMatch}
                             gamesPerMatch={gamesPerMatch}
+                            fourGameDeuceMode={fourGameDeuceMode}
                             showSensitiveInfo={showSensitiveInfo}
                           />
                         </div>
