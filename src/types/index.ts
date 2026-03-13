@@ -78,6 +78,7 @@ export interface TeamStats {
 export interface TournamentSettings {
   playersPerTeam: number;      // 每隊人數 (default: 10)
   pointsPerRound: number;      // 每輪點數 (default: 5)
+  gamesPerMatch: number;       // 每場比賽幾局制 (default: 5)
   totalRounds: number;         // 總輪數 (default: 3)
   minMatchesPerPlayer: number; // 每人最少出賽場次（動態計算）
   enforceRules: boolean;       // 是否強制執行規則約束 (default: true)
@@ -92,9 +93,9 @@ export interface TournamentConfig {
   playersPerTeam: number; // 每隊人數
   matchesPerPlayer: number; // 至少X場
   pointsPerRound: number; // 每輪點數
-  gamesPerMatch: number; // 5局
+  gamesPerMatch: number; // 每場比賽幾局制
   noAd: boolean; // NO-AD制
-  tiebreakAt44: boolean; // 4:4時Tie-break
+  tiebreakAt44: boolean; // 平局時Tie-break
   totalRounds: number; // 總輪數
 }
 

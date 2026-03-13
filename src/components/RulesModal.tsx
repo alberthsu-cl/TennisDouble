@@ -151,7 +151,7 @@ export const RulesModal: React.FC<RulesModalProps> = ({ isOpen, onClose, setting
         <ul>
           <li>假設打${settings.pointsPerRound}點雙打，前${settings.pointsPerRound - 1}點年齡遞增，第${settings.pointsPerRound}點混雙/女雙</li>
           <li>每位正式選手至少須出賽${settings.minMatchesPerPlayer}場</li>
-          <li>比賽採5局NO-AD制，4:4時Tie-break搶7</li>
+          <li>比賽採${settings.gamesPerMatch}局NO-AD制，${settings.gamesPerMatch - 1}:${settings.gamesPerMatch - 1}時Tie-break搶7</li>
           <li>勝場得3分，排名依據：積分 > 勝場 > 淨勝局</li>
         </ul>
 
@@ -332,7 +332,7 @@ export const RulesModal: React.FC<RulesModalProps> = ({ isOpen, onClose, setting
               <ul>
                 <li>假設打{settings.pointsPerRound}點雙打，前{settings.pointsPerRound - 1}點年齡遞增，第{settings.pointsPerRound}點混雙/女雙</li>
                 <li>每位正式選手至少須出賽{settings.minMatchesPerPlayer}場</li>
-                <li>比賽採5局NO-AD制，4:4時Tie-break搶7</li>
+                <li>比賽採{settings.gamesPerMatch}局NO-AD制，{settings.gamesPerMatch - 1}:{settings.gamesPerMatch - 1}時Tie-break搶7</li>
                 <li>勝場得3分，排名依據：積分 &gt; 勝場 &gt; 淨勝局</li>
               </ul>
             </div>

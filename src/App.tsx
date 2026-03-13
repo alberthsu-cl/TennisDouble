@@ -193,6 +193,7 @@ function App() {
   const [settings, setSettings] = useState<TournamentSettings>({
     playersPerTeam: 10,
     pointsPerRound: 5,
+    gamesPerMatch: 5,
     totalRounds: 3,
     minMatchesPerPlayer: 2,
     enforceRules: true,
@@ -231,6 +232,7 @@ function App() {
 
       setSettings({
         ...parsedSettings,
+        gamesPerMatch: Math.max(3, parsedSettings.gamesPerMatch || 5),
         minMatchesPerPlayer: recalculatedMinMatches,
       });
     }
@@ -1243,6 +1245,34 @@ function App() {
                       </div>
                       
                       <div className="setting-item">
+                        <label>每場局數（先達）：</label>
+                        <div className="setting-control">
+                          <button
+                            className="btn-adjust"
+                            onClick={() => setSettings({ ...settings, gamesPerMatch: Math.max(3, settings.gamesPerMatch - 1) })}
+                            disabled={settings.gamesPerMatch <= 3}
+                          >
+                            −
+                          </button>
+                          <input
+                            type="number"
+                            min="3"
+                            max="10"
+                            value={settings.gamesPerMatch}
+                            onChange={(e) => setSettings({ ...settings, gamesPerMatch: Math.max(3, Math.min(10, parseInt(e.target.value) || 5)) })}
+                          />
+                          <button
+                            className="btn-adjust"
+                            onClick={() => setSettings({ ...settings, gamesPerMatch: Math.min(10, settings.gamesPerMatch + 1) })}
+                            disabled={settings.gamesPerMatch >= 10}
+                          >
+                            +
+                          </button>
+                        </div>
+                        <span className="setting-note">平手至{settings.gamesPerMatch - 1}:{settings.gamesPerMatch - 1}時 Tie-break 搶7</span>
+                      </div>
+
+                      <div className="setting-item">
                         <label>總輪數：</label>
                         <div className="setting-control">
                           <button 
@@ -1277,6 +1307,36 @@ function App() {
                       </div>
                     </>
                   )}
+
+                  {settings.tournamentMode === 'inter-club' && (
+                    <div className="setting-item">
+                      <label>每場局數（先達）：</label>
+                      <div className="setting-control">
+                        <button
+                          className="btn-adjust"
+                          onClick={() => setSettings({ ...settings, gamesPerMatch: Math.max(3, settings.gamesPerMatch - 1) })}
+                          disabled={settings.gamesPerMatch <= 3}
+                        >
+                          −
+                        </button>
+                        <input
+                          type="number"
+                          min="3"
+                          max="10"
+                          value={settings.gamesPerMatch}
+                          onChange={(e) => setSettings({ ...settings, gamesPerMatch: Math.max(3, Math.min(10, parseInt(e.target.value) || 5)) })}
+                        />
+                        <button
+                          className="btn-adjust"
+                          onClick={() => setSettings({ ...settings, gamesPerMatch: Math.min(10, settings.gamesPerMatch + 1) })}
+                          disabled={settings.gamesPerMatch >= 10}
+                        >
+                          +
+                        </button>
+                      </div>
+                      <span className="setting-note">平手至{settings.gamesPerMatch - 1}:{settings.gamesPerMatch - 1}時 Tie-break 搶7</span>
+                    </div>
+                  )}
                 </div>
                 
                 <div className="settings-summary">
@@ -1285,12 +1345,14 @@ function App() {
                     <>
                       <p>• 俱樂部對抗賽：{settings.homeClubName} vs {settings.awayClubName}</p>
                       <p>• 比賽安排：由管理者手動配對，無限制</p>
+                      <p>• 單場賽制：先達 {settings.gamesPerMatch} 局（{settings.gamesPerMatch - 1}:{settings.gamesPerMatch - 1} 時 Tie-break）</p>
                       <p>• 請使用「手動配對」功能建立比賽</p>
                     </>
                   ) : (
                     <>
                       <p>• 總比賽數：{settings.totalRounds * 2 * settings.pointsPerRound} 場</p>
                       <p>• 每組對戰點數：{settings.pointsPerRound} 點</p>
+                      <p>• 單場賽制：先達 {settings.gamesPerMatch} 局（{settings.gamesPerMatch - 1}:{settings.gamesPerMatch - 1} 時 Tie-break）</p>
                       <p>• 總位置數：{settings.totalRounds * 2 * settings.pointsPerRound * 4} 個（{settings.totalRounds}輪 × 2組 × {settings.pointsPerRound}點 × 4人）</p>
                       <p>• 每人最少出賽：{settings.minMatchesPerPlayer} 場（總位置數 ÷ 總人數）</p>
                     </>
@@ -1322,8 +1384,8 @@ function App() {
                   <>
                     <li>{settings.homeClubName} vs {settings.awayClubName} 對抗賽</li>
                     <li>由管理者自由安排對戰配對，無人數、輪次限制</li>
-                    <li>比賽採5局NO-AD制，先達5局獲勝</li>
-                    <li>4:4時則Tie-break搶7決勝</li>
+                    <li>比賽採{settings.gamesPerMatch}局NO-AD制，先達{settings.gamesPerMatch}局獲勝</li>
+                    <li>{settings.gamesPerMatch - 1}:{settings.gamesPerMatch - 1}時則Tie-break搶7決勝</li>
                     <li>請至「手動配對」功能建立比賽</li>
                   </>
                 ) : (
@@ -1335,8 +1397,8 @@ function App() {
                       </ul>
                     </li>
                     <li>每位正式選手至少須出賽{settings.minMatchesPerPlayer}場</li>
-                    <li>比賽採5局NO-AD制，先達5局獲勝</li>
-                    <li>4:4時則Tie-break搶7決勝</li>
+                    <li>比賽採{settings.gamesPerMatch}局NO-AD制，先達{settings.gamesPerMatch}局獲勝</li>
+                    <li>{settings.gamesPerMatch - 1}:{settings.gamesPerMatch - 1}時則Tie-break搶7決勝</li>
                   </>
                 )}
               </ul>
@@ -1586,6 +1648,7 @@ function App() {
               onResetMatch={handleResetMatch}
               filterRound={filterRound}
               filterStatus={filterStatus}
+              gamesPerMatch={settings.gamesPerMatch}
               showSensitiveInfo={showSensitiveInfo}
             />
           </div>
