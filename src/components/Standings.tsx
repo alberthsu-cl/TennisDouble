@@ -226,12 +226,14 @@ export const Standings: React.FC<StandingsProps> = ({ matches, players, settings
     applyBorders(teamSheet, teamRankingData.length, 8);
     XLSX.utils.book_append_sheet(workbook, teamSheet, '隊伍排名');
 
-    // 2. 選手表現工作表（每個隊伍）- 不包含敏感資訊
-    teamStats.forEach(stat => {
+    // 2. 選手表現工作表（依頁面順序接在隊伍排名後）- 不包含敏感資訊
+    const playerPerformanceData: (string | number)[][] = [['選手表現']];
+
+    teamStats.forEach((stat, index) => {
       const playerStats = getPlayerStats(stat.teamName);
-      const playerData = [
-        [stat.teamName + ' - 選手表現'],
-        ['選手', '性別', '出賽', '勝', '負', '勝局', '失局', '淨勝局'],
+      playerPerformanceData.push([stat.teamName]);
+      playerPerformanceData.push(['選手', '性別', '出賽', '勝', '負', '勝局', '失局', '淨勝局']);
+      playerPerformanceData.push(
         ...playerStats.map(ps => [
           ps.player.name || '未知',
           ps.player.gender || '-',
@@ -242,11 +244,16 @@ export const Standings: React.FC<StandingsProps> = ({ matches, players, settings
           ps.gamesLost,
           ps.gamesWon - ps.gamesLost
         ])
-      ];
-      const playerSheet = XLSX.utils.aoa_to_sheet(playerData);
-      applyBorders(playerSheet, playerData.length, 8);
-      XLSX.utils.book_append_sheet(workbook, playerSheet, stat.teamName);
+      );
+
+      if (index < teamStats.length - 1) {
+        playerPerformanceData.push(['']);
+      }
     });
+
+    const playerPerformanceSheet = XLSX.utils.aoa_to_sheet(playerPerformanceData);
+    applyBorders(playerPerformanceSheet, playerPerformanceData.length, 8);
+    XLSX.utils.book_append_sheet(workbook, playerPerformanceSheet, '選手表現');
 
     // 3. 比賽詳情工作表
     const matchDetailsData = [
