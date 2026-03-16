@@ -52,6 +52,15 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
   const [selectedTeam, setSelectedTeam] = useState<TeamName | 'all'>('all');
   const [hasAutoAddedFirstMatch, setHasAutoAddedFirstMatch] = useState(false);
 
+  const isLevelAPlayer = (player: Player | null | undefined) => !!player && player.skillLevel.startsWith('A');
+  const isPoint1ConstraintPoint = (pointNumber: number) => settings.point1LevelAConstraint && pointNumber === 1;
+  const isAgeConstraintPoint = (pointNumber: number) => settings.points2To4AgeAscendingConstraint && pointNumber >= 2 && pointNumber <= 4;
+  const isPoint5ConstraintPoint = (pointNumber: number) => settings.point5WomenOrMixedConstraint && pointNumber === 5;
+  const isValidPoint5Pair = (pair: [Player | null, Player | null]) => {
+    if (!pair[0] || !pair[1]) return false;
+    return (pair[0].gender === '女' && pair[1].gender === '女') || pair[0].gender !== pair[1].gender;
+  };
+
   // 初始化所有對戰組合
   useEffect(() => {
     let matchups: [TeamName, TeamName][];
@@ -120,35 +129,40 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
     setAssignments(initialAssignments);
   }, [settings.totalRounds, settings.pointsPerRound, settings.tournamentMode, existingMatches]);
 
-  // 驗證並清除違反第5點規則的配對
+  // 驗證並清除違反硬性規則的配對
   useEffect(() => {
-    if (!settings.enforceRules) return;
+    if (!settings.point1LevelAConstraint && !settings.point5WomenOrMixedConstraint) return;
     
     setAssignments(prev => prev.map(a => {
-      // 只檢查第5點
-      if (a.pointNumber !== settings.pointsPerRound) return a;
-      
       const updated = { ...a };
-      
-      // 檢查並清除 pair1 如果違反規則（兩個男性）
-      if (a.pair1[0] && a.pair1[1]) {
-        const isMaleDouble = a.pair1[0].gender === '男' && a.pair1[1].gender === '男';
-        if (isMaleDouble) {
+
+      if (isPoint1ConstraintPoint(a.pointNumber) && a.pair1[0] && a.pair1[1]) {
+        if (!isLevelAPlayer(a.pair1[0]) || !isLevelAPlayer(a.pair1[1])) {
           updated.pair1 = [null, null];
         }
       }
-      
-      // 檢查並清除 pair2 如果違反規則（兩個男性）
-      if (a.pair2[0] && a.pair2[1]) {
-        const isMaleDouble = a.pair2[0].gender === '男' && a.pair2[1].gender === '男';
-        if (isMaleDouble) {
+
+      if (isPoint1ConstraintPoint(a.pointNumber) && a.pair2[0] && a.pair2[1]) {
+        if (!isLevelAPlayer(a.pair2[0]) || !isLevelAPlayer(a.pair2[1])) {
+          updated.pair2 = [null, null];
+        }
+      }
+
+      if (isPoint5ConstraintPoint(a.pointNumber) && a.pair1[0] && a.pair1[1]) {
+        if (!isValidPoint5Pair(a.pair1)) {
+          updated.pair1 = [null, null];
+        }
+      }
+
+      if (isPoint5ConstraintPoint(a.pointNumber) && a.pair2[0] && a.pair2[1]) {
+        if (!isValidPoint5Pair(a.pair2)) {
           updated.pair2 = [null, null];
         }
       }
       
       return updated;
     }));
-  }, [settings.enforceRules, settings.pointsPerRound]);
+  }, [settings.point1LevelAConstraint, settings.point5WomenOrMixedConstraint]);
 
   // Auto-add first match in inter-club mode when starting with no matches
   useEffect(() => {
@@ -244,18 +258,17 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
     }));
   };
 
-  // 檢查選手是否可以在第5點被選擇（混雙或女雙規則）
-  const canSelectPlayerForPoint5 = (player: Player, otherPlayer: Player | null, pointNumber: number): boolean => {
-    // 如果不是第5點或規則未啟用，允許所有選手
-    if (!settings.enforceRules || pointNumber !== settings.pointsPerRound) return true;
-    
-    // 如果還沒選擇另一位選手，允許所有選手
+  // 檢查選手是否可以在指定點數被選擇
+  const canSelectPlayerForPoint = (player: Player, otherPlayer: Player | null, pointNumber: number): boolean => {
+    if (isPoint1ConstraintPoint(pointNumber) && !isLevelAPlayer(player)) {
+      return false;
+    }
+
+    if (!isPoint5ConstraintPoint(pointNumber)) return true;
     if (!otherPlayer) return true;
-    
-    // 檢查組合是否為混雙或女雙
+
     const isWomensDouble = player.gender === '女' && otherPlayer.gender === '女';
     const isMixedDouble = player.gender !== otherPlayer.gender;
-    
     return isWomensDouble || isMixedDouble;
   };
 
@@ -307,30 +320,33 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
         const team1Complete = match.pair1[0] && match.pair1[1];
         const team2Complete = match.pair2[0] && match.pair2[1];
 
-        // 檢查最後一點是否為混雙或女雙（如果啟用規則約束且已配對）
-        if (settings.enforceRules && match.pointNumber === settings.pointsPerRound) {
+        if (isPoint1ConstraintPoint(match.pointNumber)) {
+          if (team1Complete && (!isLevelAPlayer(match.pair1[0]) || !isLevelAPlayer(match.pair1[1]))) {
+            errors.push(`${matchup} 第1點 ${match.team1}必須為 Level-A 選手`);
+          }
+          if (team2Complete && (!isLevelAPlayer(match.pair2[0]) || !isLevelAPlayer(match.pair2[1]))) {
+            errors.push(`${matchup} 第1點 ${match.team2}必須為 Level-A 選手`);
+          }
+        }
+
+        // 檢查第5點是否為混雙或女雙（如果啟用規則約束且已配對）
+        if (isPoint5ConstraintPoint(match.pointNumber)) {
           if (team1Complete) {
-            const isValid = 
-              (match.pair1[0]!.gender === '女' && match.pair1[1]!.gender === '女') ||
-              (match.pair1[0]!.gender !== match.pair1[1]!.gender);
-            if (!isValid) {
-              errors.push(`${matchup} 第${settings.pointsPerRound}點 ${match.team1}必須為混雙或女雙`);
+            if (!isValidPoint5Pair(match.pair1)) {
+              errors.push(`${matchup} 第5點 ${match.team1}必須為混雙或女雙`);
             }
           }
           if (team2Complete) {
-            const isValid = 
-              (match.pair2[0]!.gender === '女' && match.pair2[1]!.gender === '女') ||
-              (match.pair2[0]!.gender !== match.pair2[1]!.gender);
-            if (!isValid) {
-              errors.push(`${matchup} 第${settings.pointsPerRound}點 ${match.team2}必須為混雙或女雙`);
+            if (!isValidPoint5Pair(match.pair2)) {
+              errors.push(`${matchup} 第5點 ${match.team2}必須為混雙或女雙`);
             }
           }
         }
       });
 
-      // 檢查年齡遞增（第1到倒數第2點）（如果啟用規則約束）
-      if (settings.enforceRules) {
-        const sortedMatches = matches.filter(m => m.pointNumber < settings.pointsPerRound).sort((a, b) => a.pointNumber - b.pointNumber);
+      // 檢查第2到4點年齡遞增（如果啟用規則約束）
+      if (settings.points2To4AgeAscendingConstraint) {
+        const sortedMatches = matches.filter(m => isAgeConstraintPoint(m.pointNumber)).sort((a, b) => a.pointNumber - b.pointNumber);
         for (let i = 1; i < sortedMatches.length; i++) {
           const prevMatch = sortedMatches[i - 1];
           const currMatch = sortedMatches[i];
@@ -818,9 +834,8 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
                           <div key={match.id} className="point-assignment">
                             <div className="point-info">
                               <span className="point-badge">第 {match.pointNumber} 點</span>
-                              {settings.enforceRules && match.pointNumber === settings.pointsPerRound && (
-                                <span className="rule-hint">混雙或女雙</span>
-                              )}
+                              {isPoint1ConstraintPoint(match.pointNumber) && <span className="rule-hint">Level-A</span>}
+                              {isPoint5ConstraintPoint(match.pointNumber) && <span className="rule-hint">混雙或女雙</span>}
                             </div>
                             
                             <div className="team-players-only">
@@ -845,7 +860,7 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
                                 >
                                   <option value="">選擇選手1</option>
                                   {teamPlayers.map(p => {
-                                    const canSelect = canSelectPlayerForPoint5(p, currentPair[1], match.pointNumber);
+                                    const canSelect = canSelectPlayerForPoint(p, currentPair[1], match.pointNumber);
                                     return (
                                       <option key={p.id} value={p.id} disabled={!canSelect}>
                                         {p.name} ({showSensitiveInfo && `${p.age}歲 `}{p.gender}) - 已安排{getPlayerMatchCount(p.id)}場{!canSelect && ' ❌'}
@@ -864,7 +879,7 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
                                 >
                                   <option value="">選擇選手2</option>
                                   {teamPlayers.map(p => {
-                                    const canSelect = canSelectPlayerForPoint5(p, currentPair[0], match.pointNumber);
+                                    const canSelect = canSelectPlayerForPoint(p, currentPair[0], match.pointNumber);
                                     return (
                                       <option key={p.id} value={p.id} disabled={!canSelect}>
                                         {p.name} ({showSensitiveInfo && `${p.age}歲 `}{p.gender}) - 已安排{getPlayerMatchCount(p.id)}場{!canSelect && ' ❌'}
@@ -905,9 +920,8 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
                       <div key={match.id} className="point-setup-card">
                         <div className="point-header">
                           <span className="point-badge">第 {match.pointNumber} 點</span>
-                          {settings.enforceRules && match.pointNumber === settings.pointsPerRound && (
-                            <span className="rule-hint">混雙或女雙</span>
-                          )}
+                          {isPoint1ConstraintPoint(match.pointNumber) && <span className="rule-hint">Level-A</span>}
+                          {isPoint5ConstraintPoint(match.pointNumber) && <span className="rule-hint">混雙或女雙</span>}
                         </div>
 
                         <div className="pair-setup">
@@ -928,7 +942,7 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
                               >
                                 <option value="">選擇選手1</option>
                                 {team1Players.map(p => {
-                                  const canSelect = canSelectPlayerForPoint5(p, match.pair1[1], match.pointNumber);
+                                  const canSelect = canSelectPlayerForPoint(p, match.pair1[1], match.pointNumber);
                                   return (
                                     <option key={p.id} value={p.id} disabled={!canSelect}>
                                       {p.name} ({showSensitiveInfo && `${p.age}歲 `}{p.gender}) - 已安排{getPlayerMatchCount(p.id)}場{!canSelect && ' ❌'}
@@ -942,7 +956,7 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
                               >
                                 <option value="">選擇選手2</option>
                                 {team1Players.map(p => {
-                                  const canSelect = canSelectPlayerForPoint5(p, match.pair1[0], match.pointNumber);
+                                  const canSelect = canSelectPlayerForPoint(p, match.pair1[0], match.pointNumber);
                                   return (
                                     <option key={p.id} value={p.id} disabled={!canSelect}>
                                       {p.name} ({showSensitiveInfo && `${p.age}歲 `}{p.gender}) - 已安排{getPlayerMatchCount(p.id)}場{!canSelect && ' ❌'}
@@ -977,7 +991,7 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
                               >
                                 <option value="">選擇選手1</option>
                                 {team2Players.map(p => {
-                                  const canSelect = canSelectPlayerForPoint5(p, match.pair2[1], match.pointNumber);
+                                  const canSelect = canSelectPlayerForPoint(p, match.pair2[1], match.pointNumber);
                                   return (
                                     <option key={p.id} value={p.id} disabled={!canSelect}>
                                       {p.name} ({showSensitiveInfo && `${p.age}歲 `}{p.gender}) - 已安排{getPlayerMatchCount(p.id)}場{!canSelect && ' ❌'}
@@ -991,7 +1005,7 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
                               >
                                 <option value="">選擇選手2</option>
                                 {team2Players.map(p => {
-                                  const canSelect = canSelectPlayerForPoint5(p, match.pair2[0], match.pointNumber);
+                                  const canSelect = canSelectPlayerForPoint(p, match.pair2[0], match.pointNumber);
                                   return (
                                     <option key={p.id} value={p.id} disabled={!canSelect}>
                                       {p.name} ({showSensitiveInfo && `${p.age}歲 `}{p.gender}) - 已安排{getPlayerMatchCount(p.id)}場{!canSelect && ' ❌'}

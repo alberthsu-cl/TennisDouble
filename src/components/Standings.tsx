@@ -292,7 +292,9 @@ export const Standings: React.FC<StandingsProps> = ({ matches, players, settings
       ['每輪點數', settings.pointsPerRound],
       ['總輪數', settings.totalRounds],
       ['最少出賽場次', settings.minMatchesPerPlayer],
-      ['強制規則', settings.enforceRules ? '是' : '否']
+      ['第1點 Level-A', settings.point1LevelAConstraint ? '是' : '否'],
+      ['第2-4點年齡遞增', settings.points2To4AgeAscendingConstraint ? '是' : '否'],
+      ['第5點混雙或女雙', settings.point5WomenOrMixedConstraint ? '是' : '否']
     ];
     const statsSheet = XLSX.utils.aoa_to_sheet(statsData);
     applyBorders(statsSheet, statsData.length, 2);

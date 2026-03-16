@@ -204,6 +204,19 @@ const getRulesFormatText = (settings: TournamentSettings) => {
   return `比賽採${settings.gamesPerMatch}局NO-AD制，先達${settings.gamesPerMatch}局獲勝；${settings.gamesPerMatch - 1}:${settings.gamesPerMatch - 1}時則Tie-break搶7決勝`;
 };
 
+const getDerivedConstraintState = (overrides: Partial<TournamentSettings>, base: TournamentSettings) => {
+  const point1LevelAConstraint = overrides.point1LevelAConstraint ?? base.point1LevelAConstraint;
+  const points2To4AgeAscendingConstraint = overrides.points2To4AgeAscendingConstraint ?? base.points2To4AgeAscendingConstraint;
+  const point5WomenOrMixedConstraint = overrides.point5WomenOrMixedConstraint ?? base.point5WomenOrMixedConstraint;
+
+  return {
+    point1LevelAConstraint,
+    points2To4AgeAscendingConstraint,
+    point5WomenOrMixedConstraint,
+    enforceRules: point1LevelAConstraint || points2To4AgeAscendingConstraint || point5WomenOrMixedConstraint,
+  };
+};
+
 type View = 'setup' | 'players' | 'matches' | 'standings' | 'manual-setup' | 'grand-slam';
 
 function App() {
@@ -228,6 +241,9 @@ function App() {
     totalRounds: 3,
     minMatchesPerPlayer: 2,
     enforceRules: true,
+    point1LevelAConstraint: true,
+    points2To4AgeAscendingConstraint: true,
+    point5WomenOrMixedConstraint: true,
     tournamentMode: 'internal',
     homeClubName: '主隊',
     awayClubName: '客隊',
@@ -251,6 +267,16 @@ function App() {
     if (savedStarted) setTournamentStarted(JSON.parse(savedStarted));
     if (savedSettings) {
       const parsedSettings = JSON.parse(savedSettings) as TournamentSettings;
+      const legacyConstraintState = typeof parsedSettings.enforceRules === 'boolean' ? parsedSettings.enforceRules : true;
+      const point1LevelAConstraint = typeof parsedSettings.point1LevelAConstraint === 'boolean'
+        ? parsedSettings.point1LevelAConstraint
+        : legacyConstraintState;
+      const points2To4AgeAscendingConstraint = typeof parsedSettings.points2To4AgeAscendingConstraint === 'boolean'
+        ? parsedSettings.points2To4AgeAscendingConstraint
+        : legacyConstraintState;
+      const point5WomenOrMixedConstraint = typeof parsedSettings.point5WomenOrMixedConstraint === 'boolean'
+        ? parsedSettings.point5WomenOrMixedConstraint
+        : legacyConstraintState;
       const participantCount = parsedSettings.tournamentMode === 'internal'
         ? (loadedPlayers.length > 0 ? loadedPlayers.length : parsedSettings.playersPerTeam * 4)
         : loadedPlayers.length;
@@ -266,6 +292,10 @@ function App() {
         gamesPerMatch: Math.max(3, parsedSettings.gamesPerMatch || 5),
         fourGameDeuceMode: parsedSettings.fourGameDeuceMode === 'extend-to-5' ? 'extend-to-5' : 'tiebreak-7',
         minMatchesPerPlayer: recalculatedMinMatches,
+        point1LevelAConstraint,
+        points2To4AgeAscendingConstraint,
+        point5WomenOrMixedConstraint,
+        enforceRules: point1LevelAConstraint || points2To4AgeAscendingConstraint || point5WomenOrMixedConstraint,
       });
     }
   }, []);
@@ -286,6 +316,14 @@ function App() {
   useEffect(() => {
     localStorage.setItem('tournamentSettings', JSON.stringify(settings));
   }, [settings]);
+
+  const updateConstraintSettings = (overrides: Partial<TournamentSettings>) => {
+    setSettings(prev => ({
+      ...prev,
+      ...overrides,
+      ...getDerivedConstraintState(overrides, prev),
+    }));
+  };
 
   // 計算每人最少出賽場次
   useEffect(() => {
@@ -1439,39 +1477,55 @@ function App() {
                 {settings.tournamentMode === 'internal' && (
                   <div className="rules-toggle">
                     <label>規則約束：</label>
-                    <button
-                      className={`btn-toggle ${settings.enforceRules ? 'active' : ''}`}
-                      onClick={() => setSettings({ ...settings, enforceRules: !settings.enforceRules })}
-                    >
-                      <span className="toggle-slider">
-                        {settings.enforceRules ? '✓' : '✕'}
-                      </span>
-                      <span className="toggle-label">{settings.enforceRules ? 'ON' : 'OFF'}</span>
-                    </button>
+                    <div className="constraint-toggle-list">
+                      <div className="constraint-toggle-item">
+                        <span className="toggle-description">第1點必須是 Level-A 選手</span>
+                        <button
+                          className={`btn-toggle ${settings.point1LevelAConstraint ? 'active' : ''}`}
+                          onClick={() => updateConstraintSettings({ point1LevelAConstraint: !settings.point1LevelAConstraint })}
+                        >
+                          <span className="toggle-slider">
+                            {settings.point1LevelAConstraint ? '✓' : '✕'}
+                          </span>
+                          <span className="toggle-label">{settings.point1LevelAConstraint ? 'ON' : 'OFF'}</span>
+                        </button>
+                      </div>
+                      <div className="constraint-toggle-item">
+                        <span className="toggle-description">第2點至第4點兩人歲數遞增</span>
+                        <button
+                          className={`btn-toggle ${settings.points2To4AgeAscendingConstraint ? 'active' : ''}`}
+                          onClick={() => updateConstraintSettings({ points2To4AgeAscendingConstraint: !settings.points2To4AgeAscendingConstraint })}
+                        >
+                          <span className="toggle-slider">
+                            {settings.points2To4AgeAscendingConstraint ? '✓' : '✕'}
+                          </span>
+                          <span className="toggle-label">{settings.points2To4AgeAscendingConstraint ? 'ON' : 'OFF'}</span>
+                        </button>
+                      </div>
+                      <div className="constraint-toggle-item">
+                        <span className="toggle-description">第5點必須安排混雙或女雙</span>
+                        <button
+                          className={`btn-toggle ${settings.point5WomenOrMixedConstraint ? 'active' : ''}`}
+                          onClick={() => updateConstraintSettings({ point5WomenOrMixedConstraint: !settings.point5WomenOrMixedConstraint })}
+                        >
+                          <span className="toggle-slider">
+                            {settings.point5WomenOrMixedConstraint ? '✓' : '✕'}
+                          </span>
+                          <span className="toggle-label">{settings.point5WomenOrMixedConstraint ? 'ON' : 'OFF'}</span>
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
-              <ul>
-                {settings.tournamentMode === 'inter-club' ? (
-                  <>
-                    <li>{settings.homeClubName} vs {settings.awayClubName} 對抗賽</li>
-                    <li>由管理者自由安排對戰配對，無人數、輪次限制</li>
-                    <li>{getRulesFormatText(settings)}</li>
-                    <li>請至「手動配對」功能建立比賽</li>
-                  </>
-                ) : (
-                  <>
-                    <li>打{settings.pointsPerRound}點雙打：
-                      <ul>
-                        <li>第1點至第{settings.pointsPerRound - 1}點：兩人歲數遞增</li>
-                        <li>第{settings.pointsPerRound}點：必須安排混雙或女雙出賽，歲數沒有限制</li>
-                      </ul>
-                    </li>
-                    <li>每位正式選手至少須出賽{settings.minMatchesPerPlayer}場</li>
-                    <li>{getRulesFormatText(settings)}</li>
-                  </>
-                )}
-              </ul>
+              {settings.tournamentMode === 'inter-club' && (
+                <ul>
+                  <li>{settings.homeClubName} vs {settings.awayClubName} 對抗賽</li>
+                  <li>由管理者自由安排對戰配對，無人數、輪次限制</li>
+                  <li>{getRulesFormatText(settings)}</li>
+                  <li>請至「手動配對」功能建立比賽</li>
+                </ul>
+              )}
             </div>
 
             <h2>🎯 自動分組規則</h2>
