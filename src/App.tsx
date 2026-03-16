@@ -1108,6 +1108,26 @@ function App() {
     }
   };
 
+  const SENSITIVE_INFO_ACCESS_CODE = '570926';
+
+  const handleSensitiveInfoToggle = async (checked: boolean) => {
+    if (!checked) {
+      setShowSensitiveInfo(false);
+      return;
+    }
+
+    const inputCode = window.prompt('請輸入存取碼以顯示敏感資訊');
+    if (inputCode === SENSITIVE_INFO_ACCESS_CODE) {
+      setShowSensitiveInfo(true);
+      return;
+    }
+
+    setShowSensitiveInfo(false);
+    if (inputCode !== null) {
+      await modal.showAlert('存取碼錯誤，無法顯示敏感資訊');
+    }
+  };
+
   const getTeamCount = (teamName: TeamName) => {
     return players.filter(p => p.team === teamName).length;
   };
@@ -1167,7 +1187,9 @@ function App() {
             <input
               type="checkbox"
               checked={showSensitiveInfo}
-              onChange={(e) => setShowSensitiveInfo(e.target.checked)}
+              onChange={(e) => {
+                void handleSensitiveInfoToggle(e.target.checked);
+              }}
               style={{ cursor: 'pointer' }}
             />
             🔒 顯示敏感資訊
