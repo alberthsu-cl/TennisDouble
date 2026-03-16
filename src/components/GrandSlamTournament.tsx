@@ -455,6 +455,47 @@ export const GrandSlamTournament: React.FC<GrandSlamTournamentProps> = ({
     reader.readAsText(file, 'UTF-8');
   };
 
+  // Export current round matchups as Excel
+  const handleExportCurrentRound = () => {
+    const roundMatches = getMatchesForRound(currentRound).filter(m => m.player1 || m.player2);
+    const roundName = getRoundName(currentRound);
+    const today = new Date().toLocaleDateString('zh-TW');
+
+    const rows = roundMatches.map((match, idx) => {
+      const isBye = !match.player2;
+      const p1 = match.player1?.name || '輪空';
+      const p2 = isBye ? '' : (match.player2?.name ?? '');
+      const p1Win = match.winner?.id === match.player1?.id;
+      const p2Win = match.winner?.id === match.player2?.id;
+      const result = match.winner
+        ? `晉級：${match.winner.name}`
+        : isBye
+          ? `${p1} 直接晉級`
+          : '待賽';
+      return {
+        場次: `第 ${idx + 1} 場`,
+        選手甲: p1Win ? `${p1} 🏆` : p1,
+        VS: isBye ? '輪空' : 'VS',
+        選手乙: p2Win ? `${p2} 🏆` : p2,
+        結果: result,
+      };
+    });
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    // Set column widths
+    ws['!cols'] = [
+      { wch: 10 }, // 場次
+      { wch: 16 }, // 選手甲
+      { wch: 6 },  // VS
+      { wch: 16 }, // 選手乙
+      { wch: 20 }, // 結果
+    ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, roundName);
+    XLSX.writeFile(wb, `一球大滿貫_${roundName}_${today.replace(/\//g, '')}.xlsx`);
+  };
+
   const currentRoundMatches = getMatchesForRound(currentRound);
   const champion = getChampion();
   const tournamentComplete = totalRounds > 0 && isRoundComplete(totalRounds);
@@ -521,6 +562,9 @@ export const GrandSlamTournament: React.FC<GrandSlamTournamentProps> = ({
               <span>當前輪次：{getRoundName(currentRound)}</span>
             </div>
             <div className="status-actions">
+              <button className="btn-secondary" onClick={handleExportCurrentRound}>
+                📄 匯出本輪對陣
+              </button>
               <button className="btn-danger" onClick={handleClearAll}>
                 清除所有資料
               </button>
