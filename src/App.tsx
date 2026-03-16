@@ -174,6 +174,29 @@ const autoDistributeTeams = (players: Player[], mode: 'internal' | 'inter-club' 
   return [...playersWithTeams, ...captains, ...femalePlayers, ...malePlayers];
 };
 
+const syncPlayerMatchRecords = (players: Player[], sourceMatches: Match[]): Player[] => {
+  const completedMatchCounts = new Map<string, number>();
+
+  sourceMatches.forEach((match) => {
+    if (match.status !== 'completed') {
+      return;
+    }
+
+    [match.pair1.player1, match.pair1.player2, match.pair2.player1, match.pair2.player2].forEach((matchPlayer) => {
+      if (!matchPlayer) {
+        return;
+      }
+
+      completedMatchCounts.set(matchPlayer.id, (completedMatchCounts.get(matchPlayer.id) || 0) + 1);
+    });
+  });
+
+  return players.map((player) => ({
+    ...player,
+    matchesPlayed: completedMatchCounts.get(player.id) || 0,
+  }));
+};
+
 const getDeuceDecisionText = (settings: TournamentSettings) => {
   if (settings.gamesPerMatch === 4) {
     return settings.fourGameDeuceMode === 'extend-to-5'
@@ -370,6 +393,11 @@ function App() {
     setPlayers(players.filter(p => p.id !== playerId));
   };
 
+  const replaceTournamentMatches = (nextMatches: Match[]) => {
+    setMatches(nextMatches);
+    setPlayers(currentPlayers => syncPlayerMatchRecords(currentPlayers, nextMatches));
+  };
+
   const handleStartTournament = async () => {
     const requiredPlayers = settings.playersPerTeam * 4;
     
@@ -395,7 +423,7 @@ function App() {
 
     try {
       const schedule = generateFullSchedule(teams, settings);
-      setMatches(schedule);
+      replaceTournamentMatches(schedule);
       setTournamentStarted(true);
       setCurrentView('matches');
       await modal.showAlert('賽程已生成！共 ' + schedule.length + ' 場比賽');
@@ -443,7 +471,7 @@ function App() {
   };
 
   const handleManualMatchesGenerated = async (generatedMatches: Match[]) => {
-    setMatches(generatedMatches);
+    replaceTournamentMatches(generatedMatches);
     setTournamentStarted(true);
     setCurrentView('matches');
     await modal.showAlert('手動配對已完成！共 ' + generatedMatches.length + ' 場比賽');
@@ -720,26 +748,73 @@ function App() {
   };
 
   const handleExportArrangementTemplateExcel = () => {
-    const rows: Array<{ round: number; point: number }> = [];
-    for (let round = 1; round <= settings.totalRounds; round++) {
-      for (let point = 1; point <= settings.pointsPerRound; point++) {
-        rows.push({ round, point });
-      }
-    }
-
     const now = new Date();
     const dateText = now.toISOString().slice(0, 10);
+    const lastPoint = settings.pointsPerRound;
+    const c1On = settings.point1LevelAConstraint;
+    const c3On = settings.point5WomenOrMixedConstraint;
 
-    const tableRowsHtml = rows
-      .map(({ round, point }) => `
-        <tr>
-          <td class="center">${round}</td>
-          <td class="center">${point}</td>
-          <td class="blank"></td>
-          <td class="blank"></td>
-        </tr>
-      `)
-      .join('');
+    const teamNames: TeamName[] = ['甲隊', '乙隊', '丙隊', '丁隊'];
+    const hasPlayers = players.length > 0;
+
+    const buildRows = (teamPlayers: Player[]) => {
+      const levelAMale = teamPlayers.filter(p => p.skillLevel.startsWith('A') && p.gender === '男');
+      const females = teamPlayers.filter(p => p.gender === '女');
+
+      const rows: string[] = [];
+      for (let round = 1; round <= settings.totalRounds; round++) {
+        for (let point = 1; point <= settings.pointsPerRound; point++) {
+          let hint = '';
+          if (c1On && point === 1 && levelAMale.length > 0) {
+            hint = `<div class="cands">${levelAMale.map(p => `<span class="cname">${p.name}</span>`).join('')}</div>`;
+          } else if (c3On && point === lastPoint && females.length > 0) {
+            hint = `<div class="cands">${females.map(p => `<span class="cname">${p.name}</span>`).join('')}</div>`;
+          }
+          rows.push(`<tr><td class="center">${round}</td><td class="center">${point}</td><td class="pcell">${hint}</td></tr>`);
+        }
+      }
+      return rows.join('');
+    };
+
+    // Build one section per team (or single generic section if no players)
+    const sections: string[] = [];
+    const teamsToExport = hasPlayers ? teamNames : ([''] as any[]);
+
+    for (const teamName of teamsToExport) {
+      const teamPlayers = hasPlayers ? players.filter(p => p.team === teamName) : [];
+      const teamLabel = hasPlayers ? String(teamName) : '________________';
+      const captainTagMap: Record<string, string> = { '甲隊': 'A1', '乙隊': 'B1', '丙隊': 'C1', '丁隊': 'D1' };
+      const captainTag = captainTagMap[String(teamName)];
+      const captain = hasPlayers ? teamPlayers.find(p => p.groupTag === captainTag) : undefined;
+      const captainLabel = captain ? captain.name : '________________';
+      const tbodyHtml = buildRows(teamPlayers);
+
+      sections.push(`
+  <div class="sheet">
+    <div class="header">
+      <h1 class="title">空白排陣表</h1>
+      <div class="meta">
+        <div class="meta-item">隊伍：${teamLabel}</div>
+        <div class="meta-item">隊長：${captainLabel}</div>
+        <div class="meta-item">日期：________________</div>
+      </div>
+      <p class="hint">填寫方式：每列代表一個「輪次＋點數」，由隊長填入該點出賽的 2 位選手。</p>
+    </div>
+    <table>
+      <colgroup>
+        <col class="col-round" />
+        <col class="col-point" />
+        <col class="col-players" />
+      </colgroup>
+      <thead><tr><th>輪次</th><th>點數</th><th>出賽選手（填入 2 位）</th></tr></thead>
+      <tbody>${tbodyHtml}</tbody>
+    </table>
+    <div class="footer">
+      <span>總輪數：${settings.totalRounds}</span>
+      <span>每輪點數：${settings.pointsPerRound}</span>
+    </div>
+  </div>`);
+    }
 
     const html = `<!doctype html>
 <html lang="zh-Hant">
@@ -748,130 +823,33 @@ function App() {
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>空白排陣表</title>
   <style>
-    @page {
-      size: A4 portrait;
-      margin: 12mm 16mm;
-    }
-    * {
-      box-sizing: border-box;
-    }
-    body {
-      margin: 0;
-      font-family: "Microsoft JhengHei", "Noto Sans TC", Arial, sans-serif;
-      color: #111;
-      font-size: 14px;
-      line-height: 1.4;
-    }
-    .sheet {
-      width: 94%;
-      margin: 0 auto;
-      min-height: calc(297mm - 24mm);
-    }
-    .header {
-      margin-bottom: 8px;
-    }
-    .title {
-      font-size: 24px;
-      font-weight: 700;
-      margin: 0 0 6px 0;
-    }
-    .meta {
-      display: flex;
-      gap: 20px;
-      flex-wrap: wrap;
-      margin-bottom: 8px;
-    }
-    .meta-item {
-      border-bottom: 1px solid #999;
-      min-width: 170px;
-      padding-bottom: 2px;
-    }
-    .hint {
-      margin: 0 0 10px 0;
-      color: #333;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      table-layout: fixed;
-    }
-    col.col-round { width: 12%; }
-    col.col-point { width: 12%; }
-    col.col-player { width: 38%; }
-    th, td {
-      border: 1px solid #333;
-      padding: 6px;
-      height: 42px;
-      vertical-align: middle;
-    }
-    th {
-      background: #f3f3f3;
-      font-weight: 700;
-      text-align: center;
-      font-size: 15px;
-    }
-    td {
-      font-size: 14px;
-    }
-    td.center {
-      text-align: center;
-      width: 52px;
-    }
-    td.blank {
-      background: #fff;
-    }
-    .footer {
-      margin-top: 10px;
-      display: flex;
-      justify-content: space-between;
-      gap: 12px;
-      font-size: 13px;
-      color: #444;
-    }
-    @media print {
-      .no-print {
-        display: none;
-      }
-    }
+    @page { size: A4 portrait; margin: 12mm 16mm; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: "Microsoft JhengHei","Noto Sans TC",Arial,sans-serif; color: #111; font-size: 14px; line-height: 1.4; }
+    .sheet { width: 94%; margin: 0 auto; min-height: calc(297mm - 24mm); page-break-after: always; }
+    .sheet:last-child { page-break-after: avoid; }
+    .header { margin-bottom: 8px; }
+    .title { font-size: 24px; font-weight: 700; margin: 0 0 6px 0; }
+    .meta { display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 8px; }
+    .meta-item { border-bottom: 1px solid #999; min-width: 170px; padding-bottom: 2px; }
+    .hint { margin: 0 0 10px 0; color: #333; }
+    table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    col.col-round { width: 10%; }
+    col.col-point { width: 10%; }
+    col.col-players { width: 80%; }
+    th, td { border: 1px solid #333; padding: 6px; height: 48px; vertical-align: middle; }
+    th { background: #f3f3f3; font-weight: 700; text-align: center; font-size: 15px; }
+    td.center { text-align: center; }
+    td.pcell { font-size: 13px; }
+    .cands { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+    .clabel { font-size: 11px; color: #555; font-weight: 600; white-space: nowrap; }
+    .cname { font-size: 12px; background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 4px; padding: 1px 6px; white-space: nowrap; }
+    .footer { margin-top: 10px; display: flex; justify-content: space-between; gap: 12px; font-size: 13px; color: #444; }
+    @media print { .no-print { display: none; } }
   </style>
 </head>
 <body>
-  <div class="sheet">
-    <div class="header">
-      <h1 class="title">空白排陣表</h1>
-      <div class="meta">
-        <div class="meta-item">隊伍：________________</div>
-        <div class="meta-item">隊長：________________</div>
-        <div class="meta-item">日期：________________</div>
-      </div>
-      <p class="hint">填寫方式：每列代表一個「輪次＋點數」，由隊長填入該點出賽的 2 位選手。</p>
-    </div>
-
-    <table>
-      <colgroup>
-        <col class="col-round" />
-        <col class="col-point" />
-        <col class="col-player" />
-        <col class="col-player" />
-      </colgroup>
-      <thead>
-        <tr>
-          <th>輪次</th>
-          <th>點數</th>
-          <th>選手1</th>
-          <th>選手2</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${tableRowsHtml}
-      </tbody>
-    </table>
-
-    <div class="footer">
-      <span>總輪數：${settings.totalRounds}</span>
-      <span>每輪點數：${settings.pointsPerRound}</span>
-    </div>
-  </div>
+  ${sections.join('\n')}
 </body>
 </html>`;
 
@@ -1066,7 +1044,7 @@ function App() {
             const confirmed = await modal.showConfirm('這將覆蓋現有比賽資料，確定要匯入嗎？');
             if (!confirmed) return;
           }
-          setMatches(imported);
+          replaceTournamentMatches(imported);
           setTournamentStarted(true);
           await modal.showAlert(`成功匯入 ${imported.length} 場比賽！`);
         } else {
@@ -1473,13 +1451,12 @@ function App() {
             <h2>賽事規則說明</h2>
             <div className="rules-box">
               <div className="rules-header">
-                <h3>{settings.tournamentMode === 'inter-club' ? '友誼賽比賽規則：' : '本次會內賽比賽規則：'}</h3>
+                <h3>{settings.tournamentMode === 'inter-club' ? '友誼賽比賽規則：' : '本次會內賽規則約束：'}</h3>
                 {settings.tournamentMode === 'internal' && (
                   <div className="rules-toggle">
-                    <label>規則約束：</label>
                     <div className="constraint-toggle-list">
                       <div className="constraint-toggle-item">
-                        <span className="toggle-description">第1點必須是 Level-A 選手</span>
+                        <span className="toggle-description">第1點必須是男性 Level-A 選手</span>
                         <button
                           className={`btn-toggle ${settings.point1LevelAConstraint ? 'active' : ''}`}
                           onClick={() => updateConstraintSettings({ point1LevelAConstraint: !settings.point1LevelAConstraint })}
@@ -1491,7 +1468,9 @@ function App() {
                         </button>
                       </div>
                       <div className="constraint-toggle-item">
-                        <span className="toggle-description">第2點至第4點兩人歲數遞增</span>
+                        <span className="toggle-description">
+                          第{settings.point1LevelAConstraint ? 2 : 1}點至第{settings.pointsPerRound - 1}點兩人歲數遞增
+                        </span>
                         <button
                           className={`btn-toggle ${settings.points2To4AgeAscendingConstraint ? 'active' : ''}`}
                           onClick={() => updateConstraintSettings({ points2To4AgeAscendingConstraint: !settings.points2To4AgeAscendingConstraint })}
@@ -1503,7 +1482,7 @@ function App() {
                         </button>
                       </div>
                       <div className="constraint-toggle-item">
-                        <span className="toggle-description">第5點必須安排混雙或女雙</span>
+                        <span className="toggle-description">第{settings.pointsPerRound}點必須安排女雙（少於2位女性可混雙）</span>
                         <button
                           className={`btn-toggle ${settings.point5WomenOrMixedConstraint ? 'active' : ''}`}
                           onClick={() => updateConstraintSettings({ point5WomenOrMixedConstraint: !settings.point5WomenOrMixedConstraint })}

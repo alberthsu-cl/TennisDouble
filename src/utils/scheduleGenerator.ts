@@ -42,7 +42,7 @@ function isMalePlayer(player: Player | null | undefined): boolean {
 }
 
 function isLevelAPlayer(player: Player | null | undefined): boolean {
-  return !!player && player.skillLevel.startsWith('A');
+  return !!player && player.skillLevel.startsWith('A') && player.gender === '男';
 }
 
 function isPoint1ConstraintPoint(pointNumber: PointType, settings: TournamentSettings): boolean {
@@ -50,11 +50,13 @@ function isPoint1ConstraintPoint(pointNumber: PointType, settings: TournamentSet
 }
 
 function isAgeConstraintPoint(pointNumber: PointType, settings: TournamentSettings): boolean {
-  return settings.points2To4AgeAscendingConstraint && pointNumber >= 2 && pointNumber <= 4;
+  const start = settings.point1LevelAConstraint ? 2 : 1;
+  const end = settings.pointsPerRound - 1;
+  return settings.points2To4AgeAscendingConstraint && pointNumber >= start && pointNumber <= end;
 }
 
 function isPoint5ConstraintPoint(pointNumber: PointType, settings: TournamentSettings): boolean {
-  return settings.point5WomenOrMixedConstraint && pointNumber === 5;
+  return settings.point5WomenOrMixedConstraint && pointNumber === settings.pointsPerRound;
 }
 
 /**
@@ -79,30 +81,18 @@ export function generatePairs(players: Player[]): Pair[] {
 }
 
 /**
- * 檢查配對是否符合最後一點的規則（混雙或女雙）
+ * 檢查配對是否符合最後一點的規則（女雙優先，少於2位女性可混雙）
  */
-function isValidLastPointPair(pair: Pair): boolean {
-  // Check if players exist
+function isValidLastPointPair(pair: Pair, teamPlayers: Player[]): boolean {
   if (!pair.player1 || !pair.player2) return false;
-  
-  // 女雙：兩位都是女性
+
   const isWomensDouble = isFemalePlayer(pair.player1) && isFemalePlayer(pair.player2);
-  
-  // 混雙：一男一女
   const isMixedDouble = (isMalePlayer(pair.player1) && isFemalePlayer(pair.player2)) ||
                         (isFemalePlayer(pair.player1) && isMalePlayer(pair.player2));
-  
-  return isWomensDouble || isMixedDouble;
-}
 
-/**
- * 計算配對中的女性人數
- */
-function getFemaleCount(pair: Pair): number {
-  let count = 0;
-  if (isFemalePlayer(pair.player1)) count++;
-  if (isFemalePlayer(pair.player2)) count++;
-  return count;
+  const teamFemaleCount = teamPlayers.filter(p => p.gender === '女').length;
+  if (teamFemaleCount >= 2) return isWomensDouble;
+  return isWomensDouble || isMixedDouble;
 }
 
 /**
@@ -185,17 +175,27 @@ function findPairForPoint(
   }
 
   if (isPoint5Gender) {
-    validPairs = validPairs.filter(pair => isValidLastPointPair(pair));
-  }
-  
-  if (validPairs.length === 0) {
-    console.warn(`No valid pairs available from ${allPairs.length} total pairs`);
-    return null;
-  }
-  
-  if (isPoint5Gender) {
-    const womensDoublePairs = validPairs.filter(pair => getFemaleCount(pair) === 2);
-    validPairs = womensDoublePairs.length > 0 ? womensDoublePairs : validPairs;
+    const teamFemaleCount = teamPlayers.filter(p => p.gender === '女').length;
+    const womensDoublePairs = validPairs.filter(pair =>
+      isFemalePlayer(pair.player1) && isFemalePlayer(pair.player2)
+    );
+    const mixedDoublePairs = validPairs.filter(pair =>
+      (isMalePlayer(pair.player1) && isFemalePlayer(pair.player2)) ||
+      (isFemalePlayer(pair.player1) && isMalePlayer(pair.player2))
+    );
+
+    if (womensDoublePairs.length > 0) {
+      // Women's doubles available — always prefer this
+      validPairs = womensDoublePairs;
+    } else if (teamFemaleCount < 2 && mixedDoublePairs.length > 0) {
+      // Not enough females in team — mixed doubles allowed
+      validPairs = mixedDoublePairs;
+    } else if (mixedDoublePairs.length > 0) {
+      // Graceful fallback: no women's doubles available despite having females (all used in other points)
+      console.warn(`第${pointNumber}點不夠女雙可用，降級到混雙`);
+      validPairs = mixedDoublePairs;
+    }
+    // else: keep all available pairs as absolute last resort
   }
   
   // 第2至4點需要按年齡排序
@@ -289,9 +289,10 @@ export function generateRound(
   // 為每個對戰生成比賽
   for (const [team1, team2] of matchups) {
     // 如果啟用規則，先生成最後一點以保留女性選手配置空間
-    const allPoints = Array.from({ length: settings.pointsPerRound }, (_, i) => i + 1);
-    const pointOrder = settings.point5WomenOrMixedConstraint && settings.pointsPerRound >= 5
-      ? [5, ...allPoints.filter(p => p !== 5)]
+    const allPoints = Array.from({ length: settings.pointsPerRound }, (_, i) => (i + 1) as PointType);
+    const lastPoint = settings.pointsPerRound as PointType;
+    const pointOrder: PointType[] = settings.point5WomenOrMixedConstraint
+      ? [lastPoint, ...allPoints.filter(p => p !== lastPoint)]
       : allPoints;
     
     const generatedMatches = new Map<number, Match>();
@@ -588,8 +589,8 @@ export function generateFullSchedule(
               skillScore: getSkillScore(pair.player1?.skillLevel || 'B2') + getSkillScore(player.skillLevel),
             };
 
-            const canReplaceP1 = isValidLastPointPair(candidatePair1);
-            const canReplaceP2 = isValidLastPointPair(candidatePair2);
+            const canReplaceP1 = isValidLastPointPair(candidatePair1, teamRoster);
+            const canReplaceP2 = isValidLastPointPair(candidatePair2, teamRoster);
 
             if (!canReplaceP1 && !canReplaceP2) {
               continue;
@@ -612,7 +613,7 @@ export function generateFullSchedule(
                 totalAge: player.age + (pair.player2?.age || 0),
                 skillScore: getSkillScore(player.skillLevel) + getSkillScore(pair.player2?.skillLevel || 'B2'),
               };
-              if (!isValidLastPointPair(candidatePair)) {
+              if (!isValidLastPointPair(candidatePair, teamRoster)) {
                 continue;
               }
             }
@@ -639,7 +640,7 @@ export function generateFullSchedule(
                 totalAge: (pair.player1?.age || 0) + player.age,
                 skillScore: getSkillScore(pair.player1?.skillLevel || 'B2') + getSkillScore(player.skillLevel),
               };
-              if (!isValidLastPointPair(candidatePair)) {
+              if (!isValidLastPointPair(candidatePair, teamRoster)) {
                 continue;
               }
             }
@@ -697,6 +698,14 @@ export function validateSchedule(matches: Match[], players: Player[], settings: 
   });
   
   // 檢查規則約束（如果啟用）
+  const teamPlayersMap = new Map<string, Player[]>();
+  players.forEach(p => {
+    if (p.team) {
+      if (!teamPlayersMap.has(p.team)) teamPlayersMap.set(p.team, []);
+      teamPlayersMap.get(p.team)!.push(p);
+    }
+  });
+
   if (settings.point1LevelAConstraint || settings.points2To4AgeAscendingConstraint || settings.point5WomenOrMixedConstraint) {
     matchesByRound.forEach((roundMatches, key) => {
       roundMatches.forEach(match => {
@@ -710,11 +719,13 @@ export function validateSchedule(matches: Match[], players: Player[], settings: 
         }
 
         if (isPoint5ConstraintPoint(match.pointNumber, settings)) {
-          if (!isValidLastPointPair(match.pair1)) {
-            errors.push(`${key}: 第5點 ${match.team1} 必須為混雙或女雙`);
+          const t1Players = teamPlayersMap.get(match.team1) || [];
+          const t2Players = teamPlayersMap.get(match.team2) || [];
+          if (!isValidLastPointPair(match.pair1, t1Players)) {
+            errors.push(`${key}: 第${settings.pointsPerRound}點 ${match.team1} 必須為女雙（少於2位女性可混雙）`);
           }
-          if (!isValidLastPointPair(match.pair2)) {
-            errors.push(`${key}: 第5點 ${match.team2} 必須為混雙或女雙`);
+          if (!isValidLastPointPair(match.pair2, t2Players)) {
+            errors.push(`${key}: 第${settings.pointsPerRound}點 ${match.team2} 必須為女雙（少於2位女性可混雙）`);
           }
         }
       });
