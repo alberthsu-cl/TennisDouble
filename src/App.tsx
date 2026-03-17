@@ -1478,7 +1478,7 @@ function App() {
                   <div className="rules-toggle">
                     <div className="constraint-toggle-list">
                       <div className="constraint-toggle-item">
-                        <span className="toggle-description">第1點必須是男性 Level-A 選手</span>
+                        <span className="toggle-description">第1點必須是男性A級選手</span>
                         <button
                           className={`btn-toggle ${settings.point1LevelAConstraint ? 'active' : ''}`}
                           onClick={() => updateConstraintSettings({ point1LevelAConstraint: !settings.point1LevelAConstraint })}

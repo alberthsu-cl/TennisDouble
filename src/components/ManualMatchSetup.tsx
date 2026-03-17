@@ -278,6 +278,7 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
 
   // 檢查選手是否可以在指定點數被選擇
   const canSelectPlayerForPoint = (player: Player, otherPlayer: Player | null, pointNumber: number, allTeamPlayers: Player[]): boolean => {
+    if (otherPlayer && otherPlayer.id === player.id) return false;
     if (isPoint1ConstraintPoint(pointNumber) && !isLevelAPlayer(player)) {
       return false;
     }
@@ -344,10 +345,10 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
 
         if (isPoint1ConstraintPoint(match.pointNumber)) {
           if (team1Complete && (!isLevelAPlayer(match.pair1[0]) || !isLevelAPlayer(match.pair1[1]))) {
-            errors.push(`${matchup} 第1點 ${match.team1}必須為 Level-A 選手`);
+            errors.push(`${matchup} 第1點 ${match.team1}必須為男性A級選手`);
           }
           if (team2Complete && (!isLevelAPlayer(match.pair2[0]) || !isLevelAPlayer(match.pair2[1]))) {
-            errors.push(`${matchup} 第1點 ${match.team2}必須為 Level-A 選手`);
+            errors.push(`${matchup} 第1點 ${match.team2}必須為男性A級選手`);
           }
         }
 
@@ -907,8 +908,8 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
                     >
                       <option value="">選擇選手1</option>
                       {getTeamPlayers(match.team1).map(p => (
-                        <option key={p.id} value={p.id}>
-                          {p.name} ({p.gender}) - 已安排{getPlayerMatchCount(p.id)}場
+                        <option key={p.id} value={p.id} disabled={match.pair1[1]?.id === p.id}>
+                          {p.name} ({p.gender}) - 已安排{getPlayerMatchCount(p.id)}場{match.pair1[1]?.id === p.id && ' ❌'}
                         </option>
                       ))}
                     </select>
@@ -918,8 +919,8 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
                     >
                       <option value="">選擇選手2</option>
                       {getTeamPlayers(match.team1).map(p => (
-                        <option key={p.id} value={p.id}>
-                          {p.name} ({p.gender}) - 已安排{getPlayerMatchCount(p.id)}場
+                        <option key={p.id} value={p.id} disabled={match.pair1[0]?.id === p.id}>
+                          {p.name} ({p.gender}) - 已安排{getPlayerMatchCount(p.id)}場{match.pair1[0]?.id === p.id && ' ❌'}
                         </option>
                       ))}
                     </select>
@@ -932,8 +933,8 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
                     >
                       <option value="">選擇選手1</option>
                       {getTeamPlayers(match.team2).map(p => (
-                        <option key={p.id} value={p.id}>
-                          {p.name} ({p.gender}) - 已安排{getPlayerMatchCount(p.id)}場
+                        <option key={p.id} value={p.id} disabled={match.pair2[1]?.id === p.id}>
+                          {p.name} ({p.gender}) - 已安排{getPlayerMatchCount(p.id)}場{match.pair2[1]?.id === p.id && ' ❌'}
                         </option>
                       ))}
                     </select>
@@ -943,8 +944,8 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
                     >
                       <option value="">選擇選手2</option>
                       {getTeamPlayers(match.team2).map(p => (
-                        <option key={p.id} value={p.id}>
-                          {p.name} ({p.gender}) - 已安排{getPlayerMatchCount(p.id)}場
+                        <option key={p.id} value={p.id} disabled={match.pair2[0]?.id === p.id}>
+                          {p.name} ({p.gender}) - 已安排{getPlayerMatchCount(p.id)}場{match.pair2[0]?.id === p.id && ' ❌'}
                         </option>
                       ))}
                     </select>
