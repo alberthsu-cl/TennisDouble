@@ -1177,21 +1177,20 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
       </div>
 
       <div className="setup-actions">
-        <button className="btn-secondary" onClick={onCancel}>
-          {existingMatches ? '返回比賽列表' : '返回'}
-        </button>
-        {settings.tournamentMode === 'inter-club' ? (
-          <button className="btn-primary btn-large" onClick={handleFinishSetup}>
+        <div className="setup-actions-left">
+          <button className="btn-primary setup-action-btn" onClick={onCancel}>
+            {existingMatches ? '返回比賽列表' : '返回'}
+          </button>
+          <button className="btn-primary setup-action-btn" onClick={handleFinishSetup}>
             {existingMatches ? '儲存調整' : '完成配對並開始賽事'}
           </button>
-        ) : currentRound < settings.totalRounds ? (
-          <button className="btn-primary" onClick={handleNextRound}>
-            下一輪 →
-          </button>
-        ) : (
-          <button className="btn-primary btn-large" onClick={handleFinishSetup}>
-            {existingMatches ? '儲存調整' : '完成配對並開始賽事'}
-          </button>
+        </div>
+        {settings.tournamentMode === 'internal' && currentRound < settings.totalRounds && viewMode === 'edit' && (
+          <div className="setup-actions-right">
+            <button className="btn-primary setup-action-btn" onClick={handleNextRound}>
+              下一輪 →
+            </button>
+          </div>
         )}
       </div>
     </div>
