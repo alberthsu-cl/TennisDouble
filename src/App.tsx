@@ -1565,12 +1565,11 @@ function App() {
                 <h3>隊伍人數狀態</h3>
                 <div className="teams-grid">
                   {(['甲隊', '乙隊', '丙隊', '丁隊'] as TeamName[]).map(team => (
-                    <div key={team} className={`team-card ${getTeamCount(team) === settings.playersPerTeam ? 'complete' : ''}`}>
+                    <div key={team} className="team-card">
                       <h4>{team}</h4>
                       <div className="team-count">
                         {getTeamCount(team)} / {settings.playersPerTeam} 人
                       </div>
-                      {getTeamCount(team) === settings.playersPerTeam && <div className="check-mark">✓</div>}
                     </div>
                   ))}
                 </div>
@@ -1618,14 +1617,14 @@ function App() {
                       {settings.tournamentMode === 'inter-club' ? '開始配對（手動）' : '手動配對設定'}
                     </button>
                   </div>
-                  <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'flex-start' }}>
+                  <div className="setup-import-actions">
                     <button 
                       className="btn-secondary btn-large"
                       onClick={handleLoadDemoData}
                     >
                       載入示範資料
                     </button>
-                    <label className="btn-secondary btn-large" style={{ cursor: 'pointer', margin: 0 }}>
+                    <label className="btn-secondary btn-large setup-upload-trigger">
                       從Excel載入選手資料
                       <input
                         type="file"
@@ -1640,7 +1639,7 @@ function App() {
                         }}
                       />
                     </label>
-                    <label className="btn-secondary btn-large" style={{ cursor: 'pointer', margin: 0 }}>
+                    <label className="btn-secondary btn-large setup-upload-trigger">
                       從JSON載入選手資料
                       <input
                         type="file"

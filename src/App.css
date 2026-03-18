@@ -562,17 +562,12 @@
 }
 
 .team-card {
-  background: #f8f9fa;
+  background: #d4edda;
   padding: 1.5rem;
   border-radius: 8px;
   text-align: center;
-  border: 2px solid #dee2e6;
+  border: 2px solid #28a745;
   position: relative;
-}
-
-.team-card.complete {
-  background: #d4edda;
-  border-color: #28a745;
 }
 
 .team-card.club-card {
@@ -596,14 +591,6 @@
   color: #667eea;
 }
 
-.check-mark {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  font-size: 1.5rem;
-  color: #28a745;
-}
-
 .setup-actions {
   margin-top: 2rem;
   text-align: center;
@@ -623,8 +610,12 @@
 }
 
 .warning {
-  color: #dc3545;
+  color: #b91c1c;
   margin-top: 1rem;
+  padding: 0.9rem 1rem;
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
+  border-radius: 14px;
 }
 
 /* 按鈕樣式 */
@@ -2289,16 +2280,8 @@ button {
 }
 
 .setup-actions {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 0.75rem;
-  flex-wrap: wrap;
   margin-top: 2rem;
-  padding: 1rem;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  text-align: center;
 }
 
 .setup-actions-left,
@@ -2321,6 +2304,39 @@ button {
   gap: 1rem;
   justify-content: center;
   width: 100%;
+}
+
+.setup-import-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 1rem;
+  width: 100%;
+}
+
+.setup-upload-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  margin: 0;
+}
+
+.setup-import-actions .btn-secondary {
+  min-width: 210px;
+  margin: 0;
+  padding: 0.95rem 1.4rem;
+  border: 1px solid #5a6470;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #7a8592 0%, #67727f 100%);
+  box-shadow: 0 6px 14px rgba(71, 85, 105, 0.22);
+}
+
+.setup-import-actions .btn-secondary:hover {
+  background: linear-gradient(180deg, #85909c 0%, #6f7a87 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 10px 18px rgba(71, 85, 105, 0.28);
 }
 
 .btn-manual {
@@ -2707,6 +2723,16 @@ button {
 
   .constraint-toggle-item .btn-toggle {
     align-self: flex-end;
+  }
+
+  .start-options,
+  .setup-import-actions {
+    flex-direction: column;
+  }
+
+  .start-options .btn-large,
+  .setup-import-actions .btn-secondary {
+    width: 100%;
   }
 }
 
