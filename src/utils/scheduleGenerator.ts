@@ -711,10 +711,10 @@ export function validateSchedule(matches: Match[], players: Player[], settings: 
       roundMatches.forEach(match => {
         if (isPoint1ConstraintPoint(match.pointNumber, settings)) {
           if (!isLevelAPlayer(match.pair1.player1) || !isLevelAPlayer(match.pair1.player2)) {
-            errors.push(`${key}: 第1點 ${match.team1} 不是全 Level-A 配對`);
+            errors.push(`${key}: 第1點 ${match.team1} 不是男雙A級配對`);
           }
           if (!isLevelAPlayer(match.pair2.player1) || !isLevelAPlayer(match.pair2.player2)) {
-            errors.push(`${key}: 第1點 ${match.team2} 不是全 Level-A 配對`);
+            errors.push(`${key}: 第1點 ${match.team2} 不是男雙A級配對`);
           }
         }
 

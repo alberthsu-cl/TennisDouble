@@ -86,7 +86,7 @@ export interface TournamentSettings {
   totalRounds: number;         // 總輪數 (default: 3)
   minMatchesPerPlayer: number; // 每人最少出賽場次（動態計算）
   enforceRules: boolean;       // 是否強制執行規則約束 (default: true)
-  point1LevelAConstraint: boolean; // 第1點必須為 Level-A 選手
+  point1LevelAConstraint: boolean; // 第1點必須為男雙A級選手
   points2To4AgeAscendingConstraint: boolean; // 第2至4點兩人歲數遞增
   point5WomenOrMixedConstraint: boolean; // 第5點必須為混雙或女雙
   tournamentMode: TournamentMode; // 賽事模式 (default: 'internal')

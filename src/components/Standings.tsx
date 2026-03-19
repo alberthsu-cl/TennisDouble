@@ -292,7 +292,7 @@ export const Standings: React.FC<StandingsProps> = ({ matches, players, settings
       ['每輪點數', settings.pointsPerRound],
       ['總輪數', settings.totalRounds],
       ['最少出賽場次', settings.minMatchesPerPlayer],
-      ['第1點 男性Level-A', settings.point1LevelAConstraint ? '是' : '否'],
+      ['第1點 男雙A級', settings.point1LevelAConstraint ? '是' : '否'],
       [`第${settings.point1LevelAConstraint ? 2 : 1}-${settings.pointsPerRound - 1}點年齡遞增`, settings.points2To4AgeAscendingConstraint ? '是' : '否'],
       [`第${settings.pointsPerRound}點女雙優先`, settings.point5WomenOrMixedConstraint ? '是' : '否'],
     ];

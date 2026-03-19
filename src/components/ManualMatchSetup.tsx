@@ -345,10 +345,10 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
 
         if (isPoint1ConstraintPoint(match.pointNumber)) {
           if (team1Complete && (!isLevelAPlayer(match.pair1[0]) || !isLevelAPlayer(match.pair1[1]))) {
-            errors.push(`${matchup} 第1點 ${match.team1}必須為男性A級選手`);
+            errors.push(`${matchup} 第1點 ${match.team1}必須為男雙A級選手`);
           }
           if (team2Complete && (!isLevelAPlayer(match.pair2[0]) || !isLevelAPlayer(match.pair2[1]))) {
-            errors.push(`${matchup} 第1點 ${match.team2}必須為男性A級選手`);
+            errors.push(`${matchup} 第1點 ${match.team2}必須為男雙A級選手`);
           }
         }
 
@@ -980,7 +980,7 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
                           <div key={match.id} className="point-assignment">
                             <div className="point-info">
                               <span className="point-badge">第 {match.pointNumber} 點</span>
-                              {isPoint1ConstraintPoint(match.pointNumber) && <span className="rule-hint">Level-A 男性</span>}
+                              {isPoint1ConstraintPoint(match.pointNumber) && <span className="rule-hint">男雙A級</span>}
                               {isPoint5ConstraintPoint(match.pointNumber) && <span className="rule-hint">女雙優先</span>}
                             </div>
                             
@@ -1066,7 +1066,7 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
                       <div key={match.id} className="point-setup-card">
                         <div className="point-header">
                           <span className="point-badge">第 {match.pointNumber} 點</span>
-                          {isPoint1ConstraintPoint(match.pointNumber) && <span className="rule-hint">Level-A 男性</span>}
+                          {isPoint1ConstraintPoint(match.pointNumber) && <span className="rule-hint">男雙A級</span>}
                           {isPoint5ConstraintPoint(match.pointNumber) && <span className="rule-hint">女雙優先</span>}
                         </div>
 
