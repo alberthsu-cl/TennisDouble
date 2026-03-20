@@ -3,6 +3,90 @@ import * as XLSX from 'xlsx';
 import type { Player, Gender } from '../types';
 import { normalizeSkillLevel } from '../utils/skillLevel';
 
+const TOURNAMENT_STATE_FILE_NAME_KEY = 'grandSlamLastStateFileName';
+const TOURNAMENT_STATE_HANDLE_DB = 'grandSlamTournamentStateDb';
+const TOURNAMENT_STATE_HANDLE_STORE = 'fileHandles';
+const TOURNAMENT_STATE_HANDLE_KEY = 'lastTournamentStateFile';
+
+interface RememberedTournamentFileHandle {
+  name: string;
+  getFile: () => Promise<File>;
+  createWritable: () => Promise<{
+    write: (data: Blob | BufferSource | string) => Promise<void>;
+    close: () => Promise<void>;
+  }>;
+  queryPermission?: (descriptor?: { mode?: 'read' | 'readwrite' }) => Promise<PermissionState>;
+  requestPermission?: (descriptor?: { mode?: 'read' | 'readwrite' }) => Promise<PermissionState>;
+}
+
+interface SaveFilePickerOptionsLike {
+  suggestedName?: string;
+  types?: Array<{
+    description?: string;
+    accept: Record<string, string[]>;
+  }>;
+}
+
+interface WindowWithFilePicker extends Window {
+  showSaveFilePicker?: (options?: SaveFilePickerOptionsLike) => Promise<RememberedTournamentFileHandle>;
+}
+
+const openTournamentStateHandleDb = (): Promise<IDBDatabase> => {
+  return new Promise((resolve, reject) => {
+    const request = window.indexedDB.open(TOURNAMENT_STATE_HANDLE_DB, 1);
+
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(TOURNAMENT_STATE_HANDLE_STORE)) {
+        db.createObjectStore(TOURNAMENT_STATE_HANDLE_STORE);
+      }
+    };
+
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error ?? new Error('無法開啟存檔資料庫'));
+  });
+};
+
+const saveRememberedTournamentFileHandle = async (handle: RememberedTournamentFileHandle) => {
+  const db = await openTournamentStateHandleDb();
+  await new Promise<void>((resolve, reject) => {
+    const transaction = db.transaction(TOURNAMENT_STATE_HANDLE_STORE, 'readwrite');
+    const store = transaction.objectStore(TOURNAMENT_STATE_HANDLE_STORE);
+    const request = store.put(handle, TOURNAMENT_STATE_HANDLE_KEY);
+
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error ?? new Error('無法儲存存檔位置'));
+  });
+  db.close();
+};
+
+const loadRememberedTournamentFileHandle = async (): Promise<RememberedTournamentFileHandle | null> => {
+  const db = await openTournamentStateHandleDb();
+  const handle = await new Promise<RememberedTournamentFileHandle | null>((resolve, reject) => {
+    const transaction = db.transaction(TOURNAMENT_STATE_HANDLE_STORE, 'readonly');
+    const store = transaction.objectStore(TOURNAMENT_STATE_HANDLE_STORE);
+    const request = store.get(TOURNAMENT_STATE_HANDLE_KEY);
+
+    request.onsuccess = () => resolve((request.result as RememberedTournamentFileHandle | undefined) ?? null);
+    request.onerror = () => reject(request.error ?? new Error('無法讀取存檔位置'));
+  });
+  db.close();
+  return handle;
+};
+
+const clearRememberedTournamentFileHandle = async () => {
+  const db = await openTournamentStateHandleDb();
+  await new Promise<void>((resolve, reject) => {
+    const transaction = db.transaction(TOURNAMENT_STATE_HANDLE_STORE, 'readwrite');
+    const store = transaction.objectStore(TOURNAMENT_STATE_HANDLE_STORE);
+    const request = store.delete(TOURNAMENT_STATE_HANDLE_KEY);
+
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error ?? new Error('無法清除存檔位置'));
+  });
+  db.close();
+};
+
 interface GrandSlamMatch {
   id: string;
   round: number;
@@ -30,8 +114,43 @@ export const GrandSlamTournament: React.FC<GrandSlamTournamentProps> = ({
   const [showBracketTree, setShowBracketTree] = useState(false);
   const [visibleRoundStart, setVisibleRoundStart] = useState(1);
   const [roundsPerView, setRoundsPerView] = useState(3);
+  const [lastSavedStateFileName, setLastSavedStateFileName] = useState('');
+  const [hasRememberedStateFile, setHasRememberedStateFile] = useState(false);
   const mainTreeRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const filePickerWindow = window as WindowWithFilePicker;
+  const supportsRememberedStateFile = typeof filePickerWindow.showSaveFilePicker === 'function';
+
+  useEffect(() => {
+    setLastSavedStateFileName(localStorage.getItem(TOURNAMENT_STATE_FILE_NAME_KEY) ?? '');
+
+    if (!supportsRememberedStateFile) {
+      setHasRememberedStateFile(false);
+      return;
+    }
+
+    let isMounted = true;
+
+    const loadStoredHandle = async () => {
+      try {
+        const handle = await loadRememberedTournamentFileHandle();
+        if (isMounted) {
+          setHasRememberedStateFile(handle !== null);
+        }
+      } catch (error) {
+        console.error('讀取已記住的存檔位置失敗:', error);
+        if (isMounted) {
+          setHasRememberedStateFile(false);
+        }
+      }
+    };
+
+    loadStoredHandle();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [supportsRememberedStateFile]);
 
   // Calculate how many rounds can fit in viewport
   useEffect(() => {
@@ -455,6 +574,205 @@ export const GrandSlamTournament: React.FC<GrandSlamTournamentProps> = ({
     reader.readAsText(file, 'UTF-8');
   };
 
+  const buildTournamentStateWorkbook = () => {
+    const wb = XLSX.utils.book_new();
+
+    const metaRows = [
+      { 項目: '當前輪次', 值: currentRound },
+      { 項目: '總輪數', 值: totalRounds },
+      { 項目: '輪空選手IDs', 值: Array.from(playersWithBye).join(',') },
+      { 項目: '已開始', 值: tournamentStarted ? '是' : '否' },
+    ];
+    const wsMeta = XLSX.utils.json_to_sheet(metaRows);
+    wsMeta['!cols'] = [{ wch: 16 }, { wch: 40 }];
+    XLSX.utils.book_append_sheet(wb, wsMeta, '賽事資訊');
+
+    const playerRows = players.map(p => ({
+      player_id: p.id,
+      姓名: p.name,
+      年齡: p.age,
+      性別: p.gender,
+      技術等級: p.skillLevel,
+    }));
+    const wsPlayers = XLSX.utils.json_to_sheet(playerRows);
+    wsPlayers['!cols'] = [{ wch: 14 }, { wch: 16 }, { wch: 6 }, { wch: 6 }, { wch: 10 }];
+    XLSX.utils.book_append_sheet(wb, wsPlayers, '選手名單');
+
+    const bracketRows = bracket.map(m => ({
+      match_id: m.id,
+      輪次: m.round,
+      位置: m.position,
+      狀態: m.status,
+      player1_id: m.player1?.id ?? '',
+      選手甲: m.player1?.name ?? '',
+      player2_id: m.player2?.id ?? '',
+      選手乙: m.player2?.name ?? '',
+      winner_id: m.winner?.id ?? '',
+      晉級者: m.winner?.name ?? '',
+    }));
+    const wsBracket = XLSX.utils.json_to_sheet(bracketRows);
+    wsBracket['!cols'] = [
+      { wch: 12 }, { wch: 6 }, { wch: 6 }, { wch: 10 },
+      { wch: 14 }, { wch: 16 }, { wch: 14 }, { wch: 16 },
+      { wch: 14 }, { wch: 16 },
+    ];
+    XLSX.utils.book_append_sheet(wb, wsBracket, '賽程');
+
+    return wb;
+  };
+
+  const restoreTournamentStateFromWorkbook = (workbook: XLSX.WorkBook) => {
+    if (!workbook.Sheets['賽事資訊'] || !workbook.Sheets['選手名單'] || !workbook.Sheets['賽程']) {
+      alert('無效的賽事存檔：請確認此檔案是由「💾 儲存賽事」匯出的存檔');
+      return;
+    }
+
+    const metaRows = XLSX.utils.sheet_to_json(workbook.Sheets['賽事資訊']) as { 項目: string; 值: string | number }[];
+    const metaMap: Record<string, string> = {};
+    metaRows.forEach(row => {
+      metaMap[String(row.項目)] = String(row.值);
+    });
+
+    const savedCurrentRound = parseInt(metaMap['當前輪次']) || 1;
+    const savedTotalRounds = parseInt(metaMap['總輪數']) || 0;
+    const savedByeIds = (metaMap['輪空選手IDs'] || '')
+      .split(',')
+      .map(s => s.trim())
+      .filter(s => s !== '');
+
+    const playerRows = XLSX.utils.sheet_to_json(workbook.Sheets['選手名單']) as Array<Record<string, unknown>>;
+    const restoredPlayers: Player[] = playerRows.map(row => ({
+      id: String(row.player_id ?? ''),
+      name: String(row['姓名'] ?? ''),
+      age: parseInt(String(row['年齡'] ?? '30')) || 30,
+      gender: (String(row['性別'] ?? '男')) as Gender,
+      skillLevel: normalizeSkillLevel(String(row['技術等級'] ?? 'B2')),
+      matchesPlayed: 0,
+    }));
+
+    const playerMap = new Map<string, Player>();
+    restoredPlayers.forEach(player => playerMap.set(player.id, player));
+
+    const bracketRows = XLSX.utils.sheet_to_json(workbook.Sheets['賽程']) as Array<Record<string, unknown>>;
+    const restoredBracket: GrandSlamMatch[] = bracketRows.map(row => {
+      const player1Id = String(row.player1_id ?? '');
+      const player2Id = String(row.player2_id ?? '');
+      const winnerId = String(row.winner_id ?? '');
+
+      return {
+        id: String(row.match_id ?? ''),
+        round: parseInt(String(row['輪次'] ?? '1')) || 1,
+        position: parseInt(String(row['位置'] ?? '0')) || 0,
+        status: (String(row['狀態'] ?? 'pending')) as 'pending' | 'ready' | 'completed',
+        player1: player1Id ? (playerMap.get(player1Id) ?? null) : null,
+        player2: player2Id ? (playerMap.get(player2Id) ?? null) : null,
+        winner: winnerId ? (playerMap.get(winnerId) ?? null) : null,
+      };
+    });
+
+    setPlayers(restoredPlayers);
+    setBracket(restoredBracket);
+    setCurrentRound(savedCurrentRound);
+    setTotalRounds(savedTotalRounds);
+    setPlayersWithBye(new Set(savedByeIds));
+    setTournamentStarted(true);
+
+    alert(`✅ 賽事還原成功！\n選手：${restoredPlayers.length} 人\n總輪數：${savedTotalRounds} 輪\n當前輪次：第 ${savedCurrentRound} 輪`);
+  };
+
+  // Export full tournament state as Excel (for later restore)
+  const handleExportTournamentState = async () => {
+    const today = new Date().toLocaleDateString('zh-TW');
+    const fileName = `一球大滿貫_賽事存檔_${today.replace(/\//g, '')}.xlsx`;
+    const wb = buildTournamentStateWorkbook();
+
+    if (supportsRememberedStateFile) {
+      try {
+        const handle = await filePickerWindow.showSaveFilePicker?.({
+          suggestedName: fileName,
+          types: [
+            {
+              description: 'Excel 活頁簿',
+              accept: {
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+              },
+            },
+          ],
+        });
+
+        if (handle) {
+          const writable = await handle.createWritable();
+          const workbookData = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+          await writable.write(workbookData);
+          await writable.close();
+
+          await saveRememberedTournamentFileHandle(handle);
+          localStorage.setItem(TOURNAMENT_STATE_FILE_NAME_KEY, handle.name);
+          setLastSavedStateFileName(handle.name);
+          setHasRememberedStateFile(true);
+          alert(`已儲存賽事存檔：${handle.name}\n之後可直接使用「🕘 還原上次存檔」載入。`);
+          return;
+        }
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') {
+          return;
+        }
+        console.error('使用記住位置的存檔方式失敗，改用一般下載:', error);
+      }
+    }
+
+    XLSX.writeFile(wb, fileName);
+    alert('目前瀏覽器不支援記住實際存檔位置，已改用一般下載方式。');
+  };
+
+  // Import and restore tournament state from an exported state file
+  const handleImportTournamentState = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = e.target?.result;
+        const workbook = XLSX.read(data, { type: 'array' });
+        restoreTournamentStateFromWorkbook(workbook);
+      } catch (error) {
+        console.error('還原失敗:', error);
+        alert('還原失敗，請確認檔案是大滿貫賽事存檔格式');
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
+  const handleRestoreLastSavedTournamentState = async () => {
+    try {
+      const handle = await loadRememberedTournamentFileHandle();
+      if (!handle) {
+        setHasRememberedStateFile(false);
+        alert('目前沒有可直接還原的上次存檔，請先手動選擇檔案。');
+        return;
+      }
+
+      const currentPermission = await handle.queryPermission?.({ mode: 'read' });
+      const grantedPermission = currentPermission === 'granted'
+        ? 'granted'
+        : await handle.requestPermission?.({ mode: 'read' });
+
+      if (grantedPermission !== 'granted') {
+        alert('未取得讀取上次存檔的權限。');
+        return;
+      }
+
+      const file = await handle.getFile();
+      const workbook = XLSX.read(await file.arrayBuffer(), { type: 'array' });
+      restoreTournamentStateFromWorkbook(workbook);
+    } catch (error) {
+      console.error('從上次存檔還原失敗:', error);
+      await clearRememberedTournamentFileHandle();
+      localStorage.removeItem(TOURNAMENT_STATE_FILE_NAME_KEY);
+      setLastSavedStateFileName('');
+      setHasRememberedStateFile(false);
+      alert('找不到先前記住的存檔位置，可能檔案已搬移或瀏覽器權限已失效，請改用手動選擇檔案。');
+    }
+  };
+
   // Export current round matchups as Excel
   const handleExportCurrentRound = () => {
     const roundMatches = getMatchesForRound(currentRound).filter(m => m.player1 || m.player2);
@@ -518,8 +836,28 @@ export const GrandSlamTournament: React.FC<GrandSlamTournamentProps> = ({
               <h3>匯入選手名單</h3>
               <p>請匯入選手資料以開始比賽</p>
               <div className="import-buttons">
+                {supportsRememberedStateFile && hasRememberedStateFile && (
+                  <button className="btn-import btn-import-last" onClick={handleRestoreLastSavedTournamentState}>
+                    🕘 還原上次存檔
+                  </button>
+                )}
+                <label className="btn-import btn-import-restore">
+                  📂 還原賽事存檔
+                  <input
+                    type="file"
+                    accept=".xlsx,.xls"
+                    style={{ display: 'none' }}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        handleImportTournamentState(file);
+                        e.target.value = '';
+                      }
+                    }}
+                  />
+                </label>
                 <label className="btn-import">
-                  📊 從 Excel 匯入
+                  📊 從 Excel 匯入選手
                   <input
                     type="file"
                     accept=".xlsx,.xls"
@@ -549,6 +887,13 @@ export const GrandSlamTournament: React.FC<GrandSlamTournamentProps> = ({
                   />
                 </label>
               </div>
+              <p className="restore-hint">
+                {supportsRememberedStateFile
+                  ? lastSavedStateFileName
+                    ? `💡 已記住上次存檔：${lastSavedStateFileName}`
+                    : '💡 使用「💾 儲存賽事」後，系統會記住上次存檔位置，可直接還原。'
+                  : '💡 目前瀏覽器不支援記住實際存檔位置，仍可手動選擇存檔還原。'}
+              </p>
             </div>
           ) : null}
         </div>
@@ -564,6 +909,9 @@ export const GrandSlamTournament: React.FC<GrandSlamTournamentProps> = ({
             <div className="status-actions">
               <button className="btn-secondary" onClick={handleExportCurrentRound}>
                 📄 匯出本輪對陣
+              </button>
+              <button className="btn-save" onClick={handleExportTournamentState}>
+                💾 儲存賽事
               </button>
               <button className="btn-danger" onClick={handleClearAll}>
                 清除所有資料
@@ -891,6 +1239,45 @@ export const GrandSlamTournament: React.FC<GrandSlamTournamentProps> = ({
           background: #0056b3;
           transform: translateY(-2px);
           box-shadow: 0 6px 12px rgba(0,0,0,0.2);
+        }
+
+        .btn-import-restore {
+          background: linear-gradient(135deg, #28a745, #1e7e34);
+        }
+
+        .btn-import-restore:hover {
+          background: linear-gradient(135deg, #1e7e34, #155724);
+        }
+
+        .btn-import-last {
+          background: linear-gradient(135deg, #ff9800, #f57c00);
+        }
+
+        .btn-import-last:hover {
+          background: linear-gradient(135deg, #f57c00, #ef6c00);
+        }
+
+        .btn-save {
+          padding: 10px 20px;
+          background: linear-gradient(135deg, #28a745, #1e7e34);
+          color: white;
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+          font-weight: 500;
+          transition: all 0.3s;
+        }
+
+        .btn-save:hover {
+          background: linear-gradient(135deg, #1e7e34, #155724);
+          transform: translateY(-2px);
+          box-shadow: 0 4px 8px rgba(40,167,69,0.3);
+        }
+
+        .restore-hint {
+          color: #6c757d;
+          font-size: 0.9em;
+          margin-top: 15px;
         }
 
         .format-info {
