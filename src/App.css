@@ -465,6 +465,19 @@
   color: #333;
 }
 
+.auto-group-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: #333;
+  margin: 1.5rem 0 0.5rem;
+  font-size: 1.5rem;
+}
+
+.auto-group-heading-icon {
+  line-height: 1;
+}
+
 .rules-header {
   display: flex;
   flex-direction: column;
@@ -538,6 +551,10 @@
   margin-top: 0;
   margin-bottom: 0;
   color: #667eea;
+}
+
+.rules-constraints-heading {
+  font-size: 1.5rem;
 }
 
 .rules-box ul {

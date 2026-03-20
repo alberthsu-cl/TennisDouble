@@ -1473,7 +1473,7 @@ function App() {
             <h2>賽事規則說明</h2>
             <div className="rules-box">
               <div className="rules-header">
-                <h3>{settings.tournamentMode === 'inter-club' ? '友誼賽比賽規則：' : '本次會內賽規則約束：'}</h3>
+                <h3 className="rules-constraints-heading">{settings.tournamentMode === 'inter-club' ? '友誼賽比賽規則：' : '本次會內賽規則約束：'}</h3>
                 {settings.tournamentMode === 'internal' && (
                   <div className="rules-toggle">
                     <div className="constraint-toggle-list">
@@ -1529,7 +1529,10 @@ function App() {
               )}
             </div>
 
-            <h2>🎯 自動分組規則</h2>
+            <h2 className="auto-group-heading">
+              <span className="auto-group-heading-icon" aria-hidden="true">🎯</span>
+              <span>自動分組規則</span>
+            </h2>
             <div className="rules-box">
               <p style={{ marginBottom: '0.5rem', fontWeight: '600' }}>匯入選手時，系統會自動分配到4隊（甲乙丙丁），遵循以下優先順序：</p>
               <ul style={{ marginTop: '0.5rem' }}>
