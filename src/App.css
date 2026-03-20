@@ -2298,7 +2298,11 @@ button {
 
 .setup-actions {
   margin-top: 2rem;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
 }
 
 .setup-actions-left,
@@ -2307,6 +2311,10 @@ button {
   align-items: center;
   gap: 0.75rem;
   flex-wrap: wrap;
+}
+
+.setup-actions-right {
+  margin-left: auto;
 }
 
 .setup-action-btn {
