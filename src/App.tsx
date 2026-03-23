@@ -242,6 +242,22 @@ const getDerivedConstraintState = (overrides: Partial<TournamentSettings>, base:
 
 type View = 'setup' | 'players' | 'matches' | 'standings' | 'manual-setup' | 'grand-slam';
 
+type ContestBackupSnapshot = {
+  version: 1;
+  app: 'tennis-contest';
+  exportedAt: string;
+  tournamentStarted: boolean;
+  currentView: View;
+  filterRound: number | null;
+  filterStatus: 'all' | 'scheduled' | 'in-progress' | 'completed';
+  showSensitiveInfo: boolean;
+  settings: TournamentSettings;
+  players: Player[];
+  matches: Match[];
+};
+
+const AUTO_BACKUP_STORAGE_KEY = 'tennisContestAutoBackup';
+
 function App() {
   const [currentView, setCurrentView] = useState<View>('setup');
   const [players, setPlayers] = useState<Player[]>([]);
@@ -398,6 +414,160 @@ function App() {
     setPlayers(currentPlayers => syncPlayerMatchRecords(currentPlayers, nextMatches));
   };
 
+  const createContestBackupSnapshot = (): ContestBackupSnapshot => ({
+    version: 1,
+    app: 'tennis-contest',
+    exportedAt: new Date().toISOString(),
+    tournamentStarted,
+    currentView,
+    filterRound: filterRound ?? null,
+    filterStatus,
+    showSensitiveInfo,
+    settings,
+    players,
+    matches,
+  });
+
+  const restoreContestBackupSnapshot = async (
+    parsed: Partial<ContestBackupSnapshot>,
+    confirmMessage = '這將覆蓋目前整個賽事狀態（選手、比賽、設定與排名），確定要還原備份嗎？'
+  ) => {
+    const isValidSnapshot = parsed?.app === 'tennis-contest'
+      && parsed?.version === 1
+      && Array.isArray(parsed.players)
+      && Array.isArray(parsed.matches)
+      && typeof parsed.settings === 'object'
+      && parsed.settings !== null
+      && typeof parsed.tournamentStarted === 'boolean';
+
+    if (!isValidSnapshot) {
+      await modal.showAlert('無效的完整備份檔案格式');
+      return false;
+    }
+
+    if (players.length > 0 || matches.length > 0 || tournamentStarted) {
+      const confirmed = await modal.showConfirm(confirmMessage);
+      if (!confirmed) return false;
+    }
+
+    const restoredPlayers = parsed.players!.map((player) => ({
+      ...player,
+      gender: normalizeGender(player.gender),
+    }));
+    const restoredMatches = parsed.matches!;
+    const restoredView = parsed.currentView === 'manual-setup'
+      ? 'matches'
+      : (parsed.currentView ?? 'matches');
+
+    setSettings(parsed.settings as TournamentSettings);
+    setMatches(restoredMatches);
+    setPlayers(syncPlayerMatchRecords(restoredPlayers, restoredMatches));
+    setTournamentStarted(parsed.tournamentStarted!);
+    setCurrentView(parsed.tournamentStarted ? restoredView : 'setup');
+    setFilterRound(typeof parsed.filterRound === 'number' ? parsed.filterRound : undefined);
+    setFilterStatus(
+      parsed.filterStatus === 'scheduled'
+      || parsed.filterStatus === 'in-progress'
+      || parsed.filterStatus === 'completed'
+        ? parsed.filterStatus
+        : 'all'
+    );
+    setShowSensitiveInfo(typeof parsed.showSensitiveInfo === 'boolean' ? parsed.showSensitiveInfo : true);
+
+    await modal.showAlert(`完整備份已還原：${restoredPlayers.length} 名選手、${restoredMatches.length} 場比賽`);
+    return true;
+  };
+
+  const saveAutoBackupSnapshot = () => {
+    const snapshot = createContestBackupSnapshot();
+    localStorage.setItem(AUTO_BACKUP_STORAGE_KEY, JSON.stringify(snapshot));
+  };
+
+  const handleExportContestBackup = () => {
+    const snapshot = createContestBackupSnapshot();
+
+    const dataStr = JSON.stringify(snapshot, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    const datePart = new Date().toISOString().replace(/[:.]/g, '-');
+
+    link.href = url;
+    link.download = `contest-backup_${datePart}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportContestBackup = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const parsed = JSON.parse(e.target?.result as string) as Partial<ContestBackupSnapshot>;
+        await restoreContestBackupSnapshot(parsed);
+      } catch (error) {
+        await modal.showAlert('還原失敗：備份檔案格式錯誤');
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleRestoreAutoBackup = async () => {
+    const savedBackup = localStorage.getItem(AUTO_BACKUP_STORAGE_KEY);
+
+    if (!savedBackup) {
+      await modal.showAlert('目前沒有可用的自動備份');
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(savedBackup) as Partial<ContestBackupSnapshot>;
+      await restoreContestBackupSnapshot(
+        parsed,
+        '這將把賽事還原到最近一次進入「手動調整」前的自動備份，確定要繼續嗎？'
+      );
+    } catch (error) {
+      await modal.showAlert('自動備份資料已損毀，無法還原');
+    }
+  };
+
+  const handleOpenManualSetup = () => {
+    if (tournamentStarted) {
+      saveAutoBackupSnapshot();
+    }
+
+    setCurrentView('manual-setup');
+  };
+
+  const mergeManualSetupMatches = (generatedMatches: Match[]): Match[] => {
+    const generatedById = new Map(generatedMatches.map(match => [match.id, match]));
+    const mergedMatches = matches
+      .map((existingMatch) => {
+        const generatedMatch = generatedById.get(existingMatch.id);
+
+        if (generatedMatch) {
+          generatedById.delete(existingMatch.id);
+          return {
+            ...generatedMatch,
+            team1Games: existingMatch.team1Games,
+            team2Games: existingMatch.team2Games,
+            team1TiebreakScore: existingMatch.team1TiebreakScore,
+            team2TiebreakScore: existingMatch.team2TiebreakScore,
+            status: existingMatch.status,
+            winner: existingMatch.winner,
+          };
+        }
+
+        if (existingMatch.status === 'completed') {
+          return existingMatch;
+        }
+
+        return null;
+      })
+      .filter((match): match is Match => match !== null);
+
+    return [...mergedMatches, ...generatedById.values()];
+  };
+
   const handleStartTournament = async () => {
     const requiredPlayers = settings.playersPerTeam * 4;
     
@@ -471,7 +641,11 @@ function App() {
   };
 
   const handleManualMatchesGenerated = async (generatedMatches: Match[]) => {
-    replaceTournamentMatches(generatedMatches);
+    const nextMatches = tournamentStarted
+      ? mergeManualSetupMatches(generatedMatches)
+      : generatedMatches;
+
+    replaceTournamentMatches(nextMatches);
     setTournamentStarted(true);
     setCurrentView('matches');
     await modal.showAlert('手動配對已完成！共 ' + generatedMatches.length + ' 場比賽');
@@ -1670,12 +1844,41 @@ function App() {
                     <p>✓ 賽事已開始</p>
                     <p>共 {matches.length} 場比賽，{totalRounds} 輪</p>
                   </div>
-                  <button 
-                    className="btn-danger"
-                    onClick={handleResetTournament}
-                  >
-                    重置賽事
-                  </button>
+                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <button
+                      className="btn-secondary"
+                      onClick={handleExportContestBackup}
+                    >
+                      完整備份
+                    </button>
+                    <button
+                      className="btn-secondary"
+                      onClick={() => { void handleRestoreAutoBackup(); }}
+                    >
+                      還原自動備份
+                    </button>
+                    <label className="btn-secondary setup-upload-trigger" style={{ margin: 0 }}>
+                      還原備份
+                      <input
+                        type="file"
+                        accept=".json"
+                        style={{ display: 'none' }}
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            handleImportContestBackup(file);
+                            e.target.value = '';
+                          }
+                        }}
+                      />
+                    </label>
+                    <button 
+                      className="btn-danger"
+                      onClick={handleResetTournament}
+                    >
+                      重置賽事
+                    </button>
+                  </div>
                 </>
               )}
             </div>
@@ -1704,9 +1907,30 @@ function App() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <h2 style={{ margin: 0 }}>比賽列表</h2>
               <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <button className="btn-primary" onClick={() => setCurrentView('manual-setup')}>
+                <button className="btn-primary" onClick={handleOpenManualSetup}>
                   ✏️ 手動調整
                 </button>
+                <button className="btn-secondary" onClick={handleExportContestBackup}>
+                  💾 完整備份
+                </button>
+                <button className="btn-secondary" onClick={() => { void handleRestoreAutoBackup(); }}>
+                  ⏪ 還原自動備份
+                </button>
+                <label className="btn-secondary" style={{ margin: 0, cursor: 'pointer' }}>
+                  ♻️ 還原備份
+                  <input
+                    type="file"
+                    accept=".json"
+                    style={{ display: 'none' }}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        handleImportContestBackup(file);
+                        e.target.value = '';
+                      }
+                    }}
+                  />
+                </label>
                 <button className="btn-secondary" onClick={() => {
                   const format = prompt('選擇匯出格式：\n1 - Excel\n2 - JSON', '1');
                   if (format === '1') {
