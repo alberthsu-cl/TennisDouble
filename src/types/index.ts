@@ -72,6 +72,8 @@ export interface TeamStats {
   teamName: TeamName;
   matchesWon: number;
   matchesLost: number;
+  roundsWon: number; // 勝盤數 (多點賽中贏得更多點數的輪次數)
+  roundsLost: number; // 敗盤數
   gamesWon: number;
   gamesLost: number;
   points: number; // 積分

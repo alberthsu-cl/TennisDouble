@@ -106,6 +106,68 @@
   height: 18px;
 }
 
+.matches-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.match-record-mode-row {
+  margin-bottom: 0.75rem;
+}
+
+.match-record-mode-switch {
+  display: inline-flex;
+  gap: 0.35rem;
+  padding: 0.25rem;
+  background: #e5e7eb;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+}
+
+.match-record-mode-btn {
+  border: none;
+  background: transparent;
+  color: #334155;
+  font-weight: 700;
+  padding: 0.45rem 0.9rem;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.match-record-mode-btn.active {
+  background: white;
+  color: #4338ca;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.15);
+}
+
+.action-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding-right: 0.75rem;
+  margin-right: 0.25rem;
+}
+
+.action-group:not(:last-child) {
+  border-right: 2px solid #9ca3af;
+}
+
+.action-group:last-child {
+  padding-right: 0;
+  margin-right: 0;
+}
+
+.preview-readonly-tip {
+  margin-top: 0.75rem;
+  text-align: center;
+  color: #64748b;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
 /* 主內容 */
 .app-main {
   flex: 1;
@@ -1059,6 +1121,7 @@ button {
 .team-players p {
   margin: 0.25rem 0;
   color: #333;
+  font-size: 1rem;
 }
 
 .tbd-notice {
@@ -1174,7 +1237,7 @@ button {
 }
 
 .players-compact {
-  font-size: 0.9rem;
+  font-size: 1rem;
   color: #666;
   margin-bottom: 0.5rem;
 }
@@ -1457,6 +1520,36 @@ button {
 .standings-table .points {
   color: #667eea;
   font-size: 1.1rem;
+}
+
+.standings-table .wins-kpi {
+  background: #d4edda;
+  color: #155724;
+  font-size: 1.2rem;
+  font-weight: bold;
+  border-radius: 4px;
+  padding: 0.25rem 0.5rem;
+  text-align: center;
+}
+
+.standings-table .rounds-won {
+  background: #28a745;
+  color: white;
+  font-size: 1.1rem;
+  font-weight: bold;
+  border-radius: 4px;
+  padding: 0.25rem 0.5rem;
+  text-align: center;
+}
+
+.standings-table .rounds-lost {
+  background: #dc3545;
+  color: white;
+  font-size: 1.1rem;
+  font-weight: bold;
+  border-radius: 4px;
+  padding: 0.25rem 0.5rem;
+  text-align: center;
 }
 
 .positive {
@@ -2137,6 +2230,7 @@ button {
   border: 1px solid #cbd5e1;
   border-radius: 8px;
   color: #1e293b;
+  font-size: 1rem;
   font-weight: 600;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }

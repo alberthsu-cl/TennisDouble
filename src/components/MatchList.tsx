@@ -13,6 +13,7 @@ interface MatchListProps {
   filterTeam?: TeamName;
   filterStatus?: 'all' | 'scheduled' | 'in-progress' | 'completed';
   showSensitiveInfo?: boolean;
+  readOnly?: boolean;
 }
 
 export const MatchList: React.FC<MatchListProps> = ({
@@ -26,7 +27,13 @@ export const MatchList: React.FC<MatchListProps> = ({
   filterTeam,
   filterStatus = 'all',
   showSensitiveInfo = true,
+  readOnly = false,
 }) => {
+  const formatPreviewPlayer = (name?: string, gender?: string) => {
+    if (!name) return 'TBD';
+    return `${name}${gender ? ` (${gender})` : ''}`;
+  };
+
   // 過濾比賽
   const filteredMatches = matches.filter(match => {
     if (filterRound && match.roundNumber !== filterRound) return false;
@@ -80,29 +87,75 @@ export const MatchList: React.FC<MatchListProps> = ({
               return (
                 <div key={matchupKey} className="matchup-section">
                   <h4>{matchupKey}</h4>
-                  
-                  <div className="points-grid">
-                    {sortedMatchup.map((match) => {
-                      const currentMatchNumber = matches.findIndex(m => m.id === match.id) + 1;
-                      return (
-                        <div key={match.id} className="match-card">
-                          <div className="match-header-badges">
-                            <div className="point-badge">第 {match.pointNumber} 點</div>
-                            <div className="match-counter">{currentMatchNumber}/{matches.length}</div>
+
+                  {readOnly ? (
+                    <div className="preview-matchup-section">
+                      <div className="preview-points-grid">
+                        {sortedMatchup.map((match) => {
+                          const pair1TotalAge = (match.pair1.player1?.age || 0) + (match.pair1.player2?.age || 0);
+                          const pair2TotalAge = (match.pair2.player1?.age || 0) + (match.pair2.player2?.age || 0);
+
+                          return (
+                            <div key={match.id} className="preview-point-card">
+                              <div className="point-header">
+                                <span className="point-badge">第 {match.pointNumber} 點</span>
+                              </div>
+
+                              <div className="preview-pair-layout">
+                                <div className="preview-pair-block">
+                                  <h5>{match.team1}</h5>
+                                  <div className="preview-player-list">
+                                    <span>{formatPreviewPlayer(match.pair1.player1?.name, match.pair1.player1?.gender)}</span>
+                                    <span>{formatPreviewPlayer(match.pair1.player2?.name, match.pair1.player2?.gender)}</span>
+                                  </div>
+                                  {match.pair1.player1 && match.pair1.player2 && (
+                                    <div className="pair-info">總年齡: {pair1TotalAge}</div>
+                                  )}
+                                </div>
+
+                                <div className="vs-divider">VS</div>
+
+                                <div className="preview-pair-block">
+                                  <h5>{match.team2}</h5>
+                                  <div className="preview-player-list">
+                                    <span>{formatPreviewPlayer(match.pair2.player1?.name, match.pair2.player1?.gender)}</span>
+                                    <span>{formatPreviewPlayer(match.pair2.player2?.name, match.pair2.player2?.gender)}</span>
+                                  </div>
+                                  {match.pair2.player1 && match.pair2.player2 && (
+                                    <div className="pair-info">總年齡: {pair2TotalAge}</div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="points-grid">
+                      {sortedMatchup.map((match) => {
+                        const currentMatchNumber = matches.findIndex(m => m.id === match.id) + 1;
+                        return (
+                          <div key={match.id} className="match-card">
+                            <div className="match-header-badges">
+                              <div className="point-badge">第 {match.pointNumber} 點</div>
+                              <div className="match-counter">{currentMatchNumber}/{matches.length}</div>
+                            </div>
+                            <ScoreRecorder
+                              match={match}
+                              onUpdateScore={onUpdateScore}
+                              onCompleteMatch={onCompleteMatch}
+                              onResetMatch={onResetMatch}
+                              gamesPerMatch={gamesPerMatch}
+                              fourGameDeuceMode={fourGameDeuceMode}
+                              showSensitiveInfo={showSensitiveInfo}
+                              readOnly={readOnly}
+                            />
                           </div>
-                          <ScoreRecorder
-                            match={match}
-                            onUpdateScore={onUpdateScore}
-                            onCompleteMatch={onCompleteMatch}
-                            onResetMatch={onResetMatch}
-                            gamesPerMatch={gamesPerMatch}
-                            fourGameDeuceMode={fourGameDeuceMode}
-                            showSensitiveInfo={showSensitiveInfo}
-                          />
-                        </div>
-                      );
-                    })}
-                  </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               );
             })}

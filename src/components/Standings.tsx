@@ -18,12 +18,25 @@ export const Standings: React.FC<StandingsProps> = ({ matches, players, settings
       teamName,
       matchesWon: 0,
       matchesLost: 0,
+      roundsWon: 0, // 勝盤數
+      roundsLost: 0, // 敗盤數
       gamesWon: 0,
       gamesLost: 0,
       points: 0,
     }));
 
-    // 計算每個比賽的統計
+    // 按輪次、對戰分組統計
+    const roundMatchups = new Map<string, Match[]>();
+    
+    matches.forEach(match => {
+      const key = `${match.roundNumber}-${match.team1}-${match.team2}`;
+      if (!roundMatchups.has(key)) {
+        roundMatchups.set(key, []);
+      }
+      roundMatchups.get(key)!.push(match);
+    });
+
+    // 計算每個比賽的統計和勝盤數
     matches.forEach(match => {
       const team1Stats = stats.find(s => s.teamName === match.team1)!;
       const team2Stats = stats.find(s => s.teamName === match.team2)!;
@@ -48,14 +61,49 @@ export const Standings: React.FC<StandingsProps> = ({ matches, players, settings
       }
     });
 
-    // 排序：積分 > 勝場 > 淨勝局 > 總勝局
+    // 計算勝盤數（每個對戰組合中，贏得更多點數的一方）
+    roundMatchups.forEach((roundMatches) => {
+      // 統計該輪對戰中各隊的勝場數
+      const team1 = roundMatches[0].team1;
+      const team2 = roundMatches[0].team2;
+      
+      let team1Wins = 0;
+      let team2Wins = 0;
+
+      roundMatches.forEach(match => {
+        if (match.status === 'completed') {
+          if (match.winner === team1) {
+            team1Wins++;
+          } else if (match.winner === team2) {
+            team2Wins++;
+          }
+        }
+      });
+
+      // 更新勝盤數只有在該輪完全完成時
+      if (roundMatches.every(m => m.status === 'completed')) {
+        const team1Stats = stats.find(s => s.teamName === team1)!;
+        const team2Stats = stats.find(s => s.teamName === team2)!;
+
+        if (team1Wins > team2Wins) {
+          team1Stats.roundsWon++;
+          team2Stats.roundsLost++;
+        } else if (team2Wins > team1Wins) {
+          team2Stats.roundsWon++;
+          team1Stats.roundsLost++;
+        }
+        // 如果相等則都不加
+      }
+    });
+
+    // 排序：勝盤數 (Wins KPI) > 淨勝局 > 總勝局 > 積分
     return stats.sort((a, b) => {
-      if (a.points !== b.points) return b.points - a.points;
-      if (a.matchesWon !== b.matchesWon) return b.matchesWon - a.matchesWon;
+      if (a.roundsWon !== b.roundsWon) return b.roundsWon - a.roundsWon;
       const aNetGames = a.gamesWon - a.gamesLost;
       const bNetGames = b.gamesWon - b.gamesLost;
       if (aNetGames !== bNetGames) return bNetGames - aNetGames;
-      return b.gamesWon - a.gamesWon;
+      if (a.gamesWon !== b.gamesWon) return b.gamesWon - a.gamesWon;
+      return b.points - a.points;
     });
   };
 
@@ -65,6 +113,8 @@ export const Standings: React.FC<StandingsProps> = ({ matches, players, settings
       clubName: settings.homeClubName,
       matchesWon: 0,
       matchesLost: 0,
+      roundsWon: 0,
+      roundsLost: 0,
       gamesWon: 0,
       gamesLost: 0,
       points: 0,
@@ -74,10 +124,23 @@ export const Standings: React.FC<StandingsProps> = ({ matches, players, settings
       clubName: settings.awayClubName,
       matchesWon: 0,
       matchesLost: 0,
+      roundsWon: 0,
+      roundsLost: 0,
       gamesWon: 0,
       gamesLost: 0,
       points: 0,
     };
+
+    // 按輪次、對戰分組統計以計算勝盤數
+    const roundMatchups = new Map<string, Match[]>();
+    
+    matches.forEach(match => {
+      const key = `${match.roundNumber}-${match.team1}-${match.team2}`;
+      if (!roundMatchups.has(key)) {
+        roundMatchups.set(key, []);
+      }
+      roundMatchups.get(key)!.push(match);
+    });
 
     matches.forEach(match => {
       const isTeam1Home = match.team1 === '甲隊' || match.team1 === '乙隊';
@@ -117,6 +180,46 @@ export const Standings: React.FC<StandingsProps> = ({ matches, players, settings
             awayClubStats.matchesWon++;
             homeClubStats.matchesLost++;
             awayClubStats.points += 3;
+          }
+        }
+      }
+    });
+
+    // 計算俱樂部勝盤數
+    roundMatchups.forEach((roundMatches) => {
+      const team1 = roundMatches[0].team1;
+      const team2 = roundMatches[0].team2;
+      const isTeam1Home = team1 === '甲隊' || team1 === '乙隊';
+      
+      let team1Wins = 0;
+      let team2Wins = 0;
+
+      roundMatches.forEach(match => {
+        if (match.status === 'completed') {
+          if (match.winner === team1) {
+            team1Wins++;
+          } else if (match.winner === team2) {
+            team2Wins++;
+          }
+        }
+      });
+
+      if (roundMatches.every(m => m.status === 'completed')) {
+        if (team1Wins > team2Wins) {
+          if (isTeam1Home) {
+            homeClubStats.roundsWon++;
+            awayClubStats.roundsLost++;
+          } else {
+            awayClubStats.roundsWon++;
+            homeClubStats.roundsLost++;
+          }
+        } else if (team2Wins > team1Wins) {
+          if (isTeam1Home) {
+            homeClubStats.roundsLost++;
+            awayClubStats.roundsWon++;
+          } else {
+            awayClubStats.roundsLost++;
+            homeClubStats.roundsWon++;
           }
         }
       }
@@ -210,10 +313,12 @@ export const Standings: React.FC<StandingsProps> = ({ matches, players, settings
     // 1. 隊伍排名工作表
     const teamRankingData = [
       ['隊伍排名'],
-      ['排名', '隊伍', '積分', '勝場', '負場', '總勝局', '總失局', '淨勝局'],
+      ['排名', '隊伍', '勝盤數', '敗盤數', '積分', '勝場', '負場', '總勝局', '總失局', '淨勝局'],
       ...teamStats.map((stat, index) => [
         index + 1,
         stat.teamName,
+        stat.roundsWon,
+        stat.roundsLost,
         stat.points,
         stat.matchesWon,
         stat.matchesLost,
@@ -223,7 +328,7 @@ export const Standings: React.FC<StandingsProps> = ({ matches, players, settings
       ])
     ];
     const teamSheet = XLSX.utils.aoa_to_sheet(teamRankingData);
-    applyBorders(teamSheet, teamRankingData.length, 8);
+    applyBorders(teamSheet, teamRankingData.length, 10);
     XLSX.utils.book_append_sheet(workbook, teamSheet, '隊伍排名');
 
     // 2. 選手表現工作表（依頁面順序接在隊伍排名後）- 不包含敏感資訊
@@ -344,9 +449,10 @@ export const Standings: React.FC<StandingsProps> = ({ matches, players, settings
               <tr>
                 <th>排名</th>
                 <th>俱樂部</th>
-                <th>積分</th>
+                <th>勝盤數</th>
+                <th>敗盤數</th>
                 <th>勝場</th>
-                <th>負場</th>
+                <th>積分</th>
                 <th>總勝局</th>
                 <th>總失局</th>
                 <th>淨勝局</th>
@@ -354,19 +460,20 @@ export const Standings: React.FC<StandingsProps> = ({ matches, players, settings
             </thead>
             <tbody>
               {clubStats.sort((a, b) => {
-                if (a.points !== b.points) return b.points - a.points;
+                if (a.roundsWon !== b.roundsWon) return b.roundsWon - a.roundsWon;
                 if (a.matchesWon !== b.matchesWon) return b.matchesWon - a.matchesWon;
                 const aNetGames = a.gamesWon - a.gamesLost;
                 const bNetGames = b.gamesWon - b.gamesLost;
                 if (aNetGames !== bNetGames) return bNetGames - aNetGames;
-                return b.gamesWon - a.gamesWon;
+                return b.points - a.points;
               }).map((stat, index) => (
                 <tr key={stat.clubName} className={index === 0 ? 'first-place' : ''}>
                   <td className="rank">{index + 1}</td>
                   <td className="team-name">{stat.clubName}</td>
-                  <td className="points"><strong>{stat.points}</strong></td>
+                  <td className="rounds-won"><strong>{stat.roundsWon}</strong></td>
+                  <td className="rounds-lost"><strong>{stat.roundsLost}</strong></td>
                   <td>{stat.matchesWon}</td>
-                  <td>{stat.matchesLost}</td>
+                  <td className="points">{stat.points}</td>
                   <td>{stat.gamesWon}</td>
                   <td>{stat.gamesLost}</td>
                   <td className={stat.gamesWon - stat.gamesLost >= 0 ? 'positive' : 'negative'}>
@@ -383,9 +490,10 @@ export const Standings: React.FC<StandingsProps> = ({ matches, players, settings
               <tr>
                 <th>排名</th>
                 <th>隊伍</th>
-                <th>積分</th>
+                <th>勝盤數</th>
+                <th>敗盤數</th>
                 <th>勝場</th>
-                <th>負場</th>
+                <th>積分</th>
                 <th>總勝局</th>
                 <th>總失局</th>
                 <th>淨勝局</th>
@@ -396,9 +504,10 @@ export const Standings: React.FC<StandingsProps> = ({ matches, players, settings
                 <tr key={stat.teamName} className={index === 0 ? 'first-place' : ''}>
                   <td className="rank">{index + 1}</td>
                   <td className="team-name">{stat.teamName}</td>
-                  <td className="points"><strong>{stat.points}</strong></td>
+                  <td className="rounds-won"><strong>{stat.roundsWon}</strong></td>
+                  <td className="rounds-lost"><strong>{stat.roundsLost}</strong></td>
                   <td>{stat.matchesWon}</td>
-                  <td>{stat.matchesLost}</td>
+                  <td className="points">{stat.points}</td>
                   <td>{stat.gamesWon}</td>
                   <td>{stat.gamesLost}</td>
                   <td className={stat.gamesWon - stat.gamesLost >= 0 ? 'positive' : 'negative'}>

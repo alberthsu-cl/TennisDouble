@@ -241,6 +241,7 @@ const getDerivedConstraintState = (overrides: Partial<TournamentSettings>, base:
 };
 
 type View = 'setup' | 'players' | 'matches' | 'standings' | 'manual-setup' | 'grand-slam';
+type MatchRecordMode = 'edit' | 'preview';
 
 type ContestBackupSnapshot = {
   version: 1;
@@ -265,6 +266,7 @@ function App() {
   const [tournamentStarted, setTournamentStarted] = useState(false);
   const [filterRound, setFilterRound] = useState<number | undefined>(undefined);
   const [filterStatus, setFilterStatus] = useState<'all' | 'scheduled' | 'in-progress' | 'completed'>('all');
+  const [matchRecordMode, setMatchRecordMode] = useState<MatchRecordMode>('edit');
   const [showRulesModal, setShowRulesModal] = useState(false);
   const [showSensitiveInfo, setShowSensitiveInfo] = useState(false);
   
@@ -430,7 +432,7 @@ function App() {
 
   const restoreContestBackupSnapshot = async (
     parsed: Partial<ContestBackupSnapshot>,
-    confirmMessage = '這將覆蓋目前整個賽事狀態（選手、比賽、設定與排名），確定要還原備份嗎？'
+    confirmMessage = '這將覆蓋目前整個賽事狀態（選手、比賽、設定與排名），確定要還原完整備份嗎？'
   ) => {
     const isValidSnapshot = parsed?.app === 'tennis-contest'
       && parsed?.version === 1
@@ -1847,18 +1849,18 @@ function App() {
                   <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                     <button
                       className="btn-secondary"
-                      onClick={handleExportContestBackup}
-                    >
-                      完整備份
-                    </button>
-                    <button
-                      className="btn-secondary"
                       onClick={() => { void handleRestoreAutoBackup(); }}
                     >
                       還原自動備份
                     </button>
+                    <button
+                      className="btn-secondary"
+                      onClick={handleExportContestBackup}
+                    >
+                      完整備份
+                    </button>
                     <label className="btn-secondary setup-upload-trigger" style={{ margin: 0 }}>
-                      還原備份
+                      還原完整備份
                       <input
                         type="file"
                         accept=".json"
@@ -1906,64 +1908,90 @@ function App() {
           <div className="matches-view">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <h2 style={{ margin: 0 }}>比賽列表</h2>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <button className="btn-primary" onClick={handleOpenManualSetup}>
-                  ✏️ 手動調整
-                </button>
-                <button className="btn-secondary" onClick={handleExportContestBackup}>
-                  💾 完整備份
-                </button>
-                <button className="btn-secondary" onClick={() => { void handleRestoreAutoBackup(); }}>
-                  ⏪ 還原自動備份
-                </button>
-                <label className="btn-secondary" style={{ margin: 0, cursor: 'pointer' }}>
-                  ♻️ 還原備份
-                  <input
-                    type="file"
-                    accept=".json"
-                    style={{ display: 'none' }}
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        handleImportContestBackup(file);
-                        e.target.value = '';
-                      }
-                    }}
-                  />
-                </label>
-                <button className="btn-secondary" onClick={() => {
-                  const format = prompt('選擇匯出格式：\n1 - Excel\n2 - JSON', '1');
-                  if (format === '1') {
-                    handleExportMatchesExcel();
-                  } else if (format === '2') {
-                    handleExportMatches();
-                  }
-                }}>
-                  📤 匯出
-                </button>
-                <button className="btn-secondary" onClick={() => {
-                  const format = prompt('選擇匯入格式：\n1 - Excel\n2 - JSON\n\n注意：Excel匯入比賽功能建議使用JSON格式', '1');
-                  const input = document.createElement('input');
-                  input.type = 'file';
-                  input.accept = format === '1' ? '.xlsx,.xls' : '.json';
-                  input.onchange = (e) => {
-                    const file = (e.target as HTMLInputElement).files?.[0];
-                    if (file) {
-                      if (format === '1') {
-                        handleImportMatchesExcel(file);
-                      } else if (format === '2') {
-                        handleImportMatches(file);
-                      }
+              <div className="matches-actions">
+                <div className="action-group">
+                  <button className="btn-primary" onClick={handleOpenManualSetup}>
+                    ✏️ 手動調整
+                  </button>
+                  <button className="btn-secondary" onClick={() => { void handleRestoreAutoBackup(); }}>
+                    ⏪ 還原自動備份
+                  </button>
+                </div>
+
+                <div className="action-group">
+                  <button className="btn-secondary" onClick={handleExportContestBackup}>
+                    💾 完整備份
+                  </button>
+                  <label className="btn-secondary" style={{ margin: 0, cursor: 'pointer' }}>
+                    ♻️ 還原完整備份
+                    <input
+                      type="file"
+                      accept=".json"
+                      style={{ display: 'none' }}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          handleImportContestBackup(file);
+                          e.target.value = '';
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+
+                <div className="action-group">
+                  <button className="btn-secondary" onClick={() => {
+                    const format = prompt('選擇匯出格式：\n1 - Excel\n2 - JSON', '1');
+                    if (format === '1') {
+                      handleExportMatchesExcel();
+                    } else if (format === '2') {
+                      handleExportMatches();
                     }
-                  };
-                  if (format === '1' || format === '2') {
-                    input.click();
-                  }
-                }}>
-                  📂 匯入
+                  }}>
+                    📤 匯出
+                  </button>
+                  <button className="btn-secondary" onClick={() => {
+                    const format = prompt('選擇匯入格式：\n1 - Excel\n2 - JSON\n\n注意：Excel匯入比賽功能建議使用JSON格式', '1');
+                    const input = document.createElement('input');
+                    input.type = 'file';
+                    input.accept = format === '1' ? '.xlsx,.xls' : '.json';
+                    input.onchange = (e) => {
+                      const file = (e.target as HTMLInputElement).files?.[0];
+                      if (file) {
+                        if (format === '1') {
+                          handleImportMatchesExcel(file);
+                        } else if (format === '2') {
+                          handleImportMatches(file);
+                        }
+                      }
+                    };
+                    if (format === '1' || format === '2') {
+                      input.click();
+                    }
+                  }}>
+                    📂 匯入
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="match-record-mode-row">
+              <div className="match-record-mode-switch" role="tablist" aria-label="比賽紀錄檢視模式">
+                <button
+                  className={`match-record-mode-btn ${matchRecordMode === 'edit' ? 'active' : ''}`}
+                  onClick={() => setMatchRecordMode('edit')}
+                >
+                  編輯模式
+                </button>
+                <button
+                  className={`match-record-mode-btn ${matchRecordMode === 'preview' ? 'active' : ''}`}
+                  onClick={() => setMatchRecordMode('preview')}
+                >
+                  預覽模式
                 </button>
               </div>
             </div>
+
             <div className="filters">
               <div className="filter-group">
                 <label>選擇輪次：</label>
@@ -2002,6 +2030,7 @@ function App() {
               gamesPerMatch={settings.gamesPerMatch}
               fourGameDeuceMode={settings.fourGameDeuceMode}
               showSensitiveInfo={showSensitiveInfo}
+              readOnly={matchRecordMode === 'preview'}
             />
           </div>
         )}

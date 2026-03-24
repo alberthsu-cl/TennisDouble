@@ -55,6 +55,10 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
   const [hasAutoAddedFirstMatch, setHasAutoAddedFirstMatch] = useState(false);
   const [viewMode, setViewMode] = useState<SetupViewMode>('edit');
   const [previewRound, setPreviewRound] = useState(1);
+  useEffect(() => {
+    setPreviewRound(currentRound);
+  }, [currentRound]);
+
 
   const isLevelAPlayer = (player: Player | null | undefined) => !!player && player.skillLevel.startsWith('A') && player.gender === '男';
   const isPoint1ConstraintPoint = (pointNumber: number) => settings.point1LevelAConstraint && pointNumber === 1;
@@ -140,10 +144,6 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
     }
     setAssignments(initialAssignments);
   }, [settings.totalRounds, settings.pointsPerRound, settings.tournamentMode, existingMatches]);
-
-  useEffect(() => {
-    setPreviewRound(currentRound);
-  }, [currentRound]);
 
   // 驗證並清除違反硬性規則的配對
   useEffect(() => {

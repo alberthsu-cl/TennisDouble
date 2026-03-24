@@ -158,7 +158,24 @@ export const RulesModal: React.FC<RulesModalProps> = ({ isOpen, onClose, setting
           <li>假設打${settings.pointsPerRound}點雙打，前${settings.pointsPerRound - 1}點年齡遞增，第${settings.pointsPerRound}點混雙/女雙</li>
           <li>每位正式選手至少須出賽${settings.minMatchesPerPlayer}場</li>
           <li>${rulesFormatText}</li>
-          <li>勝場得3分，排名依據：積分 > 勝場 > 淨勝局</li>
+          </ul>
+
+          <h2>🏆 即時排名計分系統</h2>
+          <ul>
+            <li><strong>排名依據（優先順序）：</strong><br/>
+                <span class="sub-rule"><strong>1. 勝盤數 (主KPI)：</strong>每場對陣中，贏得更多點數的隊伍獲得1勝盤</span>
+                <span class="sub-rule"><strong>2. 淨勝局：</strong>總勝局數減去總失局數</span>
+                <span class="sub-rule"><strong>3. 總勝局：</strong>所有比賽中贏得的局數</span>
+                <span class="sub-rule"><strong>4. 積分：</strong>勝場得3分（次要參考）</span>
+            </li>
+            <li><strong>勝盤數說明：</strong><br/>
+                <span class="sub-rule">範例：甲隊 vs 乙隊，5點比賽中甲隊贏4點，乙隊贏1點</span>
+                <span class="sub-rule">→ 甲隊：勝盤數+1，敗盤數+0</span>
+                <span class="sub-rule">→ 乙隊：勝盤數+0，敗盤數+1</span>
+            </li>
+            <li><strong>舉例：</strong><br/>
+                <span class="sub-rule">3輪循環賽（甲 vs 乙、丙、丁）：最多可獲得3勝盤</span>
+                <span class="sub-rule">團隊勝盤多者排名靠前，確保公平競爭</span>
         </ul>
 
         <h2>🧾 匯出收據功能</h2>
@@ -339,7 +356,27 @@ export const RulesModal: React.FC<RulesModalProps> = ({ isOpen, onClose, setting
                 <li>假設打{settings.pointsPerRound}點雙打，前{settings.pointsPerRound - 1}點年齡遞增，第{settings.pointsPerRound}點混雙/女雙</li>
                 <li>每位正式選手至少須出賽{settings.minMatchesPerPlayer}場</li>
                 <li>{rulesFormatText}</li>
-                <li>勝場得3分，排名依據：積分 &gt; 勝場 &gt; 淨勝局</li>
+                </ul>
+              </div>
+
+              <div className="rule-section">
+                <h4>🏆 即時排名計分系統</h4>
+                <ul>
+                  <li><strong>排名依據（優先順序）：</strong><br/>
+                      <span className="sub-rule"><strong>1. 勝盤數 (主KPI)：</strong>每場對陣中，贏得更多點數的隊伍獲得1勝盤</span>
+                      <span className="sub-rule"><strong>2. 淨勝局：</strong>總勝局數減去總失局數</span>
+                      <span className="sub-rule"><strong>3. 總勝局：</strong>所有比賽中贏得的局數</span>
+                      <span className="sub-rule"><strong>4. 積分：</strong>勝場得3分（次要參考）</span>
+                  </li>
+                  <li><strong>勝盤數說明：</strong><br/>
+                      <span className="sub-rule">範例：甲隊 vs 乙隊，5點比賽中甲隊贏4點，乙隊贏1點</span>
+                      <span className="sub-rule">→ 甲隊：勝盤數+1，敗盤數+0</span>
+                      <span className="sub-rule">→ 乙隊：勝盤數+0，敗盤數+1</span>
+                  </li>
+                  <li><strong>舉例：</strong><br/>
+                      <span className="sub-rule">3輪循環賽（甲 vs 乙、丙、丁）：最多可獲得3勝盤</span>
+                      <span className="sub-rule">團隊勝盤多者排名靠前，確保公平競爭</span>
+                  </li>
               </ul>
             </div>
 

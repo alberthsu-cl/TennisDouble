@@ -9,6 +9,7 @@ interface ScoreRecorderProps {
   gamesPerMatch: number;
   fourGameDeuceMode: FourGameDeuceMode;
   showSensitiveInfo?: boolean;
+  readOnly?: boolean;
 }
 
 export const ScoreRecorder: React.FC<ScoreRecorderProps> = ({
@@ -19,6 +20,7 @@ export const ScoreRecorder: React.FC<ScoreRecorderProps> = ({
   gamesPerMatch,
   fourGameDeuceMode,
   showSensitiveInfo = true,
+  readOnly = false,
 }) => {
   const tiebreakTriggerGames = Math.max(1, gamesPerMatch - 1);
   const usesExtendedFourGameFinish = gamesPerMatch === 4 && fourGameDeuceMode === 'extend-to-5';
@@ -130,13 +132,15 @@ export const ScoreRecorder: React.FC<ScoreRecorderProps> = ({
         <div className="match-info">
           <div className="match-header">
             <h3>第{match.roundNumber}輪 - 第{match.pointNumber}點</h3>
-            <button 
-              className="btn-reset-icon" 
-              onClick={() => onResetMatch(match)}
-              title="重置比賽結果"
-            >
-              ✏️
-            </button>
+            {!readOnly && (
+              <button 
+                className="btn-reset-icon" 
+                onClick={() => onResetMatch(match)}
+                title="重置比賽結果"
+              >
+                ✏️
+              </button>
+            )}
           </div>
           <div className="teams">
             <div className={`team ${match.winner === match.team1 ? 'winner' : ''}`}>
@@ -268,14 +272,76 @@ export const ScoreRecorder: React.FC<ScoreRecorderProps> = ({
           </div>
         </div>
 
-        <button 
-          className="btn-primary btn-large" 
-          onClick={startMatch}
-          disabled={!canStart}
-          title={!canStart ? '請先指派所有選手才能開始比賽' : (hasWarning ? '建議：第5點應為混雙或女雙' : '')}
-        >
-          {canStart ? '開始比賽' : '⚠️ 選手未齊 - 無法開始'}
-        </button>
+        {!readOnly ? (
+          <button 
+            className="btn-primary btn-large" 
+            onClick={startMatch}
+            disabled={!canStart}
+            title={!canStart ? '請先指派所有選手才能開始比賽' : (hasWarning ? '建議：第5點應為混雙或女雙' : '')}
+          >
+            {canStart ? '開始比賽' : '⚠️ 選手未齊 - 無法開始'}
+          </button>
+        ) : (
+          <div className="preview-readonly-tip">預覽模式：僅顯示對戰資訊</div>
+        )}
+      </div>
+    );
+  }
+
+  if (readOnly) {
+    return (
+      <div className="score-recorder in-progress preview-readonly">
+        <div className="match-info">
+          <h3>第{match.roundNumber}輪 - 第{match.pointNumber}點</h3>
+          <div className="match-status">比賽進行中（預覽）</div>
+        </div>
+
+        <div className="final-score">
+          <div className="score-display">
+            <div className="team-score">
+              <div className="team-name">{match.team1}</div>
+              <div className="score-large">{match.team1Games}</div>
+              {match.team1TiebreakScore !== undefined && (
+                <div className="tiebreak-score">({match.team1TiebreakScore})</div>
+              )}
+            </div>
+            <div className="score-separator">-</div>
+            <div className="team-score">
+              <div className="team-name">{match.team2}</div>
+              <div className="score-large">{match.team2Games}</div>
+              {match.team2TiebreakScore !== undefined && (
+                <div className="tiebreak-score">({match.team2TiebreakScore})</div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="players-info">
+          <div className="team-players">
+            <h4>{match.team1}</h4>
+            {match.pair1.player1 && match.pair1.player2 ? (
+              <>
+                <p>{match.pair1.player1.name} ({showSensitiveInfo && `${match.pair1.player1.age}歲 `}{match.pair1.player1.gender})</p>
+                <p>{match.pair1.player2.name} ({showSensitiveInfo && `${match.pair1.player2.age}歲 `}{match.pair1.player2.gender})</p>
+              </>
+            ) : (
+              <p className="tbd-text">待定 (TBD)</p>
+            )}
+          </div>
+          <div className="team-players">
+            <h4>{match.team2}</h4>
+            {match.pair2.player1 && match.pair2.player2 ? (
+              <>
+                <p>{match.pair2.player1.name} ({showSensitiveInfo && `${match.pair2.player1.age}歲 `}{match.pair2.player1.gender})</p>
+                <p>{match.pair2.player2.name} ({showSensitiveInfo && `${match.pair2.player2.age}歲 `}{match.pair2.player2.gender})</p>
+              </>
+            ) : (
+              <p className="tbd-text">待定 (TBD)</p>
+            )}
+          </div>
+        </div>
+
+        <div className="preview-readonly-tip">預覽模式：僅顯示對戰資訊</div>
       </div>
     );
   }
