@@ -901,6 +901,11 @@ button {
   text-align: center;
 }
 
+.standings-table th,
+.standings-table td {
+  text-align: center;
+}
+
 .players-table td,
 .standings-table td,
 .player-stats-table td {
