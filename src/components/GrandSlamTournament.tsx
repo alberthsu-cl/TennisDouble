@@ -777,7 +777,10 @@ export const GrandSlamTournament: React.FC<GrandSlamTournamentProps> = ({
   // Export full tournament state as Excel (for later restore)
   const handleExportTournamentState = async (snapshot?: TournamentStateSnapshot) => {
     const today = new Date().toLocaleDateString('zh-TW');
-    const fileName = `一球大滿貫_賽事存檔_${today.replace(/\//g, '')}.xlsx`;
+    const exportRound = Number.isFinite(snapshot?.currentRound)
+      ? Math.max(1, Math.floor(snapshot!.currentRound))
+      : Math.max(1, Math.floor(currentRound));
+    const fileName = `一球大滿貫_賽事存檔_${today.replace(/\//g, '')}_R${exportRound}.xlsx`;
     const wb = buildTournamentStateWorkbook(snapshot);
 
     if (supportsRememberedStateFile) {
@@ -804,7 +807,6 @@ export const GrandSlamTournament: React.FC<GrandSlamTournamentProps> = ({
           localStorage.setItem(TOURNAMENT_STATE_FILE_NAME_KEY, handle.name);
           setLastSavedStateFileName(handle.name);
           setHasRememberedStateFile(true);
-          alert(`已儲存可還原存檔：${handle.name}\n之後可直接使用「🕘 還原上次存檔」載入。`);
           return;
         }
       } catch (error) {
@@ -816,7 +818,6 @@ export const GrandSlamTournament: React.FC<GrandSlamTournamentProps> = ({
     }
 
     XLSX.writeFile(wb, fileName);
-    alert('目前瀏覽器不支援記住實際存檔位置，已改用一般下載方式。');
   };
 
   // Import and restore tournament state from an exported state file
@@ -1428,8 +1429,8 @@ export const GrandSlamTournament: React.FC<GrandSlamTournamentProps> = ({
           display: flex;
           justify-content: space-between;
           align-items: center;
-          margin-bottom: 30px;
-          padding: 20px;
+          margin-bottom: 16px;
+          padding: 12px 14px;
           background: white;
           border-radius: 8px;
           box-shadow: 0 2px 4px rgba(0,0,0,0.1);
@@ -1437,18 +1438,18 @@ export const GrandSlamTournament: React.FC<GrandSlamTournamentProps> = ({
 
         .round-navigation h3 {
           margin: 0;
-          font-size: 1.5em;
+          font-size: 1.2em;
           color: #2c3e50;
         }
 
         .btn-nav {
-          padding: 10px 20px;
+          padding: 8px 14px;
           background: #3498db;
           color: white;
           border: none;
           border-radius: 6px;
           cursor: pointer;
-          font-size: 1em;
+          font-size: 0.95em;
           transition: all 0.3s;
         }
 
@@ -1465,16 +1466,16 @@ export const GrandSlamTournament: React.FC<GrandSlamTournamentProps> = ({
 
         .matches-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-          gap: 20px;
-          margin-bottom: 30px;
+          grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+          gap: 6px;
+          margin-bottom: 10px;
         }
 
         .match-card {
           background: white;
-          border: 2px solid #dee2e6;
-          border-radius: 10px;
-          padding: 20px;
+          border: 1px solid #dee2e6;
+          border-radius: 8px;
+          padding: 6px;
           transition: all 0.3s;
         }
 
@@ -1497,20 +1498,21 @@ export const GrandSlamTournament: React.FC<GrandSlamTournamentProps> = ({
           display: flex;
           justify-content: space-between;
           align-items: center;
-          margin-bottom: 15px;
-          padding-bottom: 10px;
+          margin-bottom: 4px;
+          padding-bottom: 3px;
           border-bottom: 1px solid #dee2e6;
         }
 
         .match-number {
           font-weight: bold;
+          font-size: 1.14em;
           color: #2c3e50;
         }
 
         .match-status-badge {
-          padding: 4px 12px;
+          padding: 1px 5px;
           border-radius: 20px;
-          font-size: 0.85em;
+          font-size: 1em;
           font-weight: 500;
         }
 
@@ -1532,17 +1534,17 @@ export const GrandSlamTournament: React.FC<GrandSlamTournamentProps> = ({
         .match-players {
           display: flex;
           flex-direction: column;
-          gap: 10px;
+          gap: 4px;
         }
 
         .player-slot {
           display: flex;
           flex-direction: column;
-          gap: 8px;
-          padding: 15px;
+          gap: 3px;
+          padding: 6px;
           background: #f8f9fa;
-          border-radius: 8px;
-          border: 2px solid transparent;
+          border-radius: 6px;
+          border: 1px solid transparent;
           transition: all 0.3s;
         }
 
@@ -1553,7 +1555,8 @@ export const GrandSlamTournament: React.FC<GrandSlamTournamentProps> = ({
 
         .player-name {
           font-weight: bold;
-          font-size: 1.1em;
+          font-size: 1.24em;
+          line-height: 1.2;
           color: #2c3e50;
         }
 
@@ -1568,20 +1571,23 @@ export const GrandSlamTournament: React.FC<GrandSlamTournamentProps> = ({
         }
 
         .vs-divider {
-          text-align: center;
+          text-align: left;
           font-weight: bold;
           color: #6c757d;
-          margin: 5px 0;
+          margin: 0;
+          padding-left: 6px;
+          font-size: 1.16em;
         }
 
         .btn-win {
-          padding: 8px 16px;
+          padding: 4px 8px;
           background: #28a745;
           color: white;
           border: none;
           border-radius: 6px;
           cursor: pointer;
           font-weight: 500;
+          font-size: 1.08em;
           transition: all 0.3s;
           align-self: flex-start;
         }
@@ -1593,27 +1599,28 @@ export const GrandSlamTournament: React.FC<GrandSlamTournamentProps> = ({
         }
 
         .match-result {
-          margin-top: 15px;
-          padding: 12px;
+          margin-top: 4px;
+          padding: 5px;
           background: #e8f5e9;
           border-radius: 6px;
-          text-align: center;
+          text-align: left;
           font-weight: bold;
+          font-size: 1.16em;
           color: #2e7d32;
           display: flex;
-          justify-content: center;
+          justify-content: space-between;
           align-items: center;
-          gap: 10px;
+          gap: 4px;
         }
 
         .btn-edit {
           background: white;
           color: #667eea;
           border: 1px solid #667eea;
-          padding: 5px 10px;
+          padding: 3px 7px;
           border-radius: 5px;
           cursor: pointer;
-          font-size: 1em;
+          font-size: 1.02em;
           transition: all 0.2s ease;
           display: flex;
           align-items: center;
