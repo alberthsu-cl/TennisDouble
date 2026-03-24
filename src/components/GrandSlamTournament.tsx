@@ -102,6 +102,15 @@ interface GrandSlamTournamentProps {
   showSensitiveInfo?: boolean;
 }
 
+interface TournamentStateSnapshot {
+  players: Player[];
+  bracket: GrandSlamMatch[];
+  currentRound: number;
+  totalRounds: number;
+  playersWithBye: Set<string>;
+  tournamentStarted: boolean;
+}
+
 export const GrandSlamTournament: React.FC<GrandSlamTournamentProps> = ({
   onBack,
 }) => {
@@ -120,6 +129,62 @@ export const GrandSlamTournament: React.FC<GrandSlamTournamentProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const filePickerWindow = window as WindowWithFilePicker;
   const supportsRememberedStateFile = typeof filePickerWindow.showSaveFilePicker === 'function';
+
+  const exportRoundMatchups = (round: number, bracketSource: GrandSlamMatch[] = bracket) => {
+    const roundMatches = bracketSource.filter(m => m.round === round).filter(m => m.player1 || m.player2);
+    const roundName = getRoundName(round);
+    const today = new Date().toLocaleDateString('zh-TW');
+
+    const rows = roundMatches.map((match, idx) => {
+      const isBye = !match.player2;
+      const p1 = match.player1?.name || '輪空';
+      const p2 = isBye ? '' : (match.player2?.name ?? '');
+      const p1Win = match.winner?.id === match.player1?.id;
+      const p2Win = match.winner?.id === match.player2?.id;
+      const result = match.winner
+        ? `晉級：${match.winner.name}`
+        : isBye
+          ? `${p1} 直接晉級`
+          : '待賽';
+      return {
+        場次: `第 ${idx + 1} 場`,
+        選手甲: p1Win ? `${p1} 🏆` : p1,
+        VS: isBye ? '輪空' : 'VS',
+        選手乙: p2Win ? `${p2} 🏆` : p2,
+        結果: result,
+      };
+    });
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws['!cols'] = [
+      { wch: 10 },
+      { wch: 16 },
+      { wch: 6 },
+      { wch: 16 },
+      { wch: 20 },
+    ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, roundName);
+    XLSX.writeFile(wb, `一球大滿貫_${roundName}_${today.replace(/\//g, '')}.xlsx`);
+  };
+
+  const promptExportGeneratedRound = (
+    round: number,
+    bracketSource: GrandSlamMatch[],
+    snapshot?: TournamentStateSnapshot,
+  ) => {
+    const roundMatches = bracketSource.filter(m => m.round === round).filter(m => m.player1 || m.player2);
+    if (roundMatches.length === 0) return;
+
+    const roundName = getRoundName(round);
+    window.setTimeout(() => {
+      const shouldSave = window.confirm(`${roundName} 對陣已產生，是否立即儲存目前賽事進度？\n\n此存檔可透過「還原賽事存檔 / 還原上次存檔」再次載入。`);
+      if (shouldSave) {
+        void handleExportTournamentState(snapshot);
+      }
+    }, 0);
+  };
 
   useEffect(() => {
     setLastSavedStateFileName(localStorage.getItem(TOURNAMENT_STATE_FILE_NAME_KEY) ?? '');
@@ -257,6 +322,14 @@ export const GrandSlamTournament: React.FC<GrandSlamTournamentProps> = ({
     setBracket(matches);
     setTournamentStarted(true);
     setCurrentRound(1);
+    promptExportGeneratedRound(1, matches, {
+      players: playerList,
+      bracket: matches,
+      currentRound: 1,
+      totalRounds: estimatedRounds,
+      playersWithBye: byePlayerIds,
+      tournamentStarted: true,
+    });
   };
 
   // Handle match result
@@ -293,6 +366,7 @@ export const GrandSlamTournament: React.FC<GrandSlamTournamentProps> = ({
       const hasOddWinners = winners.length % 2 === 1;
       let byePlayer: Player | null = null;
       let playersForMatches = winners;
+      const updatedPlayersWithBye = new Set(playersWithBye);
       
       if (hasOddWinners) {
         // Filter winners who haven't had a bye yet
@@ -311,7 +385,7 @@ export const GrandSlamTournament: React.FC<GrandSlamTournamentProps> = ({
         playersForMatches = winners.filter(p => p.id !== byePlayer!.id);
         
         // Track this player as having had a bye
-        setPlayersWithBye(prev => new Set([...prev, byePlayer!.id]));
+        updatedPlayersWithBye.add(byePlayer!.id);
       }
       
       // Create new matches for next round
@@ -348,6 +422,20 @@ export const GrandSlamTournament: React.FC<GrandSlamTournamentProps> = ({
       if (maxRound > totalRounds) {
         setTotalRounds(maxRound);
       }
+
+      if (byePlayer) {
+        setPlayersWithBye(updatedPlayersWithBye);
+      }
+
+      setCurrentRound(nextRound);
+      promptExportGeneratedRound(nextRound, updatedBracket, {
+        players,
+        bracket: updatedBracket,
+        currentRound: nextRound,
+        totalRounds: Math.max(totalRounds, maxRound),
+        playersWithBye: updatedPlayersWithBye,
+        tournamentStarted: true,
+      });
     }
 
     setBracket(updatedBracket);
@@ -574,20 +662,26 @@ export const GrandSlamTournament: React.FC<GrandSlamTournamentProps> = ({
     reader.readAsText(file, 'UTF-8');
   };
 
-  const buildTournamentStateWorkbook = () => {
+  const buildTournamentStateWorkbook = (snapshot?: TournamentStateSnapshot) => {
+    const sourcePlayers = snapshot?.players ?? players;
+    const sourceBracket = snapshot?.bracket ?? bracket;
+    const sourceCurrentRound = snapshot?.currentRound ?? currentRound;
+    const sourceTotalRounds = snapshot?.totalRounds ?? totalRounds;
+    const sourcePlayersWithBye = snapshot?.playersWithBye ?? playersWithBye;
+    const sourceTournamentStarted = snapshot?.tournamentStarted ?? tournamentStarted;
     const wb = XLSX.utils.book_new();
 
     const metaRows = [
-      { 項目: '當前輪次', 值: currentRound },
-      { 項目: '總輪數', 值: totalRounds },
-      { 項目: '輪空選手IDs', 值: Array.from(playersWithBye).join(',') },
-      { 項目: '已開始', 值: tournamentStarted ? '是' : '否' },
+      { 項目: '當前輪次', 值: sourceCurrentRound },
+      { 項目: '總輪數', 值: sourceTotalRounds },
+      { 項目: '輪空選手IDs', 值: Array.from(sourcePlayersWithBye).join(',') },
+      { 項目: '已開始', 值: sourceTournamentStarted ? '是' : '否' },
     ];
     const wsMeta = XLSX.utils.json_to_sheet(metaRows);
     wsMeta['!cols'] = [{ wch: 16 }, { wch: 40 }];
     XLSX.utils.book_append_sheet(wb, wsMeta, '賽事資訊');
 
-    const playerRows = players.map(p => ({
+    const playerRows = sourcePlayers.map(p => ({
       player_id: p.id,
       姓名: p.name,
       年齡: p.age,
@@ -598,7 +692,7 @@ export const GrandSlamTournament: React.FC<GrandSlamTournamentProps> = ({
     wsPlayers['!cols'] = [{ wch: 14 }, { wch: 16 }, { wch: 6 }, { wch: 6 }, { wch: 10 }];
     XLSX.utils.book_append_sheet(wb, wsPlayers, '選手名單');
 
-    const bracketRows = bracket.map(m => ({
+    const bracketRows = sourceBracket.map(m => ({
       match_id: m.id,
       輪次: m.round,
       位置: m.position,
@@ -623,7 +717,7 @@ export const GrandSlamTournament: React.FC<GrandSlamTournamentProps> = ({
 
   const restoreTournamentStateFromWorkbook = (workbook: XLSX.WorkBook) => {
     if (!workbook.Sheets['賽事資訊'] || !workbook.Sheets['選手名單'] || !workbook.Sheets['賽程']) {
-      alert('無效的賽事存檔：請確認此檔案是由「💾 儲存賽事」匯出的存檔');
+      alert('無效的賽事存檔：請確認此檔案是由「💾 儲存可還原存檔」匯出的存檔');
       return;
     }
 
@@ -681,10 +775,10 @@ export const GrandSlamTournament: React.FC<GrandSlamTournamentProps> = ({
   };
 
   // Export full tournament state as Excel (for later restore)
-  const handleExportTournamentState = async () => {
+  const handleExportTournamentState = async (snapshot?: TournamentStateSnapshot) => {
     const today = new Date().toLocaleDateString('zh-TW');
     const fileName = `一球大滿貫_賽事存檔_${today.replace(/\//g, '')}.xlsx`;
-    const wb = buildTournamentStateWorkbook();
+    const wb = buildTournamentStateWorkbook(snapshot);
 
     if (supportsRememberedStateFile) {
       try {
@@ -710,7 +804,7 @@ export const GrandSlamTournament: React.FC<GrandSlamTournamentProps> = ({
           localStorage.setItem(TOURNAMENT_STATE_FILE_NAME_KEY, handle.name);
           setLastSavedStateFileName(handle.name);
           setHasRememberedStateFile(true);
-          alert(`已儲存賽事存檔：${handle.name}\n之後可直接使用「🕘 還原上次存檔」載入。`);
+          alert(`已儲存可還原存檔：${handle.name}\n之後可直接使用「🕘 還原上次存檔」載入。`);
           return;
         }
       } catch (error) {
@@ -775,43 +869,7 @@ export const GrandSlamTournament: React.FC<GrandSlamTournamentProps> = ({
 
   // Export current round matchups as Excel
   const handleExportCurrentRound = () => {
-    const roundMatches = getMatchesForRound(currentRound).filter(m => m.player1 || m.player2);
-    const roundName = getRoundName(currentRound);
-    const today = new Date().toLocaleDateString('zh-TW');
-
-    const rows = roundMatches.map((match, idx) => {
-      const isBye = !match.player2;
-      const p1 = match.player1?.name || '輪空';
-      const p2 = isBye ? '' : (match.player2?.name ?? '');
-      const p1Win = match.winner?.id === match.player1?.id;
-      const p2Win = match.winner?.id === match.player2?.id;
-      const result = match.winner
-        ? `晉級：${match.winner.name}`
-        : isBye
-          ? `${p1} 直接晉級`
-          : '待賽';
-      return {
-        場次: `第 ${idx + 1} 場`,
-        選手甲: p1Win ? `${p1} 🏆` : p1,
-        VS: isBye ? '輪空' : 'VS',
-        選手乙: p2Win ? `${p2} 🏆` : p2,
-        結果: result,
-      };
-    });
-
-    const ws = XLSX.utils.json_to_sheet(rows);
-    // Set column widths
-    ws['!cols'] = [
-      { wch: 10 }, // 場次
-      { wch: 16 }, // 選手甲
-      { wch: 6 },  // VS
-      { wch: 16 }, // 選手乙
-      { wch: 20 }, // 結果
-    ];
-
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, roundName);
-    XLSX.writeFile(wb, `一球大滿貫_${roundName}_${today.replace(/\//g, '')}.xlsx`);
+    exportRoundMatchups(currentRound);
   };
 
   const currentRoundMatches = getMatchesForRound(currentRound);
@@ -891,7 +949,7 @@ export const GrandSlamTournament: React.FC<GrandSlamTournamentProps> = ({
                 {supportsRememberedStateFile
                   ? lastSavedStateFileName
                     ? `💡 已記住上次存檔：${lastSavedStateFileName}`
-                    : '💡 使用「💾 儲存賽事」後，系統會記住上次存檔位置，可直接還原。'
+                    : '💡 使用「💾 儲存可還原存檔」後，系統會記住上次存檔位置，可直接還原。'
                   : '💡 目前瀏覽器不支援記住實際存檔位置，仍可手動選擇存檔還原。'}
               </p>
             </div>
@@ -910,8 +968,8 @@ export const GrandSlamTournament: React.FC<GrandSlamTournamentProps> = ({
               <button className="btn-secondary" onClick={handleExportCurrentRound}>
                 📄 匯出本輪對陣
               </button>
-              <button className="btn-save" onClick={handleExportTournamentState}>
-                💾 儲存賽事
+              <button className="btn-save" onClick={() => { void handleExportTournamentState(); }}>
+                💾 儲存可還原存檔
               </button>
               <button className="btn-danger" onClick={handleClearAll}>
                 清除所有資料
