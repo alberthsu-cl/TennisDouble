@@ -177,13 +177,7 @@ export const GrandSlamTournament: React.FC<GrandSlamTournamentProps> = ({
     const roundMatches = bracketSource.filter(m => m.round === round).filter(m => m.player1 || m.player2);
     if (roundMatches.length === 0) return;
 
-    const roundName = getRoundName(round);
-    window.setTimeout(() => {
-      const shouldSave = window.confirm(`${roundName} 對陣已產生，是否立即儲存目前賽事進度？\n\n此存檔可透過「還原賽事存檔 / 還原上次存檔」再次載入。`);
-      if (shouldSave) {
-        void handleExportTournamentState(snapshot);
-      }
-    }, 0);
+    void handleExportTournamentState(snapshot);
   };
 
   useEffect(() => {
@@ -1573,10 +1567,10 @@ export const GrandSlamTournament: React.FC<GrandSlamTournamentProps> = ({
         .vs-divider {
           text-align: left;
           font-weight: bold;
-          color: #6c757d;
+          color: #3498db;
           margin: 0;
           padding-left: 6px;
-          font-size: 1.16em;
+          font-size: 0.92em;
         }
 
         .btn-win {
