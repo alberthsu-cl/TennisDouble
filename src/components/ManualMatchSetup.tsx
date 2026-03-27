@@ -264,15 +264,6 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
     return '丙隊';
   };
 
-  const shuffleForMatchup = <T,>(arr: T[]): T[] => {
-    const result = [...arr];
-    for (let i = result.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [result[i], result[j]] = [result[j], result[i]];
-    }
-    return result;
-  };
-
   const handleRandomMatchup = () => {
     const homePlayers = getInterClubHomePlayers();
     const awayPlayers = getInterClubAwayPlayers();
@@ -295,11 +286,52 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
     const now = Date.now();
     let globalMatchIdx = 0;
 
+    const separateByGender = (players: Player[]) => {
+      const males = players.filter(player => player.gender === '男');
+      const females = players.filter(player => player.gender === '女');
+      return { males, females };
+    };
+
+    const { males: homeMales, females: homeFemales } = separateByGender(homePlayers);
+    const { males: awayMales, females: awayFemales } = separateByGender(awayPlayers);
+
+    const shuffle = (array: any[]) => {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+    };
+
+    shuffle(homeMales);
+    shuffle(homeFemales);
+    shuffle(awayMales);
+    shuffle(awayFemales);
+
+    const createPairs = (males: Player[], females: Player[]): [Player | null, Player | null][] => {
+      const pairs: [Player | null, Player | null][] = [];
+      const maxPairs = Math.min(males.length, females.length);
+
+      for (let i = 0; i < maxPairs; i++) {
+        pairs.push([males[i], females[i]]);
+      }
+
+      // Add remaining players if any
+      const remaining = males.slice(maxPairs).concat(females.slice(maxPairs));
+      for (let i = 0; i < remaining.length; i += 2) {
+        pairs.push([remaining[i] || null, remaining[i + 1] || null]);
+      }
+
+      return pairs;
+    };
+
+    const homePairs = createPairs(homeMales, homeFemales);
+    const awayPairs = createPairs(awayMales, awayFemales);
+
     for (let round = 1; round <= interClubRounds; round++) {
-      const shuffledHome = shuffleForMatchup(homePlayers);
-      const shuffledAway = shuffleForMatchup(awayPlayers);
-      // If odd count, last player gets skipped (no bye match)
-      const matchCount = Math.floor(Math.min(shuffledHome.length, shuffledAway.length) / 2);
+      shuffle(homePairs);
+      shuffle(awayPairs);
+
+      const matchCount = Math.floor(Math.min(homePairs.length, awayPairs.length));
 
       for (let i = 0; i < matchCount; i++) {
         newAssignments.push({
@@ -308,8 +340,8 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
           pointNumber: ++globalMatchIdx,
           team1,
           team2,
-          pair1: [shuffledHome[i * 2], shuffledHome[i * 2 + 1]],
-          pair2: [shuffledAway[i * 2], shuffledAway[i * 2 + 1]],
+          pair1: homePairs[i],
+          pair2: awayPairs[i],
         });
       }
     }
