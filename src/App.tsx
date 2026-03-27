@@ -81,6 +81,17 @@ const resolveInterClubTeam = (
     return undefined;
   }
 
+  const configuredHome = (settings.homeClubName || '').trim();
+  const configuredAway = (settings.awayClubName || '').trim();
+
+  if (bucket === 'home' && isInternalTeamName(configuredHome)) {
+    return configuredHome;
+  }
+
+  if (bucket === 'away' && isInternalTeamName(configuredAway)) {
+    return configuredAway;
+  }
+
   if (bucket === 'home') {
     const team: TeamName = (clubCounters.home % 2 === 0) ? '甲隊' : '乙隊';
     clubCounters.home += 1;

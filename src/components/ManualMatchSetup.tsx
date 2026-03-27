@@ -228,6 +228,28 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
     return players.filter(p => p.team === teamName);
   };
 
+  const isInternalTeamName = (team: string): team is TeamName => {
+    return team === '甲隊' || team === '乙隊' || team === '丙隊' || team === '丁隊';
+  };
+
+  const getInterClubHomePlayers = (): Player[] => {
+    const homeName = (settings.homeClubName || '').trim();
+    if (isInternalTeamName(homeName)) {
+      return players.filter(p => p.team === homeName);
+    }
+
+    return players.filter(p => p.team === '甲隊' || p.team === '乙隊');
+  };
+
+  const getInterClubAwayPlayers = (): Player[] => {
+    const awayName = (settings.awayClubName || '').trim();
+    if (isInternalTeamName(awayName)) {
+      return players.filter(p => p.team === awayName);
+    }
+
+    return players.filter(p => p.team === '丙隊' || p.team === '丁隊');
+  };
+
   // Add new match (for inter-club mode)
   const addNewMatch = () => {
     const newMatchId = `match-${Date.now()}`;
@@ -318,6 +340,19 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
     });
     
     return matchIds.size;
+  };
+
+  const sortPlayersByMatchCountThenName = (playerList: Player[]): Player[] => {
+    return [...playerList].sort((a, b) => {
+      const countDiff = getPlayerMatchCount(a.id) - getPlayerMatchCount(b.id);
+      if (countDiff !== 0) return countDiff;
+      return a.name.localeCompare(b.name, 'zh-Hant', { sensitivity: 'base', numeric: true });
+    });
+  };
+
+  const formatInterClubPlayerOptionLabel = (player: Player, isDuplicate: boolean): string => {
+    const assignedCount = getPlayerMatchCount(player.id);
+    return `[${assignedCount}場] ${player.name} (${player.gender})${isDuplicate ? ' ❌' : ''}`;
   };
 
   const validateAssignments = (): string[] => {
@@ -628,6 +663,9 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
     previewMatchupGroups.get(key)!.push(a);
   });
 
+  const sortedInterClubHomePlayers = sortPlayersByMatchCountThenName(getInterClubHomePlayers());
+  const sortedInterClubAwayPlayers = sortPlayersByMatchCountThenName(getInterClubAwayPlayers());
+
   const formatPreviewPlayer = (player: Player | null) => {
     if (!player) return 'TBD';
     return showSensitiveInfo
@@ -907,9 +945,9 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
                       onChange={(e) => updateAssignment(match.id, 'pair1', 0, e.target.value || null)}
                     >
                       <option value="">選擇選手1</option>
-                      {getTeamPlayers(match.team1).map(p => (
+                      {sortedInterClubHomePlayers.map(p => (
                         <option key={p.id} value={p.id} disabled={match.pair1[1]?.id === p.id}>
-                          {p.name} ({p.gender}) - 已安排{getPlayerMatchCount(p.id)}場{match.pair1[1]?.id === p.id && ' ❌'}
+                          {formatInterClubPlayerOptionLabel(p, match.pair1[1]?.id === p.id)}
                         </option>
                       ))}
                     </select>
@@ -918,9 +956,9 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
                       onChange={(e) => updateAssignment(match.id, 'pair1', 1, e.target.value || null)}
                     >
                       <option value="">選擇選手2</option>
-                      {getTeamPlayers(match.team1).map(p => (
+                      {sortedInterClubHomePlayers.map(p => (
                         <option key={p.id} value={p.id} disabled={match.pair1[0]?.id === p.id}>
-                          {p.name} ({p.gender}) - 已安排{getPlayerMatchCount(p.id)}場{match.pair1[0]?.id === p.id && ' ❌'}
+                          {formatInterClubPlayerOptionLabel(p, match.pair1[0]?.id === p.id)}
                         </option>
                       ))}
                     </select>
@@ -932,9 +970,9 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
                       onChange={(e) => updateAssignment(match.id, 'pair2', 0, e.target.value || null)}
                     >
                       <option value="">選擇選手1</option>
-                      {getTeamPlayers(match.team2).map(p => (
+                      {sortedInterClubAwayPlayers.map(p => (
                         <option key={p.id} value={p.id} disabled={match.pair2[1]?.id === p.id}>
-                          {p.name} ({p.gender}) - 已安排{getPlayerMatchCount(p.id)}場{match.pair2[1]?.id === p.id && ' ❌'}
+                          {formatInterClubPlayerOptionLabel(p, match.pair2[1]?.id === p.id)}
                         </option>
                       ))}
                     </select>
@@ -943,9 +981,9 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
                       onChange={(e) => updateAssignment(match.id, 'pair2', 1, e.target.value || null)}
                     >
                       <option value="">選擇選手2</option>
-                      {getTeamPlayers(match.team2).map(p => (
+                      {sortedInterClubAwayPlayers.map(p => (
                         <option key={p.id} value={p.id} disabled={match.pair2[0]?.id === p.id}>
-                          {p.name} ({p.gender}) - 已安排{getPlayerMatchCount(p.id)}場{match.pair2[0]?.id === p.id && ' ❌'}
+                          {formatInterClubPlayerOptionLabel(p, match.pair2[0]?.id === p.id)}
                         </option>
                       ))}
                     </select>

@@ -136,7 +136,7 @@ export const MatchList: React.FC<MatchListProps> = ({
                       {sortedMatchup.map((match) => {
                         const currentMatchNumber = matches.findIndex(m => m.id === match.id) + 1;
                         return (
-                          <div key={match.id} className="match-card">
+                          <div key={match.id} className={`match-card match-card--${match.status}`}>
                             <div className="match-header-badges">
                               <div className="point-badge">第 {match.pointNumber} 點</div>
                               <div className="match-counter">{currentMatchNumber}/{matches.length}</div>
