@@ -55,6 +55,7 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
   const [hasAutoAddedFirstMatch, setHasAutoAddedFirstMatch] = useState(false);
   const [viewMode, setViewMode] = useState<SetupViewMode>('edit');
   const [previewRound, setPreviewRound] = useState(1);
+  const [interClubRounds, setInterClubRounds] = useState(2);
   useEffect(() => {
     setPreviewRound(currentRound);
   }, [currentRound]);
@@ -145,8 +146,9 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
     setAssignments(initialAssignments);
   }, [settings.totalRounds, settings.pointsPerRound, settings.tournamentMode, existingMatches]);
 
-  // 驗證並清除違反硬性規則的配對
+  // 驗證並清除違反硬性規則的配對（僅適用於內部賽制）
   useEffect(() => {
+    if (settings.tournamentMode === 'inter-club') return;
     if (!settings.point1LevelAConstraint && !settings.point5WomenOrMixedConstraint) return;
     
     setAssignments(prev => prev.map(a => {
@@ -250,6 +252,71 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
     return players.filter(p => p.team === '丙隊' || p.team === '丁隊');
   };
 
+  const getHomeTeamName = (): TeamName => {
+    const homeName = (settings.homeClubName || '').trim();
+    if (isInternalTeamName(homeName)) return homeName;
+    return '甲隊';
+  };
+
+  const getAwayTeamName = (): TeamName => {
+    const awayName = (settings.awayClubName || '').trim();
+    if (isInternalTeamName(awayName)) return awayName;
+    return '丙隊';
+  };
+
+  const shuffleForMatchup = <T,>(arr: T[]): T[] => {
+    const result = [...arr];
+    for (let i = result.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [result[i], result[j]] = [result[j], result[i]];
+    }
+    return result;
+  };
+
+  const handleRandomMatchup = () => {
+    const homePlayers = getInterClubHomePlayers();
+    const awayPlayers = getInterClubAwayPlayers();
+
+    if (homePlayers.length < 2 || awayPlayers.length < 2) {
+      alert('每隊至少需要2名選手才能隨機配對');
+      return;
+    }
+
+    if (
+      assignments.length > 0 &&
+      !confirm(`這將覆蓋目前 ${assignments.length} 場比賽配對，確定要重新隨機配對嗎？`)
+    ) {
+      return;
+    }
+
+    const team1 = getHomeTeamName();
+    const team2 = getAwayTeamName();
+    const newAssignments: MatchAssignment[] = [];
+    const now = Date.now();
+    let globalMatchIdx = 0;
+
+    for (let round = 1; round <= interClubRounds; round++) {
+      const shuffledHome = shuffleForMatchup(homePlayers);
+      const shuffledAway = shuffleForMatchup(awayPlayers);
+      // If odd count, last player gets skipped (no bye match)
+      const matchCount = Math.floor(Math.min(shuffledHome.length, shuffledAway.length) / 2);
+
+      for (let i = 0; i < matchCount; i++) {
+        newAssignments.push({
+          id: `random-r${round}-m${i}-${now}`,
+          roundNumber: round,
+          pointNumber: ++globalMatchIdx,
+          team1,
+          team2,
+          pair1: [shuffledHome[i * 2], shuffledHome[i * 2 + 1]],
+          pair2: [shuffledAway[i * 2], shuffledAway[i * 2 + 1]],
+        });
+      }
+    }
+
+    setAssignments(newAssignments);
+  };
+
   // Add new match (for inter-club mode)
   const addNewMatch = () => {
     const newMatchId = `match-${Date.now()}`;
@@ -351,8 +418,7 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
   };
 
   const formatInterClubPlayerOptionLabel = (player: Player, isDuplicate: boolean): string => {
-    const assignedCount = getPlayerMatchCount(player.id);
-    return `[${assignedCount}場] ${player.name} (${player.gender})${isDuplicate ? ' ❌' : ''}`;
+    return `${player.name} (${player.gender})${isDuplicate ? ' ❌' : ''}`;
   };
 
   const validateAssignments = (): string[] => {
@@ -464,7 +530,7 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
     }
 
     // 轉換為Match物件（包含未配對的TBD比賽）
-    const matches: Match[] = assignments
+    const editedMatches: Match[] = assignments
       .map(a => ({
         id: a.id,
         roundNumber: a.roundNumber,
@@ -486,7 +552,13 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
         status: 'scheduled' as const,
       }));
 
-    onGenerateMatches(matches);
+    // Re-append completed matches that were excluded from editing,
+    // so the total game count is never reduced after a mid-contest edit.
+    const completedMatches: Match[] = existingMatches
+      ? existingMatches.filter(m => m.status === 'completed')
+      : [];
+
+    onGenerateMatches([...editedMatches, ...completedMatches]);
   };
 
   // 儲存當前配對為範本
@@ -704,9 +776,25 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
             />
           </label>
           {settings.tournamentMode === 'inter-club' && (
-            <button className="btn-primary" onClick={addNewMatch}>
-              ➕ 新增比賽
-            </button>
+            <>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.95rem', fontWeight: 500 }}>
+                輪次
+                <input
+                  type="number"
+                  min={1}
+                  max={10}
+                  value={interClubRounds}
+                  onChange={(e) => setInterClubRounds(Math.max(1, Math.min(10, parseInt(e.target.value) || 1)))}
+                  style={{ width: '5rem', textAlign: 'center', padding: '5px 4px', borderRadius: '6px', border: '1px solid #dee2e6' }}
+                />
+              </label>
+              <button className="btn-random" onClick={handleRandomMatchup}>
+                🎲 隨機配對
+              </button>
+              <button className="btn-primary" onClick={addNewMatch}>
+                ➕ 新增比賽
+              </button>
+            </>
           )}
         </div>
 
@@ -918,79 +1006,90 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
         ) : settings.tournamentMode === 'inter-club' ? (
           // Inter-club mode: show all matches in a simple list
           <div className="interclub-matches">
-            <h3>比賽列表（共 {assignments.length} 場）</h3>
+            <h3>比賽列表（共 {assignments.length} 場・{interClubRounds} 輪）</h3>
             {assignments.length === 0 && (
               <div className="empty-state">
-                <p>尚無比賽，請點擊上方「➕ 新增比賽」按鈕開始</p>
+                <p>尚無比賽，請點擊上方「🎲 隨機配對」或「➕ 新增比賽」按鈕開始</p>
               </div>
             )}
-            {assignments.map((match, index) => (
-              <div key={match.id} className="interclub-match-card">
-                <div className="match-header">
-                  <h4>比賽 {index + 1}</h4>
-                  <button className="btn-delete-small" onClick={() => removeMatch(match.id)}>
-                    🗑️ 刪除
-                  </button>
-                </div>
-                <div className="match-teams-display">
-                  <h4>{settings.homeClubName}</h4>
-                  <span>vs</span>
-                  <h4>{settings.awayClubName}</h4>
-                </div>
-                <div className="match-pairs">
-                  <div className="pair-section">
-                    <h5>{settings.homeClubName}</h5>
-                    <select
-                      value={match.pair1[0]?.id || ''}
-                      onChange={(e) => updateAssignment(match.id, 'pair1', 0, e.target.value || null)}
-                    >
-                      <option value="">選擇選手1</option>
-                      {sortedInterClubHomePlayers.map(p => (
-                        <option key={p.id} value={p.id} disabled={match.pair1[1]?.id === p.id}>
-                          {formatInterClubPlayerOptionLabel(p, match.pair1[1]?.id === p.id)}
-                        </option>
-                      ))}
-                    </select>
-                    <select
-                      value={match.pair1[1]?.id || ''}
-                      onChange={(e) => updateAssignment(match.id, 'pair1', 1, e.target.value || null)}
-                    >
-                      <option value="">選擇選手2</option>
-                      {sortedInterClubHomePlayers.map(p => (
-                        <option key={p.id} value={p.id} disabled={match.pair1[0]?.id === p.id}>
-                          {formatInterClubPlayerOptionLabel(p, match.pair1[0]?.id === p.id)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="pair-section">
-                    <h5>{settings.awayClubName}</h5>
-                    <select
-                      value={match.pair2[0]?.id || ''}
-                      onChange={(e) => updateAssignment(match.id, 'pair2', 0, e.target.value || null)}
-                    >
-                      <option value="">選擇選手1</option>
-                      {sortedInterClubAwayPlayers.map(p => (
-                        <option key={p.id} value={p.id} disabled={match.pair2[1]?.id === p.id}>
-                          {formatInterClubPlayerOptionLabel(p, match.pair2[1]?.id === p.id)}
-                        </option>
-                      ))}
-                    </select>
-                    <select
-                      value={match.pair2[1]?.id || ''}
-                      onChange={(e) => updateAssignment(match.id, 'pair2', 1, e.target.value || null)}
-                    >
-                      <option value="">選擇選手2</option>
-                      {sortedInterClubAwayPlayers.map(p => (
-                        <option key={p.id} value={p.id} disabled={match.pair2[0]?.id === p.id}>
-                          {formatInterClubPlayerOptionLabel(p, match.pair2[0]?.id === p.id)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              </div>
-            ))}
+            {(() => {
+              const hasMultiRounds = assignments.some(a => a.roundNumber > 1);
+              return assignments.map((match, index) => {
+                const isFirstOfRound = hasMultiRounds && (index === 0 || match.roundNumber !== assignments[index - 1].roundNumber);
+                return (
+                  <React.Fragment key={match.id}>
+                    {isFirstOfRound && (
+                      <div className="interclub-round-header">第 {match.roundNumber} 輪</div>
+                    )}
+                    <div className="interclub-match-card">
+                      <div className="match-header">
+                        <h4>{hasMultiRounds ? `第 ${match.roundNumber} 輪・比賽 ${match.pointNumber}` : `比賽 ${match.pointNumber}`}</h4>
+                        <button className="btn-delete-small" onClick={() => removeMatch(match.id)}>
+                          🗑️ 刪除
+                        </button>
+                      </div>
+                      <div className="match-teams-display">
+                        <h4>{settings.homeClubName}</h4>
+                        <span>vs</span>
+                        <h4>{settings.awayClubName}</h4>
+                      </div>
+                      <div className="match-pairs">
+                        <div className="pair-section">
+                          <h5>{settings.homeClubName}</h5>
+                          <select
+                            value={match.pair1[0]?.id || ''}
+                            onChange={(e) => updateAssignment(match.id, 'pair1', 0, e.target.value || null)}
+                          >
+                            <option value="">選擇選手1</option>
+                            {sortedInterClubHomePlayers.map(p => (
+                              <option key={p.id} value={p.id} disabled={match.pair1[1]?.id === p.id}>
+                                {formatInterClubPlayerOptionLabel(p, match.pair1[1]?.id === p.id)}
+                              </option>
+                            ))}
+                          </select>
+                          <select
+                            value={match.pair1[1]?.id || ''}
+                            onChange={(e) => updateAssignment(match.id, 'pair1', 1, e.target.value || null)}
+                          >
+                            <option value="">選擇選手2</option>
+                            {sortedInterClubHomePlayers.map(p => (
+                              <option key={p.id} value={p.id} disabled={match.pair1[0]?.id === p.id}>
+                                {formatInterClubPlayerOptionLabel(p, match.pair1[0]?.id === p.id)}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="pair-section">
+                          <h5>{settings.awayClubName}</h5>
+                          <select
+                            value={match.pair2[0]?.id || ''}
+                            onChange={(e) => updateAssignment(match.id, 'pair2', 0, e.target.value || null)}
+                          >
+                            <option value="">選擇選手1</option>
+                            {sortedInterClubAwayPlayers.map(p => (
+                              <option key={p.id} value={p.id} disabled={match.pair2[1]?.id === p.id}>
+                                {formatInterClubPlayerOptionLabel(p, match.pair2[1]?.id === p.id)}
+                              </option>
+                            ))}
+                          </select>
+                          <select
+                            value={match.pair2[1]?.id || ''}
+                            onChange={(e) => updateAssignment(match.id, 'pair2', 1, e.target.value || null)}
+                          >
+                            <option value="">選擇選手2</option>
+                            {sortedInterClubAwayPlayers.map(p => (
+                              <option key={p.id} value={p.id} disabled={match.pair2[0]?.id === p.id}>
+                                {formatInterClubPlayerOptionLabel(p, match.pair2[0]?.id === p.id)}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  </React.Fragment>
+                );
+              });
+            })()}
           </div>
         ) : selectedTeam !== 'all' ? (
           // Privacy-focused view: show only selected team's assignments

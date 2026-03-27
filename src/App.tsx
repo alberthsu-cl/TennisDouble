@@ -661,7 +661,7 @@ function App() {
     replaceTournamentMatches(nextMatches);
     setTournamentStarted(true);
     setCurrentView('matches');
-    await modal.showAlert('手動配對已完成！共 ' + generatedMatches.length + ' 場比賽');
+    await modal.showAlert('手動配對已完成！共 ' + nextMatches.length + ' 場比賽');
   };
 
   const handleUpdateScore = (updatedMatch: Match) => {
@@ -2042,6 +2042,7 @@ function App() {
               fourGameDeuceMode={settings.fourGameDeuceMode}
               showSensitiveInfo={showSensitiveInfo}
               readOnly={matchRecordMode === 'preview'}
+              showPoint5Warning={settings.tournamentMode !== 'inter-club' && settings.point5WomenOrMixedConstraint}
             />
           </div>
         )}

@@ -14,6 +14,7 @@ interface MatchListProps {
   filterStatus?: 'all' | 'scheduled' | 'in-progress' | 'completed';
   showSensitiveInfo?: boolean;
   readOnly?: boolean;
+  showPoint5Warning?: boolean;
 }
 
 export const MatchList: React.FC<MatchListProps> = ({
@@ -28,6 +29,7 @@ export const MatchList: React.FC<MatchListProps> = ({
   filterStatus = 'all',
   showSensitiveInfo = true,
   readOnly = false,
+  showPoint5Warning = true,
 }) => {
   const formatPreviewPlayer = (name?: string, gender?: string) => {
     if (!name) return 'TBD';
@@ -150,6 +152,7 @@ export const MatchList: React.FC<MatchListProps> = ({
                               fourGameDeuceMode={fourGameDeuceMode}
                               showSensitiveInfo={showSensitiveInfo}
                               readOnly={readOnly}
+                              showPoint5Warning={showPoint5Warning}
                             />
                           </div>
                         );

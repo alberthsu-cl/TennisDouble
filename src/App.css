@@ -2933,6 +2933,31 @@ button {
 /* Inter-club mode specific styles */
 .interclub-matches {
   padding: 1rem;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  align-items: start;
+}
+
+@media (max-width: 1100px) {
+  .interclub-matches {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .interclub-matches {
+    grid-template-columns: 1fr;
+  }
+}
+
+.interclub-matches > h3 {
+  grid-column: 1 / -1;
+  margin: 0 0 0.25rem;
+}
+
+.interclub-matches > .empty-state {
+  grid-column: 1 / -1;
 }
 
 .empty-state {
@@ -2949,6 +2974,7 @@ button {
   padding: 1.5rem;
   margin-bottom: 1.5rem;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  min-width: 0;
 }
 
 .match-header {
@@ -2979,6 +3005,36 @@ button {
 
 .btn-delete-small:hover {
   background: #dc2626;
+}
+
+.btn-random {
+  padding: 8px 16px;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 0.95rem;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.btn-random:hover {
+  background: linear-gradient(135deg, #d97706, #b45309);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(217, 119, 6, 0.3);
+}
+
+.interclub-round-header {
+  grid-column: 1 / -1;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 1rem;
+  margin-top: 0.5rem;
 }
 
 .match-teams-selector {
@@ -3052,11 +3108,14 @@ button {
 
 .pair-section select {
   width: 100%;
-  padding: 0.75rem;
+  padding: 0.5rem 0.4rem;
   margin-bottom: 0.75rem;
   border: 2px solid #d1d5db;
   border-radius: 6px;
-  font-size: 0.9375rem;
+  font-size: 0.875rem;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .pair-section select:last-child {

@@ -10,6 +10,7 @@ interface ScoreRecorderProps {
   fourGameDeuceMode: FourGameDeuceMode;
   showSensitiveInfo?: boolean;
   readOnly?: boolean;
+  showPoint5Warning?: boolean;
 }
 
 export const ScoreRecorder: React.FC<ScoreRecorderProps> = ({
@@ -21,6 +22,7 @@ export const ScoreRecorder: React.FC<ScoreRecorderProps> = ({
   fourGameDeuceMode,
   showSensitiveInfo = true,
   readOnly = false,
+  showPoint5Warning = true,
 }) => {
   const tiebreakTriggerGames = Math.max(1, gamesPerMatch - 1);
   const usesExtendedFourGameFinish = gamesPerMatch === 4 && fourGameDeuceMode === 'extend-to-5';
@@ -206,7 +208,7 @@ export const ScoreRecorder: React.FC<ScoreRecorderProps> = ({
     const isPair2Complete = match.pair2.player1 && match.pair2.player2;
     
     // 檢查第5點是否為混雙或女雙（僅用於顯示警告）
-    const isPoint5 = match.pointNumber === 5;
+    const isPoint5 = showPoint5Warning && match.pointNumber === 5;
     const isPair1Valid = !isPoint5 || !isPair1Complete || 
       (match.pair1.player1!.gender === '女' && match.pair1.player2!.gender === '女') ||
       (match.pair1.player1!.gender !== match.pair1.player2!.gender);
