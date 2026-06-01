@@ -1325,7 +1325,7 @@ function App() {
   return (
     <div className="app">
       <header className="app-header">
-        <h1>🎾 網球雙打賽事系統</h1>
+        <h1>🎾 錦和網球賽事系統</h1>
         <p className="subtitle">Tennis Doubles Tournament System</p>
       </header>
 

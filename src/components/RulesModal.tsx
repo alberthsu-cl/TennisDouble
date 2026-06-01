@@ -25,7 +25,7 @@ export const RulesModal: React.FC<RulesModalProps> = ({ isOpen, onClose, setting
       <html>
       <head>
         <meta charset="UTF-8">
-        <title>網球雙打賽事系統 - 操作手冊</title>
+        <title>錦和網球賽事系統 - 操作手冊</title>
         <style>
           @page { margin: 2cm; }
           body { font-family: "Microsoft JhengHei", "微軟正黑體", sans-serif; line-height: 1.6; color: #333; }
@@ -38,7 +38,7 @@ export const RulesModal: React.FC<RulesModalProps> = ({ isOpen, onClose, setting
         </style>
       </head>
       <body>
-        <h1>🎾 網球雙打賽事系統 - 操作手冊</h1>
+        <h1>🎾 錦和網球賽事系統 - 操作手冊</h1>
         
         <h2>🏆 賽事模式說明</h2>
         <ul>

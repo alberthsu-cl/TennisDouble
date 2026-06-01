@@ -1,6 +1,20 @@
-# 🎾 網球雙打賽事系統 (Tennis Doubles Tournament System)
+# 🎾 錦和網球賽事系統 (Tennis Doubles Tournament System)
 
 A comprehensive and fully configurable web application for managing tennis doubles tournaments with Chinese rule support.
+
+## 📱 Progressive Web App (PWA) 支援
+
+### 🚀 可安裝到手機主畫面
+- ✅ **iOS Safari**: 完整支援「加入主畫面」功能
+- ✅ **Android Chrome**: 支援「安裝應用程式」
+- ✅ **離線功能**: Service Worker 快取支援
+- ✅ **全螢幕體驗**: 像原生 APP 一樣使用
+
+### 📖 如何安裝到手機
+詳細步驟請參考：[ADD_TO_HOME_SCREEN.md](ADD_TO_HOME_SCREEN.md)
+
+### 🌐 部署到網路主機
+完整部署指南請參考：[DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)
 
 ## ⭐ 最新更新 (Latest Updates)
 

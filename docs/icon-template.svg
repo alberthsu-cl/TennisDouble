@@ -1,0 +1,14 @@
+<svg width="512" height="512" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="512" height="512" fill="#84cc16" rx="80"/>
+  
+  <!-- Tennis Ball -->
+  <circle cx="256" cy="256" r="120" fill="#D4FF00" stroke="#fff" stroke-width="8"/>
+  
+  <!-- Ball curves -->
+  <path d="M 190 180 Q 256 256 190 332" stroke="#fff" stroke-width="6" fill="none"/>
+  <path d="M 322 180 Q 256 256 322 332" stroke="#fff" stroke-width="6" fill="none"/>
+  
+  <!-- Text (optional) -->
+  <text x="256" y="450" font-family="Arial, sans-serif" font-size="60" font-weight="bold" fill="#fff" text-anchor="middle">網球</text>
+</svg>

@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>產生 APP 圖示</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #84cc16;
+            text-align: center;
+        }
+        .canvas-container {
+            text-align: center;
+            margin: 30px 0;
+        }
+        canvas {
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            max-width: 100%;
+        }
+        .controls {
+            margin: 20px 0;
+        }
+        .control-group {
+            margin: 15px 0;
+        }
+        label {
+            display: inline-block;
+            width: 120px;
+            font-weight: bold;
+        }
+        input, select {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            width: 200px;
+        }
+        button {
+            background: #84cc16;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        button:hover {
+            background: #6ba812;
+        }
+        .download-section {
+            text-align: center;
+            margin-top: 30px;
+        }
+        .instructions {
+            background: #fff9e6;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            border-left: 4px solid #84cc16;
+        }
+        .size-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .size-item {
+            text-align: center;
+            padding: 10px;
+            background: #f9f9f9;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎾 網球賽事 APP 圖示產生器</h1>
+        
+        <div class="instructions">
+            <h3>使用說明：</h3>
+            <ol>
+                <li>自訂圖示的文字、顏色和樣式</li>
+                <li>點擊「預覽圖示」查看效果</li>
+                <li>點擊「下載所有尺寸」按鈕</li>
+                <li>將下載的 PNG 檔案放到專案的 <code>public/</code> 資料夾</li>
+            </ol>
+        </div>
+
+        <div class="controls">
+            <div class="control-group">
+                <label>主要文字：</label>
+                <input type="text" id="mainText" value="網球" maxlength="2">
+            </div>
+            <div class="control-group">
+                <label>背景顏色：</label>
+                <input type="color" id="bgColor" value="#84cc16">
+            </div>
+            <div class="control-group">
+                <label>文字顏色：</label>
+                <input type="color" id="textColor" value="#ffffff">
+            </div>
+            <div class="control-group">
+                <label>圖示樣式：</label>
+                <select id="iconStyle">
+                    <option value="ball">網球</option>
+                    <option value="racket">球拍</option>
+                    <option value="text">純文字</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="canvas-container">
+            <canvas id="iconCanvas" width="512" height="512"></canvas>
+        </div>
+
+        <div class="download-section">
+            <button onclick="generateIcon()">🎨 預覽圖示</button>
+            <button onclick="downloadAllSizes()">⬇️ 下載所有尺寸</button>
+        </div>
+
+        <div class="size-list">
+            <div class="size-item">
+                <button onclick="downloadSize(72)">72×72</button>
+            </div>
+            <div class="size-item">
+                <button onclick="downloadSize(96)">96×96</button>
+            </div>
+            <div class="size-item">
+                <button onclick="downloadSize(128)">128×128</button>
+            </div>
+            <div class="size-item">
+                <button onclick="downloadSize(144)">144×144</button>
+            </div>
+            <div class="size-item">
+                <button onclick="downloadSize(152)">152×152</button>
+            </div>
+            <div class="size-item">
+                <button onclick="downloadSize(192)">192×192</button>
+            </div>
+            <div class="size-item">
+                <button onclick="downloadSize(384)">384×384</button>
+            </div>
+            <div class="size-item">
+                <button onclick="downloadSize(512)">512×512</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('iconCanvas');
+        const ctx = canvas.getContext('2d');
+
+        function generateIcon() {
+            const mainText = document.getElementById('mainText').value;
+            const bgColor = document.getElementById('bgColor').value;
+            const textColor = document.getElementById('textColor').value;
+            const iconStyle = document.getElementById('iconStyle').value;
+
+            // Clear canvas
+            ctx.clearRect(0, 0, 512, 512);
+
+            // Draw background with rounded corners
+            ctx.fillStyle = bgColor;
+            roundRect(ctx, 0, 0, 512, 512, 80);
+            ctx.fill();
+
+            // Draw icon based on style
+            if (iconStyle === 'ball') {
+                drawTennisBall(ctx);
+            } else if (iconStyle === 'racket') {
+                drawRacket(ctx);
+            }
+
+            // Draw text
+            ctx.fillStyle = textColor;
+            ctx.font = 'bold 180px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(mainText, 256, 256);
+        }
+
+        function drawTennisBall(ctx) {
+            // Ball shadow
+            ctx.fillStyle = 'rgba(0,0,0,0.2)';
+            ctx.beginPath();
+            ctx.arc(260, 260, 100, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Ball
+            ctx.fillStyle = '#D4FF00';
+            ctx.beginPath();
+            ctx.arc(256, 256, 100, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Ball curves
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 6;
+            ctx.beginPath();
+            ctx.arc(256, 256, 100, Math.PI * 0.25, Math.PI * 0.75, false);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(256, 256, 100, Math.PI * 1.25, Math.PI * 1.75, false);
+            ctx.stroke();
+        }
+
+        function drawRacket(ctx) {
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 8;
+            
+            // Racket head
+            ctx.beginPath();
+            ctx.arc(256, 200, 80, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Strings
+            ctx.lineWidth = 2;
+            for (let i = 0; i < 5; i++) {
+                ctx.beginPath();
+                ctx.moveTo(196 + i * 30, 150);
+                ctx.lineTo(196 + i * 30, 250);
+                ctx.stroke();
+            }
+
+            // Handle
+            ctx.lineWidth = 12;
+            ctx.beginPath();
+            ctx.moveTo(256, 280);
+            ctx.lineTo(256, 400);
+            ctx.stroke();
+        }
+
+        function roundRect(ctx, x, y, width, height, radius) {
+            ctx.beginPath();
+            ctx.moveTo(x + radius, y);
+            ctx.lineTo(x + width - radius, y);
+            ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+            ctx.lineTo(x + width, y + height - radius);
+            ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+            ctx.lineTo(x + radius, y + height);
+            ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+            ctx.lineTo(x, y + radius);
+            ctx.quadraticCurveTo(x, y, x + radius, y);
+            ctx.closePath();
+        }
+
+        function downloadSize(size) {
+            generateIcon();
+            
+            // Create temporary canvas with target size
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = size;
+            tempCanvas.height = size;
+            const tempCtx = tempCanvas.getContext('2d');
+            
+            // Draw scaled image
+            tempCtx.drawImage(canvas, 0, 0, size, size);
+            
+            // Download
+            tempCanvas.toBlob(blob => {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `icon-${size}x${size}.png`;
+                a.click();
+                URL.revokeObjectURL(url);
+            });
+        }
+
+        function downloadAllSizes() {
+            const sizes = [72, 96, 128, 144, 152, 192, 384, 512];
+            let index = 0;
+
+            function downloadNext() {
+                if (index < sizes.length) {
+                    downloadSize(sizes[index]);
+                    index++;
+                    setTimeout(downloadNext, 500); // Delay between downloads
+                }
+            }
+
+            downloadNext();
+        }
+
+        // Generate initial icon
+        generateIcon();
+    </script>
+</body>
+</html>
