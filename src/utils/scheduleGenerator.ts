@@ -51,7 +51,9 @@ function isPoint1ConstraintPoint(pointNumber: PointType, settings: TournamentSet
 
 function isAgeConstraintPoint(pointNumber: PointType, settings: TournamentSettings): boolean {
   const start = settings.point1LevelAConstraint ? 2 : 1;
-  const end = settings.pointsPerRound - 1;
+  const end = settings.point5WomenOrMixedConstraint
+    ? settings.pointsPerRound - 1
+    : settings.pointsPerRound;
   return settings.points2To4AgeAscendingConstraint && pointNumber >= start && pointNumber <= end;
 }
 

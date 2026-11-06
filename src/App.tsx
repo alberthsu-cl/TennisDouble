@@ -218,16 +218,6 @@ const getDeuceDecisionText = (settings: TournamentSettings) => {
   return `平手至${settings.gamesPerMatch - 1}:${settings.gamesPerMatch - 1}時 Tie-break 搶7`;
 };
 
-const getMatchFormatText = (settings: TournamentSettings) => {
-  if (settings.gamesPerMatch === 4) {
-    return settings.fourGameDeuceMode === 'extend-to-5'
-      ? '先達 4 局；若 3:3，延長至先達 5 局'
-      : '先達 4 局；若 3:3，Tie-break 搶7決勝';
-  }
-
-  return `先達 ${settings.gamesPerMatch} 局（${settings.gamesPerMatch - 1}:${settings.gamesPerMatch - 1} 時 Tie-break）`;
-};
-
 const getRulesFormatText = (settings: TournamentSettings) => {
   if (settings.gamesPerMatch === 4) {
     return settings.fourGameDeuceMode === 'extend-to-5'
@@ -1642,16 +1632,12 @@ function App() {
                     <>
                       <p>• 俱樂部對抗賽：{settings.homeClubName} vs {settings.awayClubName}</p>
                       <p>• 比賽安排：由管理者手動配對，無限制</p>
-                      <p>• 單場賽制：{getMatchFormatText(settings)}</p>
                       <p>• 請使用「手動配對」功能建立比賽</p>
                     </>
                   ) : (
                     <>
                       <p>• 總比賽數：{settings.totalRounds * 2 * settings.pointsPerRound} 場</p>
                       <p>• 每組對戰點數：{settings.pointsPerRound} 點</p>
-                      <p>• 單場賽制：{getMatchFormatText(settings)}</p>
-                      <p>• 總位置數：{settings.totalRounds * 2 * settings.pointsPerRound * 4} 個（{settings.totalRounds}輪 × 2組 × {settings.pointsPerRound}點 × 4人）</p>
-                      <p>• 每人最少出賽：{settings.minMatchesPerPlayer} 場（總位置數 ÷ 總人數）</p>
                     </>
                   )}
                 </div>
@@ -1678,7 +1664,7 @@ function App() {
                       </div>
                       <div className="constraint-toggle-item">
                         <span className="toggle-description">
-                          第{settings.point1LevelAConstraint ? 2 : 1}點至第{settings.pointsPerRound - 1}點兩人歲數遞增
+                          第{settings.point1LevelAConstraint ? 2 : 1}點至第{settings.point5WomenOrMixedConstraint ? settings.pointsPerRound - 1 : settings.pointsPerRound}點兩人歲數遞增
                         </span>
                         <button
                           className={`btn-toggle ${settings.points2To4AgeAscendingConstraint ? 'active' : ''}`}
@@ -1714,40 +1700,6 @@ function App() {
                   <li>請至「手動配對」功能建立比賽</li>
                 </ul>
               )}
-            </div>
-
-            <h2 className="auto-group-heading">
-              <span className="auto-group-heading-icon" aria-hidden="true">🎯</span>
-              <span>自動分組規則</span>
-            </h2>
-            <div className="rules-box">
-              <p style={{ marginBottom: '0.5rem', fontWeight: '600' }}>匯入選手時，系統會自動分配到4隊（甲乙丙丁），遵循以下優先順序：</p>
-              <ul style={{ marginTop: '0.5rem' }}>
-                <li><strong>1️⃣ 預分配優先：</strong>已指定隊伍的選手保持原隊伍不變</li>
-                {settings.tournamentMode === 'internal' && (
-                  <li><strong>2️⃣ 領隊優先：</strong>具有分組標籤的選手分配到指定隊伍
-                    <ul style={{ marginTop: '0.25rem' }}>
-                      <li>A1, A2 → 甲隊</li>
-                      <li>B1, B2 → 乙隊</li>
-                      <li>C1, C2 → 丙隊</li>
-                      <li>D1, D2 → 丁隊</li>
-                    </ul>
-                  </li>
-                )}
-                <li><strong>3️⃣ 技術等級平衡：</strong>使用蛇形分配確保各隊技術實力均衡
-                  <ul style={{ marginTop: '0.25rem' }}>
-                    <li>將選手按技術等級分組（A1～D4）</li>
-                    <li>每個等級內隨機排序（增加變化性）</li>
-                    <li>按順序分配：甲→乙→丙→丁→丁→丙→乙→甲（循環反轉）</li>
-                    <li>性別分流蛇形順序：男（甲→乙→丙→丁→丁→丙→乙→甲）、女（丁→丙→乙→甲→甲→乙→丙→丁）</li>
-                    <li>範例：A1會優先於A2、A3、A4；B/C/D級亦同</li>
-                  </ul>
-                </li>
-                <li><strong>4️⃣ 性別平衡：</strong>女選手和男選手分別進行分組，確保各隊男女比例相近</li>
-              </ul>
-              <p style={{ marginTop: '0.75rem', fontSize: '0.9rem', color: '#666' }}>
-                💡 提示：技術等級請填 A1~D4（預設 B2）
-              </p>
             </div>
 
             {settings.tournamentMode === 'internal' && (

@@ -1,5 +1,5 @@
 // Service Worker for Tennis Contest App
-const CACHE_NAME = 'tennis-contest-v1';
+const CACHE_NAME = 'tennis-contest-v2';
 const urlsToCache = [
   '/TennisDouble/',
   '/TennisDouble/index.html'

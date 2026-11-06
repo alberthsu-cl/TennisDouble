@@ -65,7 +65,9 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
   const isPoint1ConstraintPoint = (pointNumber: number) => settings.point1LevelAConstraint && pointNumber === 1;
   const isAgeConstraintPoint = (pointNumber: number) => {
     const start = settings.point1LevelAConstraint ? 2 : 1;
-    const end = settings.pointsPerRound - 1;
+    const end = settings.point5WomenOrMixedConstraint
+      ? settings.pointsPerRound - 1
+      : settings.pointsPerRound;
     return settings.points2To4AgeAscendingConstraint && pointNumber >= start && pointNumber <= end;
   };
   const isPoint5ConstraintPoint = (pointNumber: number) => settings.point5WomenOrMixedConstraint && pointNumber === settings.pointsPerRound;
@@ -502,7 +504,7 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
         }
       });
 
-      // 檢查第2到4點年齡遞增（如果啟用規則約束）
+      // 檢查適用點次的年齡遞增（若最後一點女雙／混雙規則關閉，最後一點也納入）
       if (settings.points2To4AgeAscendingConstraint) {
         const sortedMatches = matches.filter(m => isAgeConstraintPoint(m.pointNumber)).sort((a, b) => a.pointNumber - b.pointNumber);
         for (let i = 1; i < sortedMatches.length; i++) {
