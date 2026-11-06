@@ -16,8 +16,8 @@ export const RulesModal: React.FC<RulesModalProps> = ({ isOpen, onClose, setting
       : '比賽採4局NO-AD制，先達4局獲勝；若3:3則Tie-break搶7決勝')
     : `比賽採${settings.gamesPerMatch}局NO-AD制，${settings.gamesPerMatch - 1}:${settings.gamesPerMatch - 1}時Tie-break搶7`;
   const ageRuleSummary = settings.point5WomenOrMixedConstraint
-    ? `第${settings.point1LevelAConstraint ? 2 : 1}點至第${settings.pointsPerRound - 1}點年齡遞增，第${settings.pointsPerRound}點混雙/女雙`
-    : `第${settings.point1LevelAConstraint ? 2 : 1}點至第${settings.pointsPerRound}點年齡遞增`;
+    ? `第${settings.point1LevelAConstraint ? 2 : 1}點至第${settings.pointsPerRound - 1}點兩人歲數總和需遞增，第${settings.pointsPerRound}點混雙/女雙`
+    : `第${settings.point1LevelAConstraint ? 2 : 1}點至第${settings.pointsPerRound}點兩人歲數總和需遞增`;
 
   const handleExportPDF = () => {
     const printWindow = window.open('', '_blank');

@@ -609,6 +609,69 @@
   border-left: none;
 }
 
+.constraint-rule-group {
+  overflow: hidden;
+  border: 1px solid #d9e2f2;
+  border-radius: 10px;
+  background: white;
+}
+
+.constraint-rule-group .constraint-toggle-item {
+  border: 0;
+  border-radius: 0;
+}
+
+.female-age-bonus-control {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  border-top: 1px solid #e8edf5;
+  background: #f8faff;
+  color: #333;
+  font-weight: 600;
+}
+
+.female-age-bonus-control .setting-control {
+  width: 220px;
+  flex-shrink: 0;
+}
+
+.female-age-bonus-value {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  min-height: 50px;
+  border: 2px solid #d9e2f2;
+  border-radius: 6px;
+  background: white;
+  color: #667eea;
+  font-weight: 700;
+}
+
+.female-age-bonus-control .btn-adjust {
+  border-color: #b8c7e6;
+  background: white;
+  color: #667eea;
+}
+
+.female-age-bonus-control .btn-adjust:hover:not(:disabled) {
+  border-color: #667eea;
+  background: #eef2ff;
+}
+
+.female-age-bonus-control .btn-adjust:active:not(:disabled) {
+  background: #dfe7ff;
+}
+
+.female-age-bonus-control .btn-adjust:disabled {
+  background: #f4f6fb;
+  color: #9aabd0;
+  opacity: 0.7;
+}
+
 .rules-box h3 {
   margin-top: 0;
   margin-bottom: 0;
@@ -2875,6 +2938,15 @@ button {
 
   .constraint-toggle-item .btn-toggle {
     align-self: flex-end;
+  }
+
+  .female-age-bonus-control {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .female-age-bonus-control .setting-control {
+    width: 100%;
   }
 
   .start-options,

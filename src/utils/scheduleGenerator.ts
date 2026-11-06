@@ -1,5 +1,6 @@
 import type { Player, TeamName, Pair, Match, PointType, TournamentSettings, SkillLevel } from '../types';
 import { getSkillRank } from './skillLevel';
+import { getRulePairAge } from './ageRule';
 
 /**
  * Fisher-Yates shuffle algorithm for randomization
@@ -64,7 +65,7 @@ function isPoint5ConstraintPoint(pointNumber: PointType, settings: TournamentSet
 /**
  * 生成所有可能的雙打配對
  */
-export function generatePairs(players: Player[]): Pair[] {
+export function generatePairs(players: Player[], settings: TournamentSettings): Pair[] {
   const pairs: Pair[] = [];
   
   for (let i = 0; i < players.length; i++) {
@@ -72,7 +73,7 @@ export function generatePairs(players: Player[]): Pair[] {
       const pair: Pair = {
         player1: players[i],
         player2: players[j],
-        totalAge: players[i].age + players[j].age,
+        totalAge: getRulePairAge(players[i], players[j], settings),
         skillScore: getSkillScore(players[i].skillLevel) + getSkillScore(players[j].skillLevel),
       };
       pairs.push(pair);
@@ -164,7 +165,7 @@ function findPairForPoint(
     availablePlayers = sortedPlayers;
   }
   
-  const allPairs = generatePairs(availablePlayers);
+  const allPairs = generatePairs(availablePlayers, settings);
   
   // 根據點數過濾配對
   let validPairs = allPairs.filter(pair => {
@@ -580,14 +581,14 @@ export function generateFullSchedule(
             const candidatePair1: Pair = {
               ...pair,
               player1: player,
-              totalAge: player.age + (pair.player2?.age || 0),
+              totalAge: getRulePairAge(player, pair.player2, settings),
               skillScore: getSkillScore(player.skillLevel) + getSkillScore(pair.player2?.skillLevel || 'B2'),
             };
 
             const candidatePair2: Pair = {
               ...pair,
               player2: player,
-              totalAge: (pair.player1?.age || 0) + player.age,
+              totalAge: getRulePairAge(pair.player1, player, settings),
               skillScore: getSkillScore(pair.player1?.skillLevel || 'B2') + getSkillScore(player.skillLevel),
             };
 
@@ -612,7 +613,7 @@ export function generateFullSchedule(
               const candidatePair: Pair = {
                 ...pair,
                 player1: player,
-                totalAge: player.age + (pair.player2?.age || 0),
+                totalAge: getRulePairAge(player, pair.player2, settings),
                 skillScore: getSkillScore(player.skillLevel) + getSkillScore(pair.player2?.skillLevel || 'B2'),
               };
               if (!isValidLastPointPair(candidatePair, teamRoster)) {
@@ -639,7 +640,7 @@ export function generateFullSchedule(
               const candidatePair: Pair = {
                 ...pair,
                 player2: player,
-                totalAge: (pair.player1?.age || 0) + player.age,
+                totalAge: getRulePairAge(pair.player1, player, settings),
                 skillScore: getSkillScore(pair.player1?.skillLevel || 'B2') + getSkillScore(player.skillLevel),
               };
               if (!isValidLastPointPair(candidatePair, teamRoster)) {
@@ -739,11 +740,13 @@ export function validateSchedule(matches: Match[], players: Player[], settings: 
           .filter(m => isAgeConstraintPoint(m.pointNumber, settings))
           .sort((a, b) => a.pointNumber - b.pointNumber);
         for (let i = 1; i < sorted.length; i++) {
-          if (sorted[i].pair1.totalAge <= sorted[i - 1].pair1.totalAge) {
-            errors.push(`${key}: 第${sorted[i].pointNumber}點年齡未遞增`);
+          if (getRulePairAge(sorted[i].pair1.player1, sorted[i].pair1.player2, settings)
+            <= getRulePairAge(sorted[i - 1].pair1.player1, sorted[i - 1].pair1.player2, settings)) {
+            errors.push(`${key}: 第${sorted[i].pointNumber}點兩人歲數總和未遞增`);
           }
-          if (sorted[i].pair2.totalAge <= sorted[i - 1].pair2.totalAge) {
-            errors.push(`${key}: 第${sorted[i].pointNumber}點對手隊伍年齡未遞增`);
+          if (getRulePairAge(sorted[i].pair2.player1, sorted[i].pair2.player2, settings)
+            <= getRulePairAge(sorted[i - 1].pair2.player1, sorted[i - 1].pair2.player2, settings)) {
+            errors.push(`${key}: 第${sorted[i].pointNumber}點對手隊伍兩人歲數總和未遞增`);
           }
         }
       });

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import type { Player, TeamName, PointType, Match, TournamentSettings } from '../types';
+import { getRulePairAge } from '../utils/ageRule';
 
 interface ManualMatchSetupProps {
   players: Player[];
@@ -512,18 +513,18 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
           const currMatch = sortedMatches[i];
           
           if (prevMatch.pair1[0] && prevMatch.pair1[1] && currMatch.pair1[0] && currMatch.pair1[1]) {
-            const prevAge = prevMatch.pair1[0].age + prevMatch.pair1[1].age;
-            const currAge = currMatch.pair1[0].age + currMatch.pair1[1].age;
+            const prevAge = getRulePairAge(prevMatch.pair1[0], prevMatch.pair1[1], settings);
+            const currAge = getRulePairAge(currMatch.pair1[0], currMatch.pair1[1], settings);
             if (currAge <= prevAge) {
-              errors.push(`${matchup} ${currMatch.team1} 第${currMatch.pointNumber}點年齡未遞增`);
+              errors.push(`${matchup} ${currMatch.team1} 第${currMatch.pointNumber}點兩人歲數總和未遞增`);
             }
           }
           
           if (prevMatch.pair2[0] && prevMatch.pair2[1] && currMatch.pair2[0] && currMatch.pair2[1]) {
-            const prevAge = prevMatch.pair2[0].age + prevMatch.pair2[1].age;
-            const currAge = currMatch.pair2[0].age + currMatch.pair2[1].age;
+            const prevAge = getRulePairAge(prevMatch.pair2[0], prevMatch.pair2[1], settings);
+            const currAge = getRulePairAge(currMatch.pair2[0], currMatch.pair2[1], settings);
             if (currAge <= prevAge) {
-              errors.push(`${matchup} ${currMatch.team2} 第${currMatch.pointNumber}點年齡未遞增`);
+              errors.push(`${matchup} ${currMatch.team2} 第${currMatch.pointNumber}點兩人歲數總和未遞增`);
             }
           }
         }
@@ -574,12 +575,12 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
         pair1: {
           player1: a.pair1[0] || null,
           player2: a.pair1[1] || null,
-          totalAge: (a.pair1[0] && a.pair1[1]) ? a.pair1[0].age + a.pair1[1].age : 0,
+          totalAge: getRulePairAge(a.pair1[0], a.pair1[1], settings),
         },
         pair2: {
           player1: a.pair2[0] || null,
           player2: a.pair2[1] || null,
-          totalAge: (a.pair2[0] && a.pair2[1]) ? a.pair2[0].age + a.pair2[1].age : 0,
+          totalAge: getRulePairAge(a.pair2[0], a.pair2[1], settings),
         },
         team1Games: 0,
         team2Games: 0,
@@ -1009,7 +1010,7 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
                               </div>
                               {settings.points2To4AgeAscendingConstraint && isAgeConstraintPoint(match.pointNumber) && match.pair1[0] && match.pair1[1] && (
                                 <div className="pair-info">
-                                  總年齡: {match.pair1[0].age + match.pair1[1].age}
+                                  計算年齡總和: {getRulePairAge(match.pair1[0], match.pair1[1], settings)}
                                 </div>
                               )}
                             </div>
@@ -1024,7 +1025,7 @@ export const ManualMatchSetup: React.FC<ManualMatchSetupProps> = ({
                               </div>
                               {settings.points2To4AgeAscendingConstraint && isAgeConstraintPoint(match.pointNumber) && match.pair2[0] && match.pair2[1] && (
                                 <div className="pair-info">
-                                  總年齡: {match.pair2[0].age + match.pair2[1].age}
+                                  計算年齡總和: {getRulePairAge(match.pair2[0], match.pair2[1], settings)}
                                 </div>
                               )}
                             </div>

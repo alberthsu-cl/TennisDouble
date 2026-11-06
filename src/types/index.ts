@@ -89,7 +89,8 @@ export interface TournamentSettings {
   minMatchesPerPlayer: number; // 每人最少出賽場次（動態計算）
   enforceRules: boolean;       // 是否強制執行規則約束 (default: true)
   point1LevelAConstraint: boolean; // 第1點必須為男雙A級選手
-  points2To4AgeAscendingConstraint: boolean; // 排除啟用女雙／混雙規則的最後一點後，兩人歲數遞增
+  points2To4AgeAscendingConstraint: boolean; // 排除啟用女雙／混雙規則的最後一點後，兩人歲數總和需遞增
+  femaleAgeBonus: 0 | 10 | 15 | 20; // 僅用於兩人歲數總和遞增規則的女選手加成
   point5WomenOrMixedConstraint: boolean; // 第5點必須為混雙或女雙
   tournamentMode: TournamentMode; // 賽事模式 (default: 'internal')
   homeClubName: string;        // 主隊名稱 (友誼賽模式，default: '主隊')

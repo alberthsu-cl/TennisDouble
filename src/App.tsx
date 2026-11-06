@@ -283,9 +283,10 @@ function App() {
     totalRounds: 3,
     minMatchesPerPlayer: 2,
     enforceRules: true,
-    point1LevelAConstraint: true,
-    points2To4AgeAscendingConstraint: true,
-    point5WomenOrMixedConstraint: true,
+    point1LevelAConstraint: false,
+    points2To4AgeAscendingConstraint: false,
+    point5WomenOrMixedConstraint: false,
+    femaleAgeBonus: 15,
     tournamentMode: 'internal',
     homeClubName: '主隊',
     awayClubName: '客隊',
@@ -319,6 +320,9 @@ function App() {
       const point5WomenOrMixedConstraint = typeof parsedSettings.point5WomenOrMixedConstraint === 'boolean'
         ? parsedSettings.point5WomenOrMixedConstraint
         : legacyConstraintState;
+      const femaleAgeBonus = [0, 10, 15, 20].includes(parsedSettings.femaleAgeBonus)
+        ? parsedSettings.femaleAgeBonus
+        : 15;
       const participantCount = parsedSettings.tournamentMode === 'internal'
         ? (loadedPlayers.length > 0 ? loadedPlayers.length : parsedSettings.playersPerTeam * 4)
         : loadedPlayers.length;
@@ -337,6 +341,7 @@ function App() {
         point1LevelAConstraint,
         points2To4AgeAscendingConstraint,
         point5WomenOrMixedConstraint,
+        femaleAgeBonus,
         enforceRules: point1LevelAConstraint || points2To4AgeAscendingConstraint || point5WomenOrMixedConstraint,
       });
     }
@@ -462,7 +467,13 @@ function App() {
       ? 'matches'
       : (parsed.currentView ?? 'matches');
 
-    setSettings(parsed.settings as TournamentSettings);
+    const restoredSettings = parsed.settings as TournamentSettings;
+    setSettings({
+      ...restoredSettings,
+      femaleAgeBonus: [0, 10, 15, 20].includes(restoredSettings.femaleAgeBonus)
+        ? restoredSettings.femaleAgeBonus
+        : 15,
+    });
     setMatches(restoredMatches);
     setPlayers(syncPlayerMatchRecords(restoredPlayers, restoredMatches));
     setTournamentStarted(parsed.tournamentStarted!);
@@ -1663,20 +1674,6 @@ function App() {
                         </button>
                       </div>
                       <div className="constraint-toggle-item">
-                        <span className="toggle-description">
-                          第{settings.point1LevelAConstraint ? 2 : 1}點至第{settings.point5WomenOrMixedConstraint ? settings.pointsPerRound - 1 : settings.pointsPerRound}點兩人歲數遞增
-                        </span>
-                        <button
-                          className={`btn-toggle ${settings.points2To4AgeAscendingConstraint ? 'active' : ''}`}
-                          onClick={() => updateConstraintSettings({ points2To4AgeAscendingConstraint: !settings.points2To4AgeAscendingConstraint })}
-                        >
-                          <span className="toggle-slider">
-                            {settings.points2To4AgeAscendingConstraint ? '✓' : '✕'}
-                          </span>
-                          <span className="toggle-label">{settings.points2To4AgeAscendingConstraint ? 'ON' : 'OFF'}</span>
-                        </button>
-                      </div>
-                      <div className="constraint-toggle-item">
                         <span className="toggle-description">第{settings.pointsPerRound}點必須安排女雙（少於2位女性可混雙）</span>
                         <button
                           className={`btn-toggle ${settings.point5WomenOrMixedConstraint ? 'active' : ''}`}
@@ -1687,6 +1684,56 @@ function App() {
                           </span>
                           <span className="toggle-label">{settings.point5WomenOrMixedConstraint ? 'ON' : 'OFF'}</span>
                         </button>
+                      </div>
+                      <div className="constraint-rule-group">
+                        <div className="constraint-toggle-item">
+                          <span className="toggle-description">
+                            第{settings.point1LevelAConstraint ? 2 : 1}點至第{settings.point5WomenOrMixedConstraint ? settings.pointsPerRound - 1 : settings.pointsPerRound}點兩人歲數總和需遞增
+                          </span>
+                          <button
+                            className={`btn-toggle ${settings.points2To4AgeAscendingConstraint ? 'active' : ''}`}
+                            onClick={() => updateConstraintSettings({ points2To4AgeAscendingConstraint: !settings.points2To4AgeAscendingConstraint })}
+                          >
+                            <span className="toggle-slider">
+                              {settings.points2To4AgeAscendingConstraint ? '✓' : '✕'}
+                            </span>
+                            <span className="toggle-label">{settings.points2To4AgeAscendingConstraint ? 'ON' : 'OFF'}</span>
+                          </button>
+                        </div>
+                        {settings.points2To4AgeAscendingConstraint && (
+                          <div className="female-age-bonus-control">
+                            <span>女選手年齡加幾歲:</span>
+                            <div className="setting-control">
+                              <button
+                                className="btn-adjust"
+                                onClick={() => {
+                                  const options = [0, 10, 15, 20] as const;
+                                  const index = options.indexOf(settings.femaleAgeBonus);
+                                  updateConstraintSettings({ femaleAgeBonus: options[Math.max(0, index - 1)] });
+                                }}
+                                disabled={settings.femaleAgeBonus === 0}
+                                aria-label="減少女選手年齡加成"
+                              >
+                                −
+                              </button>
+                              <output className="female-age-bonus-value">
+                                {settings.femaleAgeBonus === 0 ? '不加成' : `+${settings.femaleAgeBonus} 歲`}
+                              </output>
+                              <button
+                                className="btn-adjust"
+                                onClick={() => {
+                                  const options = [0, 10, 15, 20] as const;
+                                  const index = options.indexOf(settings.femaleAgeBonus);
+                                  updateConstraintSettings({ femaleAgeBonus: options[Math.min(options.length - 1, index + 1)] });
+                                }}
+                                disabled={settings.femaleAgeBonus === 20}
+                                aria-label="增加女選手年齡加成"
+                              >
+                                +
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
