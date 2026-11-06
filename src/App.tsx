@@ -241,6 +241,8 @@ const getDerivedConstraintState = (overrides: Partial<TournamentSettings>, base:
   };
 };
 
+const RULE_DEFAULTS_VERSION = '2';
+
 type View = 'setup' | 'players' | 'matches' | 'standings' | 'manual-setup' | 'grand-slam';
 type MatchRecordMode = 'edit' | 'preview';
 
@@ -310,6 +312,7 @@ function App() {
     if (savedStarted) setTournamentStarted(JSON.parse(savedStarted));
     if (savedSettings) {
       const parsedSettings = JSON.parse(savedSettings) as TournamentSettings;
+      const applyNewRuleDefaults = localStorage.getItem('tournamentRuleDefaultsVersion') !== RULE_DEFAULTS_VERSION;
       const legacyConstraintState = typeof parsedSettings.enforceRules === 'boolean' ? parsedSettings.enforceRules : true;
       const point1LevelAConstraint = typeof parsedSettings.point1LevelAConstraint === 'boolean'
         ? parsedSettings.point1LevelAConstraint
@@ -338,12 +341,17 @@ function App() {
         gamesPerMatch: Math.max(3, parsedSettings.gamesPerMatch || 5),
         fourGameDeuceMode: parsedSettings.fourGameDeuceMode === 'extend-to-5' ? 'extend-to-5' : 'tiebreak-7',
         minMatchesPerPlayer: recalculatedMinMatches,
-        point1LevelAConstraint,
-        points2To4AgeAscendingConstraint,
-        point5WomenOrMixedConstraint,
+        point1LevelAConstraint: applyNewRuleDefaults ? false : point1LevelAConstraint,
+        points2To4AgeAscendingConstraint: applyNewRuleDefaults ? false : points2To4AgeAscendingConstraint,
+        point5WomenOrMixedConstraint: applyNewRuleDefaults ? false : point5WomenOrMixedConstraint,
         femaleAgeBonus,
-        enforceRules: point1LevelAConstraint || points2To4AgeAscendingConstraint || point5WomenOrMixedConstraint,
+        enforceRules: applyNewRuleDefaults
+          ? false
+          : point1LevelAConstraint || points2To4AgeAscendingConstraint || point5WomenOrMixedConstraint,
       });
+      if (applyNewRuleDefaults) {
+        localStorage.setItem('tournamentRuleDefaultsVersion', RULE_DEFAULTS_VERSION);
+      }
     }
   }, []);
 

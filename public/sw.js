@@ -1,5 +1,5 @@
 // Service Worker for Tennis Contest App
-const CACHE_NAME = 'tennis-contest-v2';
+const CACHE_NAME = 'tennis-contest-v3';
 const urlsToCache = [
   '/TennisDouble/',
   '/TennisDouble/index.html'
@@ -20,34 +20,20 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
-// Fetch event - serve from cache, fallback to network
+// Fetch event - use the newest network response; fall back to cache offline.
 self.addEventListener('fetch', (event) => {
+  if (event.request.method !== 'GET') return;
+
   event.respondWith(
-    caches.match(event.request)
+    fetch(event.request)
       .then((response) => {
-        // Cache hit - return response
-        if (response) {
-          return response;
+        if (response && response.status === 200 && response.type === 'basic') {
+          const responseToCache = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseToCache));
         }
-        return fetch(event.request).then(
-          (response) => {
-            // Check if valid response
-            if(!response || response.status !== 200 || response.type !== 'basic') {
-              return response;
-            }
-
-            // Clone the response
-            const responseToCache = response.clone();
-
-            caches.open(CACHE_NAME)
-              .then((cache) => {
-                cache.put(event.request, responseToCache);
-              });
-
-            return response;
-          }
-        );
+        return response;
       })
+      .catch(() => caches.match(event.request))
   );
 });
 
