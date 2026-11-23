@@ -38,7 +38,7 @@ A comprehensive and fully configurable web application for managing tennis doubl
 - ✅ 新增/編輯/刪除選手
 - ✅ 動態團隊人數限制（根據設定調整）
 - ✅ 4隊分組（甲乙丙丁）
-- ✅ **智能分組**: 技術等級平衡分配（A1~D4 細分級）
+- ✅ **智能分組**: 技術等級平衡分配（A1~D4，包含 B5 細分級）
 - ✅ 候補選手系統
 - ✅ 記錄姓名、年齡、性別、技術等級
 - ✅ 示範資料生成（自動根據設定產生）
@@ -105,7 +105,7 @@ A comprehensive and fully configurable web application for managing tennis doubl
 #### 3️⃣ **技術等級平衡分配** (Skill-Based Distribution)
 - **目標**: 確保各隊技術實力均衡
 - **演算法**: 蛇形分配（Serpentine Draft）
-  1. 將選手按技術等級分組（A1~D4，A1最高）
+  1. 將選手按技術等級分組（A1~D4，包含 B5；A1最高）
   2. 每個等級內隨機排序（增加變化性）
   3. 按順序分配：甲→乙→丙→丁→丁→丙→乙→甲（循環反轉）
   
@@ -117,15 +117,15 @@ A comprehensive and fully configurable web application for managing tennis doubl
   第2輪: 丁(B3) 丙(B4) 乙(C1) 甲(C2)
   ```
 
-#### 4️⃣ **性別平衡** (Gender Balance)
-- 女選手和男選手分別進行技術分組與分配
-- 確保各隊男女選手比例相近
-- 重要性：滿足最後一點混雙/女雙規則
+#### 4️⃣ **技術等級優先** (Skill-Level Priority)
+- 所有未指定隊伍的選手一起依技術等級進行蛇形分配
+- 性別不影響自動分組結果
+- 確保各隊人數與技術等級分布優先維持平衡
 
 #### 特色優勢
-- ✅ **技術均衡**: A1~D4 級選手在各隊平均分布
+- ✅ **技術均衡**: A1~D4（包含 B5）級選手在各隊平均分布
 - ✅ **保留變化**: 同等級選手隨機排序，每次分組結果不同
-- ✅ **性別平衡**: 男女選手分開處理，確保混雙配對可行
+- ✅ **技術優先**: 所有選手依技術等級統一分配
 - ✅ **尊重優先**: 預設隊伍和領隊不受影響
 
 ## 技術架構 (Tech Stack)

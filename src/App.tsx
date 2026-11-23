@@ -104,10 +104,10 @@ const resolveInterClubTeam = (
 };
 
 // Auto-distribute players to teams evenly
-const autoDistributeTeams = (players: Player[], mode: 'internal' | 'inter-club' = 'internal'): Player[] => {
+const autoDistributeTeams = (players: Player[], _mode: 'internal' | 'inter-club' = 'internal'): Player[] => {
   // Helper: Sort players by skill with some randomness for variety
   const sortBySkillWithVariety = (playerList: Player[]): Player[] => {
-    // Group by detailed skill levels (A1 -> D4), shuffle within each group for variety
+    // Group by detailed skill levels (A1 -> D4, including B5), shuffle within each group for variety
     return SKILL_LEVELS.flatMap((level) =>
       shuffleArray(playerList.filter((player) => player.skillLevel === level))
     );
@@ -134,24 +134,7 @@ const autoDistributeTeams = (players: Player[], mode: 'internal' | 'inter-club' 
     return players;
   }
   
-  const maleSerpentineTeams: TeamName[] = ['甲隊', '乙隊', '丙隊', '丁隊'];
-  const femaleSerpentineTeams: TeamName[] = ['丁隊', '丙隊', '乙隊', '甲隊'];
-
-  if (mode === 'inter-club') {
-    // Inter-club mode: keep gender-balanced serpentine assignment with opposite directions.
-    
-    // Separate players by gender, sort by skill
-    const femalePlayers = sortBySkillWithVariety(playersWithoutTeams.filter(p => normalizeGender(p.gender) === '女'));
-    const malePlayers = sortBySkillWithVariety(playersWithoutTeams.filter(p => normalizeGender(p.gender) === '男'));
-
-    // Female order: 丁→丙→乙→甲→甲→乙→丙→丁...
-    distributeWithSerpentine(femalePlayers, femaleSerpentineTeams);
-
-    // Male order: 甲→乙→丙→丁→丁→丙→乙→甲...
-    distributeWithSerpentine(malePlayers, maleSerpentineTeams);
-    
-    return [...playersWithTeams, ...femalePlayers, ...malePlayers];
-  }
+  const serpentineTeams: TeamName[] = ['甲隊', '乙隊', '丙隊', '丁隊'];
   
   // Internal mode: original 4-team distribution
   const teamMap: { [key: string]: TeamName } = {
@@ -172,17 +155,12 @@ const autoDistributeTeams = (players: Player[], mode: 'internal' | 'inter-club' 
     }
   });
   
-  // Separate regular players by gender, sort by skill
-  const femalePlayers = sortBySkillWithVariety(regularPlayers.filter(p => normalizeGender(p.gender) === '女'));
-  const malePlayers = sortBySkillWithVariety(regularPlayers.filter(p => normalizeGender(p.gender) === '男'));
-
-  // Female order: 丁→丙→乙→甲→甲→乙→丙→丁...
-  distributeWithSerpentine(femalePlayers, femaleSerpentineTeams);
-
-  // Male order: 甲→乙→丙→丁→丁→丙→乙→甲...
-  distributeWithSerpentine(malePlayers, maleSerpentineTeams);
+  // Gender does not affect team assignment. One skill-sorted snake draft keeps
+  // the overall team size and technical levels balanced.
+  const skillSortedPlayers = sortBySkillWithVariety(regularPlayers);
+  distributeWithSerpentine(skillSortedPlayers, serpentineTeams);
   
-  return [...playersWithTeams, ...captains, ...femalePlayers, ...malePlayers];
+  return [...playersWithTeams, ...captains, ...skillSortedPlayers];
 };
 
 const syncPlayerMatchRecords = (players: Player[], sourceMatches: Match[]): Player[] => {
@@ -1132,7 +1110,7 @@ function App() {
           
           const gender: Gender = normalizeGender(genderValue);
           
-          // Handle skill level: supports A1-D4
+          // Handle skill level: supports A1-D4, including B5
           const skillLevel = normalizeSkillLevel(row['技術等級'] || row['skillLevel'] || row['等級'] || 'B2');
           
           // Handle age: support both 年齡 (age) and 年次 (ROC birth year)

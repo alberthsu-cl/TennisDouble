@@ -274,7 +274,7 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
                         const bTagPriority = b.groupTag ? (tagOrder[b.groupTag] || 0) : 0;
                         if (bTagPriority !== aTagPriority) return bTagPriority - aTagPriority;
                         
-                        // 2. Sort by detailed skill level (A1 > A2 > ... > D4)
+                        // 2. Sort by detailed skill level (A1 > A2 > ... > B5 > C1 > ... > D4)
                         const aSkill = getSkillRank(normalizeSkillLevel(a.skillLevel, 'B2'));
                         const bSkill = getSkillRank(normalizeSkillLevel(b.skillLevel, 'B2'));
                         if (bSkill !== aSkill) return bSkill - aSkill;

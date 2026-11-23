@@ -1,18 +1,21 @@
 import type { SkillLevel } from '../types';
 
 const SKILL_TIER_ORDER = ['A', 'B', 'C', 'D'] as const;
-const SKILL_SUBLEVEL_ORDER = ['1', '2', '3', '4'] as const;
 
-export const SKILL_LEVELS: SkillLevel[] = SKILL_TIER_ORDER.flatMap((tier) =>
-  SKILL_SUBLEVEL_ORDER.map((sub) => `${tier}${sub}` as SkillLevel)
-);
+// B5 is a valid level positioned immediately below B4 and above C1.
+export const SKILL_LEVELS: SkillLevel[] = [
+  'A1', 'A2', 'A3', 'A4',
+  'B1', 'B2', 'B3', 'B4', 'B5',
+  'C1', 'C2', 'C3', 'C4',
+  'D1', 'D2', 'D3', 'D4',
+];
 
 export function normalizeSkillLevel(raw: unknown, fallback: SkillLevel = 'B2'): SkillLevel {
   const value = String(raw ?? '').trim().toUpperCase();
 
   if (!value) return fallback;
 
-  if (/^[ABCD][1-4]$/.test(value)) {
+  if (/^(?:[ACD][1-4]|B[1-5])$/.test(value)) {
     return value as SkillLevel;
   }
 
