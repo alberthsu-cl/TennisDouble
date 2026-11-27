@@ -176,14 +176,15 @@ const autoDistributeTeams = (players: Player[], _mode: 'internal' | 'inter-club'
   return [...playersWithTeams, ...captains, ...skillSortedPlayers];
 };
 
-// A present 排序 column must contain a numeric rank for every imported player.
+// 排序 takes precedence when both ranking columns exist.
 const getExcelSortOrder = (worksheet: XLSX.WorkSheet, rows: Record<string, unknown>[]): number[] | undefined => {
   const header = XLSX.utils.sheet_to_json<unknown[]>(worksheet, { header: 1, range: 0, blankrows: false })[0] || [];
-  if (!header.includes('排序')) return undefined;
+  const column = header.includes('排序') ? '排序' : header.includes('共識') ? '共識' : undefined;
+  if (!column) return undefined;
   return rows.map((row, index) => {
-    const value = row['排序'];
+    const value = row[column];
     if ((typeof value !== 'number' && typeof value !== 'string') || String(value).trim() === '' || !Number.isFinite(Number(value))) {
-      throw new Error(`排序欄位第 ${index + 1} 位選手必須填入數字。`);
+      throw new Error(`${column}欄位第 ${index + 1} 位選手必須填入數字。`);
     }
     return Number(value);
   });
@@ -863,7 +864,7 @@ function App() {
           await modal.showAlert('無效的Excel資料格式');
         }
       } catch (error) {
-        await modal.showAlert(error instanceof Error && error.message.startsWith('排序欄位') ? error.message : '載入失敗：Excel檔案格式錯誤');
+        await modal.showAlert(error instanceof Error && /^(排序|共識)欄位/.test(error.message) ? error.message : '載入失敗：Excel檔案格式錯誤');
       }
     };
     reader.readAsArrayBuffer(file);
@@ -1199,7 +1200,7 @@ function App() {
           await modal.showAlert('無效的Excel檔案格式');
         }
       } catch (error) {
-        await modal.showAlert(error instanceof Error && error.message.startsWith('排序欄位') ? error.message : '匯入失敗：Excel檔案格式錯誤');
+        await modal.showAlert(error instanceof Error && /^(排序|共識)欄位/.test(error.message) ? error.message : '匯入失敗：Excel檔案格式錯誤');
       }
     };
     reader.readAsArrayBuffer(file);
