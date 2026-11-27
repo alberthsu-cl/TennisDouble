@@ -104,7 +104,7 @@ const resolveInterClubTeam = (
 };
 
 // Auto-distribute players to teams evenly
-const autoDistributeTeams = (players: Player[], _mode: 'internal' | 'inter-club' = 'internal'): Player[] => {
+const autoDistributeTeams = (players: Player[], _mode: 'internal' | 'inter-club' = 'internal', sortOrder?: number[]): Player[] => {
   // Helper: Sort players by skill with some randomness for variety
   const sortBySkillWithVariety = (playerList: Player[]): Player[] => {
     // Group by detailed skill levels (A1 -> D4, including B5), shuffle within each group for variety
@@ -125,6 +125,21 @@ const autoDistributeTeams = (players: Player[], _mode: 'internal' | 'inter-club'
     });
   };
   
+  const serpentineTeams: TeamName[] = ['甲隊', '乙隊', '丙隊', '丁隊'];
+  if (sortOrder) {
+    const ranks = new Map(players.map((player, index) => [player, sortOrder[index]]));
+    const sorted = [...players].sort((a, b) => ranks.get(a)! - ranks.get(b)!);
+    const levels: Player['skillLevel'][] = ['A1', 'A2', 'B1', 'B2', 'B3', 'B4', 'B5', 'C1', 'C2', 'D1', 'D2'];
+    for (let index = 0; index < sorted.length; index += serpentineTeams.length) {
+      const randomTeams = shuffleArray(serpentineTeams);
+      sorted.slice(index, index + serpentineTeams.length).forEach((player, offset) => {
+        player.team = randomTeams[offset];
+        player.skillLevel = levels[Math.min(Math.floor(index / serpentineTeams.length), levels.length - 1)];
+      });
+    }
+    return sorted;
+  }
+
   // Separate players with assigned teams from those without
   const playersWithTeams = players.filter(p => isInternalTeamName(p.team));
   const playersWithoutTeams = players.filter(p => !isInternalTeamName(p.team));
@@ -133,8 +148,6 @@ const autoDistributeTeams = (players: Player[], _mode: 'internal' | 'inter-club'
   if (playersWithoutTeams.length === 0) {
     return players;
   }
-  
-  const serpentineTeams: TeamName[] = ['甲隊', '乙隊', '丙隊', '丁隊'];
   
   // Internal mode: original 4-team distribution
   const teamMap: { [key: string]: TeamName } = {
@@ -161,6 +174,19 @@ const autoDistributeTeams = (players: Player[], _mode: 'internal' | 'inter-club'
   distributeWithSerpentine(skillSortedPlayers, serpentineTeams);
   
   return [...playersWithTeams, ...captains, ...skillSortedPlayers];
+};
+
+// A present 排序 column must contain a numeric rank for every imported player.
+const getExcelSortOrder = (worksheet: XLSX.WorkSheet, rows: Record<string, unknown>[]): number[] | undefined => {
+  const header = XLSX.utils.sheet_to_json<unknown[]>(worksheet, { header: 1, range: 0, blankrows: false })[0] || [];
+  if (!header.includes('排序')) return undefined;
+  return rows.map((row, index) => {
+    const value = row['排序'];
+    if ((typeof value !== 'number' && typeof value !== 'string') || String(value).trim() === '' || !Number.isFinite(Number(value))) {
+      throw new Error(`排序欄位第 ${index + 1} 位選手必須填入數字。`);
+    }
+    return Number(value);
+  });
 };
 
 const syncPlayerMatchRecords = (players: Player[], sourceMatches: Match[]): Player[] => {
@@ -775,6 +801,7 @@ function App() {
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
         const jsonData = XLSX.utils.sheet_to_json(worksheet) as any[];
+        const sortOrder = getExcelSortOrder(worksheet, jsonData);
         
         const interClubCounters = { home: 0, away: 0 };
         const imported: Player[] = jsonData.map((row, index) => {
@@ -828,7 +855,7 @@ function App() {
             if (!confirmed) return;
           }
           // Auto-distribute teams to ensure balanced distribution
-          const distributedPlayers = autoDistributeTeams(imported, settings.tournamentMode);
+          const distributedPlayers = autoDistributeTeams(imported, settings.tournamentMode, sortOrder);
           console.log('[Import Demo Debug] After auto-distribute:', distributedPlayers.map(p => ({ name: p.name, team: p.team })));
           setPlayers(distributedPlayers);
           await modal.showAlert(`成功從Excel載入 ${imported.length} 名示範選手！`);
@@ -836,7 +863,7 @@ function App() {
           await modal.showAlert('無效的Excel資料格式');
         }
       } catch (error) {
-        await modal.showAlert('載入失敗：Excel檔案格式錯誤');
+        await modal.showAlert(error instanceof Error && error.message.startsWith('排序欄位') ? error.message : '載入失敗：Excel檔案格式錯誤');
       }
     };
     reader.readAsArrayBuffer(file);
@@ -1079,6 +1106,7 @@ function App() {
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
         const jsonData = XLSX.utils.sheet_to_json(worksheet) as any[];
+        const sortOrder = getExcelSortOrder(worksheet, jsonData);
         
         // Debug: Log first row to see column names
         if (jsonData.length > 0) {
@@ -1163,7 +1191,7 @@ function App() {
             if (!confirmed) return;
           }
           // Auto-distribute teams to ensure balanced distribution
-          const distributedPlayers = autoDistributeTeams(imported, settings.tournamentMode);
+          const distributedPlayers = autoDistributeTeams(imported, settings.tournamentMode, sortOrder);
           console.log('[Import Debug] After auto-distribute:', distributedPlayers.map(p => ({ name: p.name, team: p.team })));
           setPlayers(distributedPlayers);
           await modal.showAlert(`成功匯入 ${imported.length} 名選手！`);
@@ -1171,7 +1199,7 @@ function App() {
           await modal.showAlert('無效的Excel檔案格式');
         }
       } catch (error) {
-        await modal.showAlert('匯入失敗：Excel檔案格式錯誤');
+        await modal.showAlert(error instanceof Error && error.message.startsWith('排序欄位') ? error.message : '匯入失敗：Excel檔案格式錯誤');
       }
     };
     reader.readAsArrayBuffer(file);
